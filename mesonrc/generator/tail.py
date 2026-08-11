@@ -58,6 +58,7 @@ from ..core.hadronic import hadronic_tensor
 from ..core.kinematics import EventKin
 from ..core.born import _sf_to_gev
 from ..core.radiative import sigma_F
+from ..core.virtual import delta_VR_inf, delta_vac
 from .grid import ChannelGeometry, CellGrid
 
 DEFAULT_VMIN_FRAC = 1e-3
@@ -280,21 +281,70 @@ class TailSampler:
 
 
 # --------------------------------------------------------------------------- #
-def choose_vmin(kin0, sfmodel, h, v_max, sigma_obs,
-                fracs=(1e-2, 3e-3, 1e-3, 3e-4, 1e-4),
-                min_soft=MIN_SOFT_FRACTION, **kw):
-    """Largest v_min/v_max keeping the soft branch above `min_soft`.
+def choose_vmin(kin0, sfmodel, h, v_max, sigma_obs, sigma_born=None,
+                target_soft=0.35, min_soft=MIN_SOFT_FRACTION,
+                min_ratio=1e-5, max_ratio=1e-1):
+    """Pick the slicing point ANALYTICALLY -- no quadrature.
 
-    Smaller v_min means more events carry an explicit photon (physically
-    better resolved) but a smaller soft remainder; too small and the soft
-    branch goes negative.  Returns (v_min, soft_fraction) or (None, None).
+    Building TailSamplers to search for v_min costs ~0.4 s each and is
+    unnecessary: the soft branch has a closed form.  Since
+
+        sigma_hard(v_min) = int_{v_min}^{v_max} exact
+                          ~ sigma_F(BS) + sigma_Born * [delta_inf(v_max)
+                                                        - delta_inf(v_min)]
+
+    and delta_inf is logarithmic with slope c = 2 (alpha/pi) (l_m - 1),
+
+        soft_frac(r) ~ 1 - [sigma_F + sigma_Born c ln(1/r)] / sigma_obs,
+        r = v_min / v_max,
+
+    which inverts directly for the r giving a target soft fraction.  The
+    result is clipped to [min_ratio, max_ratio] and rejected if the implied
+    soft fraction falls below `min_soft` (a negative soft branch means
+    negative probability -- see the module docstring).
+
+    Returns (v_min, soft_fraction) or (None, None).
     """
-    for f in fracs:
-        ts = TailSampler(kin0, sfmodel, h, v_max, v_min=f * v_max, **kw)
-        soft, hard, hf = ts.split(sigma_obs)
-        if soft > 0 and (1.0 - hf) >= min_soft:
-            return ts.v_min, 1.0 - hf
-    return None, None
+    from ..core.born import born_xsec
+
+    if sigma_born is None:
+        sigma_born = born_xsec(kin0, sfmodel, h)
+    if sigma_born <= 0 or sigma_obs <= 0:
+        return None, None
+
+    lm = np.log(kin0.Q2 / kin0.m ** 2)
+    c = 2.0 * (ALPHA / np.pi) * (lm - 1.0)
+    if c <= 0:
+        return None, None
+
+    # sigma_hard at r -> 1 is just sigma_F(BS); everything above it is the
+    # subtraction moved across the slicing point.
+    sigma_F_bs = sigma_obs - sigma_born * _virtual_factor(kin0, v_max)
+
+    def soft_frac(r):
+        hard = sigma_F_bs + sigma_born * c * np.log(1.0 / r)
+        return 1.0 - hard / sigma_obs
+
+    # invert soft_frac(r) = target_soft
+    want_hard = (1.0 - target_soft) * sigma_obs
+    ln_inv_r = (want_hard - sigma_F_bs) / (sigma_born * c)
+    r = float(np.exp(-ln_inv_r)) if np.isfinite(ln_inv_r) else max_ratio
+    r = float(np.clip(r, min_ratio, max_ratio))
+
+    sfrac = soft_frac(r)
+    if not np.isfinite(sfrac) or sfrac < min_soft:
+        # walk up towards larger v_min (smaller hard branch)
+        for rr in (3e-2, 1e-1, 3e-1):
+            if soft_frac(rr) >= min_soft:
+                return rr * v_max, float(soft_frac(rr))
+        return None, None
+    return r * v_max, float(sfrac)
+
+
+def _virtual_factor(kin0, v_max):
+    """exp(delta_inf) (1 + delta_VR + delta_vac) at the physical cut."""
+    d_VR, d_inf = delta_VR_inf(kin0, v_max)
+    return float(np.exp(d_inf) * (1.0 + d_VR + delta_vac(kin0.Q2)))
 
 
 def check_vmin_independence(kin0, sfmodel, h, v_max, sigma_obs,
@@ -312,3 +362,30 @@ def check_vmin_independence(kin0, sfmodel, h, v_max, sigma_obs,
         soft, hard, hf = ts.split(sigma_obs)
         rows.append((ts.v_min, soft, hard, 1.0 - hf, soft > 0))
     return rows
+
+
+# --------------------------------------------------------------------------- #
+def photon_at(kin, v, nhat):
+    """Rebuild the photon and detected hadron at THIS event's kinematics.
+
+    A TailSampler built at a nearby point supplies the *distribution* of
+    (v, nhat), but the photon energy omega = v / (2 z) depends on
+    z = Lam0 - vec(Lam).nhat, which is a property of the event, not of the
+    cell the sampler was built in.  Using the sampler's own omega for a
+    different event breaks four-momentum conservation -- in testing, 65% of
+    events failed closure until this was applied.
+
+    Returns (k4, meson4) in the CM, or None if the point is unphysical.
+    """
+    ts = TailSampler.__new__(TailSampler)
+    ts.kin0 = kin
+    try:
+        pv, Lam = ts._meson_at_v(v)
+    except ValueError:
+        return None
+    nhat = np.asarray(nhat, dtype=float)
+    z = float(Lam[0, 0] - nhat @ Lam[0, 1:])
+    if z <= 0:
+        return None
+    om = v / (2.0 * z)
+    return np.concatenate([[om], om * nhat]), pv[0]

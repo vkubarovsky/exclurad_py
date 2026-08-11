@@ -35,24 +35,41 @@ def _fmt_particle(index, pid, mass, p4, parent=0, daughter=0,
     E, px, py, pz = p4
     return (f"{index:4d} {lifetime:6.2f} {status:3d} {pid:8d} "
             f"{parent:3d} {daughter:3d} "
-            f"{px:14.6e} {py:14.6e} {pz:14.6e} {E:14.6e} {mass:12.6f} "
+            f"{px:18.10e} {py:18.10e} {pz:18.10e} {E:18.10e} {mass:14.8f} "
             f"{vertex[0]:8.4f} {vertex[1]:8.4f} {vertex[2]:8.4f}")
 
 
-def event_lines(ev, channel, target_pid=PID["p"], beam_energy=10.6,
-                pol_beam=0.0, pol_target=0.0, weight=1.0,
+NAME_TO_PID = {"pi0": 111, "pi+": 211, "eta": 221, "rho0": 113, "phi": 333,
+               "J/psi": 443, "p": 2212, "n": 2112, "gamma": 22}
+
+
+def event_lines(ev, channel, topology=None, target_pid=PID["p"],
+                beam_energy=10.6, pol_beam=0.0, pol_target=0.0, weight=1.0,
                 process_id=0, vertex=(0.0, 0.0, 0.0)):
-    """LUND lines for one assembled event (see frames.assemble_event)."""
-    meson_pid = CHANNEL_PID[channel]
-    parts = []
-    parts.append((PID["e-"], 0.51099895e-3, ev["scattered"]))
-    parts.append((meson_pid, float(np.sqrt(max(
-        ev["meson"][0] ** 2 - np.dot(ev["meson"][1:], ev["meson"][1:]), 0.0))),
-        ev["meson"]))
-    rec = ev["recoil"]
-    rec_m = float(np.sqrt(max(rec[0] ** 2 - np.dot(rec[1:], rec[1:]), 0.0)))
-    rec_pid = PID["p"] if abs(rec_m - 0.938) < 0.02 else PID["n"]
-    parts.append((rec_pid, rec_m, rec))
+    """LUND lines for one assembled event (see frames.assemble_event).
+
+    PID assignment is TOPOLOGY-DRIVEN, not slot-driven.  `ev["meson"]` is
+    the *detected* hadron and `ev["recoil"]` the *missing* one -- and in the
+    EXCLURAD pi0/eta configuration the detected hadron is the PROTON and the
+    missing one is the meson.  Labelling by slot name gives an eta with the
+    proton's momentum, which is why the topology is required here whenever
+    it is not the plain meson-detected case.
+    """
+    if topology is not None:
+        det_pid = NAME_TO_PID.get(topology.detected)
+        mis_pid = NAME_TO_PID.get(topology.missing)
+        if det_pid is None or mis_pid is None:
+            raise KeyError(f"no PDG code for topology particles "
+                           f"{topology.detected!r} / {topology.missing!r}")
+    else:
+        det_pid, mis_pid = CHANNEL_PID[channel], PID["p"]
+
+    def mass_of(p4):
+        return float(np.sqrt(max(p4[0] ** 2 - np.dot(p4[1:], p4[1:]), 0.0)))
+
+    parts = [(PID["e-"], 0.51099895e-3, ev["scattered"]),
+             (det_pid, mass_of(ev["meson"]), ev["meson"]),
+             (mis_pid, mass_of(ev["recoil"]), ev["recoil"])]
     if ev.get("photon") is not None:
         parts.append((PID["gamma"], 0.0, ev["photon"]))
 
@@ -65,8 +82,8 @@ def event_lines(ev, channel, target_pid=PID["p"], beam_energy=10.6,
     return lines
 
 
-def write_lund(path, events, channel, stamp=None, comments=True,
-               allow_weighted=False, **kw):
+def write_lund(path, events, channel, topology=None, stamp=None,
+               comments=True, allow_weighted=False, **kw):
     """Write a list of assembled events to a LUND file.
 
     events : iterables of dicts from frames.assemble_event, each optionally
@@ -90,7 +107,8 @@ def write_lund(path, events, channel, stamp=None, comments=True,
                     "unweighted, or pass allow_weighted=True knowingly.")
             if not ev.get("ok", True):
                 continue
-            for line in event_lines(ev, channel, weight=w, **kw):
+            for line in event_lines(ev, channel, topology=topology,
+                                    weight=w, **kw):
                 fh.write(line + "\n")
             n_written += 1
     return n_written

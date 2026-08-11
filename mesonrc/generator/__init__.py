@@ -13,12 +13,13 @@
 Events are UNWEIGHTED -- see generator.lund for why that is not optional.
 """
 
-from .tail import TailSampler, check_vmin_independence, choose_vmin
+from .tail import TailSampler, check_vmin_independence, choose_vmin, photon_at
 from .grid import CellGrid, ChannelGeometry
 from .frames import LabTransform, assemble_event
 from .events import Generator, Box
+from .tables import RCTable
 from .lund import write_lund, event_lines, PID
 
 __all__ = ["TailSampler", "check_vmin_independence", "choose_vmin",
            "CellGrid", "ChannelGeometry", "LabTransform", "assemble_event",
-           "Generator", "Box", "write_lund", "event_lines", "PID"]
+           "Generator", "Box", "RCTable", "write_lund", "event_lines", "PID"]
