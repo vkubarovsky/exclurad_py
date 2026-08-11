@@ -247,6 +247,33 @@ Independent read-back of the written LUND file: 20 000 events, **0**
 violating four-momentum at 1e-8, PIDs and masses correct
 (11/0.00051, 221/0.54786, 2212/0.93827, 22/0.0).
 
+### 3.1c Vector channels — smoke test and a cross-check against the
+earlier study
+
+All three J/psi models run at the near-threshold point of
+`2026_RC_test_comparison` (E=10.6, Q2=0.5505, W2=17.64, t=-1.2):
+
+| model | eta (phi=1.0) | v_max |
+|---|---:|---:|
+| `jpsi.diffrad` | 0.8861 | 0.07114 |
+| `jpsi.roberts2026` | 0.8600 | 0.07114 |
+| `jpsi.diffrad_vm` | 0.8497 | 0.07114 |
+
+Two independent consistency indicators here. `v_max(t) = 0.07114` matches
+the value recorded in that study to five digits. And the eta values sit
+next to its phi-integrated numbers — 0.890 for the DIFFRAD SF and 0.852
+for the diffrad_vm model — which is what one expects for a single phi
+point versus the phi average, not a validation but a sign nothing has
+drifted in the port.
+
+The spread across the three models, **0.85 to 0.89 at one kinematic
+point**, is the SF-model dependence of the RC that motivates the whole
+exercise.
+
+`rho.demo` and `phi.demo` run; their interference SFs are worth only 0.0-0.1%
+on eta at the demo point, but those are invented parameterizations and the
+number means nothing physically — it exercises the code path, no more.
+
 ### 3.2 Against published data — RUNNING, NOT YET COMPLETE
 
 A separate agent is validating `core` against the **published eta RC grid**
@@ -284,8 +311,8 @@ Listed plainly because these are what would bite.
 6. **The `delta_VR` Li2 mass discrepancy is unresolved.** mesonrc uses the
    undetected mass `m_U`, EXCLURAD uses the target mass; ~0.1% on eta. The
    covariant derivation says `m_U`. Not "fixed" in either code — flagged.
-7. **Vector-channel generation is untested end to end.** The generator was
-   exercised on eta only.
+7. **Vector-channel RC runs (§3.1c) but vector *generation* is untested
+   end to end.** The generator was exercised on eta only.
 8. **No LUND file has been through GEMC.** The format is written to the
    CLAS12 spec but has not been read back by the actual simulation chain.
 
