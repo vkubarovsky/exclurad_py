@@ -161,8 +161,12 @@ Reusing one `TailSampler` per coarse cell (to avoid a 0.4 s grid build per
 event) is an approximation in the photon *distribution*. It became an
 outright error because the photon four-vector was taken from the sampler
 too: the energy `omega = v / (2 z)` with `z = Lam0 - vec(Lam).nhat` is a
-property of the **event**, not of the cell. **65% of events failed
-four-momentum closure.** Fixed by `tail.photon_at()`, which rebuilds the
+property of the **event**, not of the cell. **Essentially every radiative
+event failed four-momentum closure** -- one pre-fix run recorded 921
+closure failures against 922 hard events, i.e. the soft branch was fine and
+the radiative branch was entirely broken. (A second pre-fix run showed this
+as "65% of accepted events", which understated it: the surviving fraction
+was just the soft branch.) Fixed by `tail.photon_at()`, which rebuilds the
 photon and the detected hadron at the event's own kinematics from the
 sampled `(v, nhat)`. Closure residual is now 6.6e-15 and the failure count
 is zero. The residual approximation is confined to the *distribution* of
