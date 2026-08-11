@@ -1,0 +1,251 @@
+"""
+Vector-meson structure-function models: rho0, phi, J/psi.
+
+Registry keys
+-------------
+    jpsi.diffrad      DIFFRAD's internal two-gluon model (port of difflt)
+    jpsi.roberts2026  sigma_tot(W) fit from 2026_Jpsi_total_cross_section
+    jpsi.diffrad_vm   the tuned model of diffrad_vm.f90 (v2 defaults)
+    rho.demo          illustrative rho0 parameterization
+    phi.demo          illustrative phi parameterization
+
+All use the DVMP topology (meson detected, recoil proton missing).
+
+Note on sigma_TT / sigma_LT / sigma_LT': every J/psi model here sets them
+to zero, because none of the underlying models provides them -- DIFFRAD is
+a two-structure-function code by construction. The whole point of this
+package is that the RC machinery does NOT require that, so as soon as a
+vector-meson SDME fit exists it can be dropped in as a new class with the
+interference SFs filled and the RC recomputed. `TwoSF` wrapping a full
+model quantifies what the missing SFs are worth.
+"""
+
+import numpy as np
+
+from .base import StructureFunctions
+from .registry import register
+from ..core.constants import M_P, M_RHO, M_PHI, M_JPSI
+from ..core.kinematics import kallen
+from ..topology import meson_detected
+
+_MP = 0.938272          # value used in the ported Fortran
+
+_RHO_TOPO = meson_detected(M_RHO, meson="rho0")
+_PHI_TOPO = meson_detected(M_PHI, meson="phi")
+_JPSI_TOPO = meson_detected(M_JPSI, meson="J/psi")
+
+
+def tmin_dvmp(W2, Q2, mV, M=M_P, mU=None):
+    """t_min (least negative t) for gamma*(Q2) p -> V B."""
+    if mU is None:
+        mU = M
+    W = np.sqrt(np.maximum(W2, 1e-30))
+    E_g = (W2 - Q2 - M * M) / (2.0 * W)
+    E_v = (W2 + mV * mV - mU * mU) / (2.0 * W)
+    q = np.sqrt(np.maximum(kallen(W2, -Q2, M * M), 0.0)) / (2.0 * W)
+    pv = np.sqrt(np.maximum(E_v * E_v - mV * mV, 0.0))
+    return -Q2 + mV * mV - 2.0 * (E_g * E_v - q * pv)
+
+
+# --------------------------------------------------------------------------- #
+#  J/psi
+# --------------------------------------------------------------------------- #
+_ALPHA_F = 0.729735e-2
+_GGAM4 = 5.36e-6
+_P02 = 0.5
+_AL_S = 0.25
+_GEV2_NB = 0.389379e6
+
+
+@register
+class Jpsi_Diffrad(StructureFunctions):
+    name = "jpsi.diffrad"
+    channel = "jpsi"
+    version = "diffrad"
+    topology = _JPSI_TOPO
+    validity = dict(W2=(16.4, 400.0), Q2=(1e-4, 30.0), mt=(0.0, 12.0))
+    out_of_range = "freeze"
+    provenance = (
+        "Exact port of the internal two-gluon J/psi model `difflt` of "
+        "idiffrad.f (ivec=4), the model DIFFRAD uses for its own RC. "
+        "Overall normalization is DIFFRAD's; only the (Q2,W2,t) shape "
+        "matters for RC ratios. sigma_L = Q2/m^2 * sigma_T (DIFFRAD's choice).")
+    reference = "~/OneDrive/Work/2026_DIFFRAD/RC_vector_mesons_DIFFRAD/idiffrad.f"
+
+    def _sfs(self, W2, Q2, t):
+        amp2 = _MP * _MP
+        amv2 = M_JPSI ** 2
+        Wth2 = (_MP + M_JPSI) ** 2
+        ok = W2 > Wth2
+        W2s = np.where(ok, W2, Wth2 + 1e-3)
+
+        sx = W2s + Q2 - amp2
+        anu = sx / (2 * _MP)
+        eh = (sx + t) / (2 * _MP)
+        ff2 = np.exp(5.0 * t)
+        tqt = t + Q2 - amv2
+        denom = 4.0 * (anu ** 2 + Q2)
+        pt2 = -(4 * (anu ** 2 + Q2) * amv2 + 4 * anu * eh * tqt
+                - 4 * eh ** 2 * Q2 + tqt ** 2) / denom
+        pt2 = np.maximum(pt2, 0.0)
+        xsb = (Q2 + amv2 + pt2) / W2s
+        q2b = (Q2 + amv2 + pt2) / 4.0
+        fm = np.where(pt2 <= _P02,
+                      np.log((4 * q2b - pt2 + _P02) / (pt2 + _P02)),
+                      np.log((pt2 + _P02) / (4 * q2b - pt2 + _P02)
+                             * 4 * q2b ** 2 / np.maximum(pt2, 1e-30) ** 2))
+        xsbgm = 3.0 * np.maximum(1.0 - xsb, 0.0) ** 5
+        sk = xsbgm * fm / (2 * q2b * (2 * q2b - pt2) * np.log(8 * q2b / _P02))
+        sigt = (_AL_S ** 2 * _GGAM4 * M_JPSI ** 3 / 3.0 / _ALPHA_F
+                * np.pi ** 3 * sk ** 2 * ff2)
+        sigl = Q2 / amv2 * sigt
+
+        sT = np.where(ok, sigt, 0.0) * _GEV2_NB
+        sL = np.where(ok, sigl, 0.0) * _GEV2_NB
+        z = np.zeros_like(sT)
+        return {"sT": sT, "sL": sL, "sTT": z, "sLT": z, "sLTp": z}
+
+
+@register
+class Jpsi_Roberts2026(StructureFunctions):
+    name = "jpsi.roberts2026"
+    channel = "jpsi"
+    version = "2026"
+    topology = _JPSI_TOPO
+    validity = dict(W2=(16.4, 400.0), Q2=(1e-4, 30.0), mt=(0.0, 12.0))
+    provenance = (
+        "sigma_tot(W) = A (W-Wth)^alpha exp(-B (W-Wth)) nb with "
+        "A=1.0184032, alpha=0.70676531, B=-0.92829968, from "
+        "2026_Jpsi_total_cross_section/fit_Roberts.py (GlueX/CLAS12 points). "
+        "ASSUMPTIONS added on top of the total-cross-section fit, not fitted: "
+        "dsigma_T/dt = sigma_tot * b exp(b t') with b = 1.67 GeV^-2 "
+        "(GlueX-like); Q2 dependence = VMD dipole (m^2/(m^2+Q2))^2.4; "
+        "R = sigma_L/sigma_T = Q2/m^2. Replace when a near-threshold t-slope "
+        "and R are settled.")
+    reference = "~/OneDrive/Work/2026_Jpsi_total_cross_section/fit_Roberts.py"
+
+    A, ALPH, B = 1.0184032, 0.70676531, -0.92829968
+    WTH = 0.939 + 3.097
+    b = 1.67
+    ndip = 2.4
+
+    def _sfs(self, W2, Q2, t):
+        W = np.sqrt(np.maximum(W2, 1e-12))
+        ok = W > self.WTH + 1e-9
+        W2s = np.where(ok, W2, (self.WTH + 1e-3) ** 2)
+        t0 = tmin_dvmp(W2s, Q2, M_JPSI)
+        tp = np.minimum(t - t0, 0.0)
+        x = np.maximum(np.sqrt(W2s) - self.WTH, 0.0)
+        sig = np.where(x > 0, self.A * x ** self.ALPH * np.exp(-self.B * x), 0.0)
+        dip = (M_JPSI ** 2 / (M_JPSI ** 2 + Q2)) ** self.ndip
+        sT = np.where(ok, sig * self.b * np.exp(self.b * tp) * dip, 0.0)
+        sL = Q2 / M_JPSI ** 2 * sT
+        z = np.zeros_like(sT)
+        return {"sT": sT, "sL": sL, "sTT": z, "sLT": z, "sLTp": z}
+
+
+@register
+class Jpsi_DiffradVM(StructureFunctions):
+    name = "jpsi.diffrad_vm"
+    channel = "jpsi"
+    version = "vm2026"
+    topology = _JPSI_TOPO
+    validity = dict(W2=(16.4, 400.0), Q2=(1e-4, 30.0), mt=(0.0, 12.0))
+    provenance = (
+        "Tuned J/psi model of diffrad_vm.f90 (v2 defaults, June/July 2026): "
+        "alf1=2.33e-8, alf2=0.5, alf3=7.8, nuT=3.114, cR=0.4, mg2=2.637; "
+        "Mariana-fit anchored, power-law Q2, dipole t-form.")
+    reference = "~/RC_vector_mesons_DIFFRAD/diffrad_vm.f90 (v2)"
+
+    alf1, alf2, alf3 = 2.33e-8, 0.500, 7.800
+    nuT, cR, mg2 = 3.114, 0.400, 2.637
+
+    def _sfs(self, W2, Q2, t):
+        amp2 = _MP * _MP
+        m2 = M_JPSI ** 2
+        Wth2 = (_MP + M_JPSI) ** 2
+        ok = (W2 > Wth2) & (Q2 > 0)
+        W2s = np.where(ok, W2, Wth2 * 1.001)
+        W = np.sqrt(W2s)
+        ecm_i = (W2s + Q2 + amp2) / (2 * W)
+        pcm_i = np.sqrt(np.maximum(ecm_i ** 2 - amp2, 0))
+        ecm_f = (W2s + m2 - amp2) / (2 * W)
+        pcm_f = np.sqrt(np.maximum(ecm_f ** 2 - m2, 0))
+        tmin_k = (pcm_i - pcm_f) ** 2 - ((Q2 + m2) / (2 * W)) ** 2
+        tmax_k = (pcm_i + pcm_f) ** 2 - ((Q2 + m2) / (2 * W)) ** 2
+        ok = ok & (-t >= tmin_k) & (-t <= tmax_k)
+        cT = (self.alf1 * np.maximum(1 - Wth2 / W2s, 0) ** self.alf2
+              * W ** self.alf3)
+        sT = (cT / Q2 ** (self.nuT / 2.0)
+              * 3.0 * (self.mg2 + tmin_k) ** 3 / (self.mg2 - t) ** 4)
+        sT = np.where(ok, sT, 0.0)
+        sL = self.cR * Q2 / m2 * sT
+        z = np.zeros_like(sT)
+        return {"sT": sT, "sL": sL, "sTT": z, "sLT": z, "sLTp": z}
+
+
+# --------------------------------------------------------------------------- #
+#  rho0, phi -- illustrative only until a real fit is plugged in
+# --------------------------------------------------------------------------- #
+class _DemoVector(StructureFunctions):
+    """Smooth parameterization with roughly realistic magnitudes and slopes.
+
+    sigma_T = sig0 (W2/W02)^delta (mV^2/(mV^2+Q2))^n exp(b t')
+    R = sigma_L/sigma_T = r0 (Q2/mV^2)^p / (1 + r1 Q2/mV^2)
+    sigma_TT, sigma_LT, sigma_LT' carry the correct t' -> 0 threshold
+    behaviour (sqrt(-t') for LT/LT', -t' for TT).
+    """
+
+    sig0 = W02 = delta = n = b = r0 = p = r1 = None
+    cTT, cLT, cLTp = 0.15, 0.20, 0.10
+
+    def _sfs(self, W2, Q2, t):
+        mV = self.topology.m_detected
+        mV2 = mV ** 2
+        t0 = tmin_dvmp(W2, Q2, mV)
+        tp = np.minimum(t - t0, 0.0)
+        prop = (mV2 / (mV2 + Q2)) ** self.n
+        sT = self.sig0 * (W2 / self.W02) ** self.delta * prop * np.exp(self.b * tp)
+        R = self.r0 * (Q2 / mV2) ** self.p / (1.0 + self.r1 * Q2 / mV2)
+        sL = R * sT
+        mt = -tp
+        ft1 = np.sqrt(mt) / (1.0 + mt)
+        ft2 = mt / (1.0 + mt) ** 2
+        sqTL = np.sqrt(np.maximum(sT * sL, 0.0))
+        return {"sT": sT, "sL": sL,
+                "sTT": -self.cTT * sT * ft2,
+                "sLT": self.cLT * sqTL * ft1,
+                "sLTp": self.cLTp * sqTL * ft1}
+
+
+_DEMO_WARNING = (
+    "*** ILLUSTRATIVE ONLY *** smooth parameterization with roughly "
+    "realistic magnitudes, W/Q2 slopes and t-slopes, to make the package "
+    "runnable and testable out of the box. NOT a fit to data. Replace with "
+    "a real fit before using any number from it.")
+
+
+@register
+class Rho_Demo(_DemoVector):
+    name = "rho.demo"
+    channel = "rho"
+    version = "demo"
+    topology = _RHO_TOPO
+    validity = dict(W2=(4.0, 400.0), Q2=(0.05, 20.0), mt=(0.0, 5.0))
+    provenance = _DEMO_WARNING
+    reference = "vmrad/models.py demo_rho()"
+    sig0, W02, delta, n, b = 8.0e3, 10.0, 0.22, 2.2, 7.0
+    r0, p, r1 = 0.6, 0.61, 0.14
+
+
+@register
+class Phi_Demo(_DemoVector):
+    name = "phi.demo"
+    channel = "phi"
+    version = "demo"
+    topology = _PHI_TOPO
+    validity = dict(W2=(4.4, 400.0), Q2=(0.05, 20.0), mt=(0.0, 5.0))
+    provenance = _DEMO_WARNING
+    reference = "vmrad/models.py demo_phi()"
+    sig0, W02, delta, n, b = 1.0e3, 10.0, 0.28, 2.2, 5.5
+    r0, p, r1 = 0.5, 0.6, 0.1

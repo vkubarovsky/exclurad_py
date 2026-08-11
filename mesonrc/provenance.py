@@ -1,0 +1,100 @@
+"""
+Provenance stamping.
+
+Every table, plot, LUND file and report this package writes carries a
+stamp saying which code and which cross-section model produced it.  The
+point is narrow and practical: pi0 and eta each have several vintages
+(2014, 2021, 2026 refit) that give visibly different RC, and a file with
+no stamp cannot be traced back to the model that made it.
+
+    from mesonrc import stamp
+    hdr = stamp(sfmodel=sf, extra=dict(v_cut=0.20))
+    json.dump(hdr, open("run.json", "w"), indent=2)
+
+`stamp()` never raises: if git is unavailable the hash is recorded as
+"unknown" rather than failing the run.
+"""
+
+import os
+import subprocess
+import sys
+
+VERSION = "0.1.0"
+
+_HERE = os.path.dirname(os.path.abspath(__file__))
+
+
+def git_hash(short=True):
+    """Current commit of the mesonrc working tree, or 'unknown'."""
+    try:
+        args = ["git", "-C", _HERE, "rev-parse"]
+        if short:
+            args.append("--short")
+        args.append("HEAD")
+        out = subprocess.run(args, capture_output=True, text=True, timeout=5)
+        if out.returncode != 0:
+            return "unknown"
+        h = out.stdout.strip()
+        dirty = subprocess.run(["git", "-C", _HERE, "status", "--porcelain"],
+                               capture_output=True, text=True, timeout=5)
+        if dirty.returncode == 0 and dirty.stdout.strip():
+            h += "-dirty"
+        return h or "unknown"
+    except Exception:
+        return "unknown"
+
+
+def git_branch():
+    try:
+        out = subprocess.run(["git", "-C", _HERE, "rev-parse",
+                              "--abbrev-ref", "HEAD"],
+                             capture_output=True, text=True, timeout=5)
+        return out.stdout.strip() if out.returncode == 0 else "unknown"
+    except Exception:
+        return "unknown"
+
+
+def stamp(sfmodel=None, extra=None, timestamp=None):
+    """Provenance dict for an output file.
+
+    Parameters
+    ----------
+    sfmodel   : a StructureFunctions instance (its .stamp() is merged in)
+    extra     : dict of run-specific settings (cuts, grids, beam energy)
+    timestamp : ISO string; pass one in if you want it recorded (the
+                package does not call the clock itself so that runs are
+                reproducible byte-for-byte).
+    """
+    from .core import CORE_VERSION
+
+    d = {
+        "code": "mesonrc",
+        "version": VERSION,
+        "core_version": CORE_VERSION,
+        "git_commit": git_hash(),
+        "git_branch": git_branch(),
+        "python": sys.version.split()[0],
+    }
+    if timestamp is not None:
+        d["timestamp"] = timestamp
+    if sfmodel is not None:
+        d["sf"] = sfmodel.stamp()
+        d["sf_usage"] = sfmodel.usage()
+    if extra:
+        d["run"] = dict(extra)
+    return d
+
+
+def header_lines(stamp_dict, comment="# "):
+    """Flatten a stamp into comment lines for a CSV / LUND / text header."""
+    out = []
+
+    def walk(prefix, obj):
+        if isinstance(obj, dict):
+            for k, v in obj.items():
+                walk(f"{prefix}{k}." if prefix else f"{k}.", v)
+        else:
+            out.append(f"{comment}{prefix.rstrip('.')}: {obj}")
+
+    walk("", stamp_dict)
+    return out

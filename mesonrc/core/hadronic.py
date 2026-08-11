@@ -125,43 +125,6 @@ def hadronic_tensor(qt, p, pv, W2t, sf, M=M_P):
     )
     return H
 
-
-# --------------------------------------------------------------------------- #
-#  structure-function interface
-# --------------------------------------------------------------------------- #
-class StructureFunctions:
-    """Base class: implement __call__(W2, Q2, t) -> dict of arrays (nb/GeV^2).
-
-    Keys: 'sT', 'sL', 'sTT', 'sLT', 'sLTp'  (d sigma_i / dt, Hand convention).
-    W2, Q2, t may be numpy arrays (evaluated at shifted kinematics inside
-    the radiative integral) -- implementations must broadcast.
-
-    Attributes:
-      mV : detected meson mass (vector or pseudoscalar)
-      mU : undetected recoil-baryon mass (None -> proton); set to the
-           neutron mass for  e p -> e' pi+ n .
-    """
-
-    mV = None   # set in subclasses
-    mU = None   # None = proton
-
-    def __call__(self, W2, Q2, t):
-        raise NotImplementedError
-
-
-class TwoSF(StructureFunctions):
-    """DIFFRAD-like mode: only sigma_T and sigma_L, interference terms zero."""
-
-    def __init__(self, base):
-        self.base = base
-        self.mV = base.mV
-        self.mU = getattr(base, 'mU', None)
-
-    def __call__(self, W2, Q2, t):
-        sf = self.base(W2, Q2, t)
-        z = np.zeros_like(np.asarray(sf['sT']))
-        sf = dict(sf)
-        sf['sTT'] = z
-        sf['sLT'] = z
-        sf['sLTp'] = z
-        return sf
+# NOTE: the StructureFunctions interface and the TwoSF wrapper used to live
+# here.  They now live in mesonrc.models.base -- core/ must not import or
+# know about models.

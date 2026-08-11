@@ -77,8 +77,14 @@ def _channel_nodes(kvec, m, n_core, n_tail, n_phi):
 
 
 def sigma_F(kin0, sfmodel, h, v_m,
-            n_v=30, n_core=16, n_tail=24, n_phi=16, return_diag=False):
-    """IR-finite hard-photon integral (nb/GeV^6). kin0: Born EventKin (v=0)."""
+            n_v=30, n_core=16, n_tail=24, n_phi=16, return_diag=False,
+            v_lo=None, subtract=True):
+    """IR-finite hard-photon integral (nb/GeV^6). kin0: Born EventKin (v=0).
+
+    v_lo / subtract: consistency-test and generator hooks -- integrate over
+    [v_lo, v_m] and optionally WITHOUT the Bardin-Shumeiko subtraction, which
+    gives the positive-definite (samplable) slicing form. Defaults reproduce
+    the BS-subtracted integral used by rc_factor."""
     m, M, mV = kin0.m, kin0.M, kin0.mV
     Q2, W2, W, t = kin0.Q2, kin0.W2, kin0.W, kin0.t
     k1, k2, p, q = kin0.k1, kin0.k2, kin0.p, kin0.q
@@ -106,6 +112,8 @@ def sigma_F(kin0, sfmodel, h, v_m,
     # v grid: Gauss-Legendre in ln v
     r, wv = roots_legendre(n_v)
     lo, hi = np.log(v_m) - 18.0, np.log(v_m)
+    if v_lo is not None:
+        lo = np.log(v_lo)
     lv = 0.5 * (hi - lo) * r + 0.5 * (hi + lo)
     vs = np.exp(lv)
     wvs = 0.5 * (hi - lo) * wv * vs                   # dv = v dln(v)
@@ -144,7 +152,7 @@ def sigma_F(kin0, sfmodel, h, v_m,
 
             fir = F_IR(Q2, m, kap1, kap2)
             exact = np.where(good, LRH / Q2t ** 2, 0.0)
-            sub = 4.0 * fir * LH0 / Q2 ** 2
+            sub = 4.0 * fir * LH0 / Q2 ** 2 if subtract else 0.0
             integrand = (v / z ** 2) * (exact - sub)
             total += wv_i * np.sum(wang * chd['wchan'] * integrand)
 
