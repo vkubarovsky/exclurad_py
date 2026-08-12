@@ -17,3 +17,7 @@ sfdrv*.exe
 *.log
 validation/eta_vs_fortran/exclurad.F
 validation/*/gn_aver*.vec
+production/*.lund
+production/*.npz
+production/*.log
+production/__pycache__/

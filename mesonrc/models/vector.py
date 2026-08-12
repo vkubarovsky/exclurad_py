@@ -249,3 +249,50 @@ class Phi_Demo(_DemoVector):
     reference = "vmrad/models.py demo_phi()"
     sig0, W02, delta, n, b = 1.0e3, 10.0, 0.28, 2.2, 5.5
     r0, p, r1 = 0.5, 0.6, 0.1
+
+
+# --------------------------------------------------------------------------- #
+#  phi -- the tuned model of diffrad_vm.f90 (what generated samples_v2)
+# --------------------------------------------------------------------------- #
+@register
+class Phi_DiffradVM(StructureFunctions):
+    """dsigma_T/dt = sigma_T(W,Q2) * bt * exp(bt t), exponential t-form.
+
+        cT   = alf1 (1 - Wth^2/W^2)^alf2 W^alf3
+        sT   = cT / (1 + Q2/m_phi^2)^nuT
+        sL   = cR * Q2/m_phi^2 * sT
+    """
+
+    name = "phi.diffrad_vm"
+    channel = "phi"
+    version = "vm2026"
+    topology = meson_detected(1.019412, meson="phi")
+    validity = dict(W2=(3.85, 400.0), Q2=(0.05, 30.0), mt=(0.0, 12.0))
+    provenance = (
+        "Transcribed from `sigma_T_phi` / `sigma_L_phi` of "
+        "~/MC_vector_mesons/diffrad_vm.f90 with the table defaults: "
+        "alf1=400, alf2=2.000, alf3=0.200, nuT=2.253, bt=1.326, cR=1.000. "
+        "W-shape retuned 2026-06-30 (alf2 fixed at the physical +2, "
+        "Donnachie-Landshoff; alf3=0.20 Pomeron exponent from Roberts et al. "
+        "arXiv:2510.08845). This is the model behind samples_v2/phi_*_100k. "
+        "TRANSCRIBED FROM SOURCE, not yet executed against the Fortran.")
+    reference = "~/MC_vector_mesons/diffrad_vm.f90 (sigma_T_phi)"
+
+    alf1, alf2, alf3 = 400.0, 2.000, 0.200
+    nuT, bt, cR = 2.253, 1.326, 1.000
+    M_PHI_VM = 1.019412
+    WTH = 1.96
+
+    def _sfs(self, W2, Q2, t):
+        m2 = self.M_PHI_VM ** 2
+        Wth2 = self.WTH ** 2
+        ok = (W2 > Wth2) & (Q2 > 0)
+        W2s = np.where(ok, W2, Wth2 * 1.001)
+        W = np.sqrt(W2s)
+        cT = self.alf1 * np.maximum(1.0 - Wth2 / W2s, 0.0) ** self.alf2 \
+            * W ** self.alf3
+        sigT = cT / (1.0 + Q2 / m2) ** self.nuT
+        sT = np.where(ok, sigT * self.bt * np.exp(self.bt * t), 0.0)
+        sL = self.cR * Q2 / m2 * sT
+        z = np.zeros_like(sT)
+        return {"sT": sT, "sL": sL, "sTT": z, "sLT": z, "sLTp": z}
