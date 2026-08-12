@@ -2,3 +2,11 @@ __pycache__/
 *.pyc
 *.exe
 *.o
+
+*.exe
+*.o
+radcor*.vec
+rad*.dat
+all*.dat
+run.log
+__pycache__/

@@ -125,3 +125,43 @@ def rc_over_points(sfmodel, points, Ebeam, mx2_cut=None, helicity=+1,
         if progress and (n + 1) % progress == 0:
             print(f"  {n+1}/{len(points)}")
     return out
+
+
+# --------------------------------------------------------------------------- #
+#  EXCLURAD grid variables -> mesonrc arguments
+# --------------------------------------------------------------------------- #
+def excl_to_mesonrc(Q2, xB, t_nucl, phi_meson, m_meson, M=0.93827208816):
+    """Map published-grid variables onto the detected-proton kinematics.
+
+    Published pi0/eta grids are given in (Q2, xB, t_N, phi_meson) where
+    t_N = (p - p')^2 is the NUCLEON transfer and phi_meson is the meson's
+    azimuth.  mesonrc's EventKin, in the `baryon_detected` topology, is
+    built from the DETECTED PROTON, so it needs
+
+        t_kin = (q - p')^2   and   phi_kin = phi_meson + pi.
+
+    For the 2->2 Born process gamma*(-Q2) p(M^2) -> h(m^2) p'(M^2),
+
+        s + t_N + u = -Q2 + 2 M^2 + m^2 ,    s = W^2,  u = (q - p')^2
+
+    so t_kin = -Q2 + 2 M^2 + m^2 - W^2 - t_N.  Getting this wrong (passing
+    t_N straight through) silently shifts every point.
+
+    Returns (W2, t_kin, phi_kin).
+    """
+    import numpy as _np
+    Q2 = _np.asarray(Q2, dtype=float)
+    xB = _np.asarray(xB, dtype=float)
+    t_nucl = _np.asarray(t_nucl, dtype=float)
+    W2 = Q2 * (1.0 / xB - 1.0) + M * M
+    t_kin = -Q2 + 2.0 * M * M + m_meson ** 2 - W2 - t_nucl
+    phi_kin = _np.asarray(phi_meson, dtype=float) + _np.pi
+    return W2, t_kin, phi_kin
+
+
+def load_published_vec(path, cols=("q2", "xb", "t", "phi", "X", "delta",
+                                   "one", "delta8")):
+    """Read a radcor*.vec table into a dict of arrays."""
+    import numpy as _np
+    a = _np.loadtxt(path)
+    return {c: a[:, i] for i, c in enumerate(cols) if i < a.shape[1]}

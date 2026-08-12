@@ -1,0 +1,12 @@
+11       !  1: AO 2: maid98  3: maid2000 11:dvmp
+0	!  0: Full, 1: Factorizable and Leading log  
+5.75   !  bmom - lepton momentum
+0.0     !  tmom - momentum per nucleon
+1       !  lepton - 1 electron, 2 muon
+3       !  ivec - detected hadron (3) p for eta channel
+0.08    !  vcut - MATCHED WINDOW (below every fixed-t kinematic limit)
+1 ! no. of points
+0.13398 ! W (x_b for DVMP)
+1.3048  !Q2
+0.34880   !costehta (positive t for DVMP)
+0.0   !phi in degree
