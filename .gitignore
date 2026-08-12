@@ -15,3 +15,5 @@ pts.txt
 exclurad.f
 sfdrv*.exe
 *.log
+validation/eta_vs_fortran/exclurad.F
+validation/*/gn_aver*.vec

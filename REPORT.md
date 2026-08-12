@@ -358,6 +358,72 @@ forced to v < 0.08, where the conventions nearly coincide) gave mean
 alone; it lives in `validation/eta_matched/`.  It is superseded by the
 direct comparison above.
 
+### 3.2b Full-grid validation, both channels — **PASSED**
+
+Run over the complete published grids in EXCLURAD's own convention
+(`t_kind="cm_angle"`), E = 5.75 GeV:
+
+| channel | bins | mean | rms | max |
+|---|---:|---:|---:|---:|
+| pi0 vs PRC 90 025205 (`~/excl2013/radcor_all.vec`, vcut 0.17) | 3104 | **-0.20 %** | **0.47 %** | 3.9 % |
+| eta vs PRC 95 035202 (`radcoreta_published.vec`, vcut 0.20) | 1814 | +1.07 % | 0.58 % | 2.5 % |
+
+Model ports verified against their own Fortran first: `pi0.vpk2013` to
+14-16 significant digits against the 2013 source, `eta.tableB1` to 13-16
+against the double-precision driver.
+
+**The eta offset is not mesonrc.**  Running EXCLURAD (`model2013note`) at
+the production vcut over 180 usable bins and decomposing:
+
+| comparison | mean | rms |
+|---|---:|---:|
+| mesonrc vs Fortran | **+0.148 %** | 0.202 % |
+| Fortran vs published | **+0.520 %** | 0.408 % |
+| mesonrc vs published | +0.669 % | 0.392 % |
+
+mesonrc reproduces EXCLURAD to 0.15 %, the same level as pi0.  About 78 %
+of the eta discrepancy is the Fortran's own failure to reproduce the
+published table from Table B.1 — which `~/eta-rc-2026/README.md` already
+flags as unexplained.  Two independent codes now agree with each other and
+both disagree with the published numbers, so **the published eta RC table
+is probably not exactly reproducible from the documented model**, unlike
+pi0 whose 2013 production is byte-reproducible.  That is a result for the
+eta revisiting work, not a code defect.
+
+### 3.2c The bin-definition question — quantified, NOT resolved
+
+`t_kind="target"` (hold t = (p-p')^2, i.e. E_p'(lab), fixed) and
+`t_kind="cm_angle"` (freeze cos(theta_CM), EXCLURAD's convention) differ
+only where the fixed-t kinematic limit v_max(t) falls **below** the
+missing-mass cut:
+
+| | bins | `target` | `cm_angle` |
+|---|---:|---:|---:|
+| pi0, v_max = 0.17 (full window) | 2802 | -0.23 %, rms 0.46 % | ~same |
+| pi0, v_max < 0.17 | 302 | **-4.8 %, rms 4.1 %, max 12.7 %** | +0.18 %, rms 0.26 % |
+| eta, 400 most truncated | 400 | +0.7 %, rms 1.5 %, max 16.0 % | +1.07 %, rms 0.48 % |
+
+Truncated pi0 bins are ~10 % of the grid: high Q2, xB >= 0.31, v_max down
+to 0.018.  There the conventions shift eta by a **median 2.9 % and up to
+13-17 %**.
+
+The two integrate genuinely different regions.  EXCLURAD freezes the CM
+angle, so v runs to the global bound and tail events carry a *drifted* t_N
+— they would be measured into a neighbouring t bin.  The fixed-t
+prescription truncates at v_max(t_N) on the grounds that no configuration
+has both that missing mass and that measured t_N.  Since the CLAS
+analyses measure t from the recoil proton, the truncation looks like the
+correct description of the bin — but that is an argument about the
+analysis, not the RC code, and it is **left open here deliberately**: two
+earlier confident kinematic arguments in this work turned out wrong (§3.2
+retraction).  Both conventions are available as `t_kind`; the physics
+choice needs the analysis' own treatment of the radiative tail.
+
+**Methodological note.**  An earlier version of this section reported the
+convention effect as 1e-5 ("negligible").  That was measured at a single
+*untruncated* bin and does not generalize.  Sweep first, characterize
+second.
+
 ### 3.3 A process failure worth recording
 
 The first attempt at this validation ran as a background agent and
@@ -375,12 +441,14 @@ the project name.
 
 Listed plainly because these are what would bite.
 
-1. **Only one bin validated** (§3.2): 20 phi points at one (Q2, xB, t).
-   A sweep over the 2920 physical bins is the obvious next step and is now
-   cheap — `validation/eta_published_direct/run_direct.py` generalizes by
-   changing one slice. Whether the +0.4 % offset against the Fortran's own
-   reproduction is flat across the grid is the thing to find out.
-2. **pi0 against PRC 90 025205 not started.** The natural second target.
+1. **The bin-definition question is open** (§3.2c): which of `t_kind`
+   describes the analysis binning. It is worth up to 13-17 % on eta in
+   ~10 % of pi0 bins. Needs the analysis' own treatment of the radiative
+   tail, not more kinematics from me.
+2. **The eta published table may not be reproducible from Table B.1**
+   (§3.2b): mesonrc and EXCLURAD agree to 0.15 % and both sit ~0.5 % above
+   the published numbers. Worth settling before the revisiting work leans
+   on that table.
 3. **The photon spectrum uses the majorant cell centre, not the exact
    event kinematics.** The soft/hard *branching* uses the event's own
    `sigma_obs` and is exact; the photon *direction and energy* come from a

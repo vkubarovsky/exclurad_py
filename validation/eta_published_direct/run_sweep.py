@@ -21,7 +21,9 @@ from mesonrc.validation.legacy import (load_published_vec, compare,
 M, EBEAM, VCUT = 0.93827208816, 5.75, 0.20
 M_PI_EXCL = 0.5473           # eta mass as used by EXCLURAD (AM(2))
 GRID = "/Users/vpk/eta-rc-2026/grids/radcoreta_published.vec"
-NBINS = int(__import__("os").environ.get("NBINS", "20"))
+import os
+NBINS = int(os.environ.get("NBINS", "20"))
+T_KIND = os.environ.get("T_KIND", None)   # None -> topology default
 
 d = load_published_vec(GRID)
 # rows with delta == 0 are the unphysical (flag=0) grid slots
@@ -38,7 +40,8 @@ for i in range(len(Q2)):
     sf = models.get("eta.tableB1", t_nucl=float(tN[i]))
     try:
         r = rc_factor(Ebeam=EBEAM, Q2=Q2[i], W2=W2[i], t=tN[i], phi=phik[i],
-                      sfmodel=sf, h=+1, mx2_cut=VCUT + M_PI_EXCL ** 2)
+                      sfmodel=sf, h=+1, mx2_cut=VCUT + M_PI_EXCL ** 2,
+                      t_kind=T_KIND)
     except (ValueError, ZeroDivisionError, FloatingPointError):
         r = dict(eta=np.nan, v_max=np.nan)
     eta.append(r["eta"])
@@ -47,7 +50,7 @@ for i in range(len(Q2)):
     if NBINS > 100 and (i + 1) % 250 == 0:
         print(f"  {i+1}/{len(Q2)}", flush=True)
 
-np.savetxt("eta_published_sweep.csv", np.array(rows), delimiter=",",
+np.savetxt("eta_published_sweep%s.csv" % (("_"+T_KIND) if T_KIND else ""), np.array(rows), delimiter=",",
            header="phi_deg,Q2,xB,t_N,delta_published,eta_mesonrc,diff,v_max",
            comments="", fmt="%.6g")
 eta = np.array(eta)
