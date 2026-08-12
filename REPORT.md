@@ -390,58 +390,50 @@ is probably not exactly reproducible from the documented model**, unlike
 pi0 whose 2013 production is byte-reproducible.  That is a result for the
 eta revisiting work, not a code defect.
 
-### 3.2c The bin-definition question — quantified, NOT resolved
+### 3.2c The bin-definition question — RESOLVED, no bias
 
-`t_kind="target"` (hold t = (p-p')^2, i.e. E_p'(lab), fixed) and
-`t_kind="cm_angle"` (freeze cos(theta_CM), EXCLURAD's convention) differ
-only where the fixed-t kinematic limit v_max(t) falls **below** the
-missing-mass cut:
+**EXCLURAD uses the standard definition of t.**  Traced end to end:
+`t0`/`tt`/`tldtm` are (q - p')^2, an internal Bardin-Shumeiko variable;
+`sffun` converts it to cos(theta) and `dvmpw/CHECK_KINE` converts back to
+`del2` = (p - p')^2 before XSIGMA_* is called.  Verified against the mass
+arrays (`amhad(3)`=0.938 detected proton, `amunm(3)`=0.5479 undetected
+eta) and by re-deriving both conversions.  There is no redefinition.
 
-| | bins | `target` | `cm_angle` |
-|---|---:|---:|---:|
-| pi0, v_max = 0.17 (full window) | 2802 | -0.23 %, rms 0.46 % | ~same |
-| pi0, v_max < 0.17 | 302 | **-4.8 %, rms 4.1 %, max 12.7 %** | +0.18 %, rms 0.26 % |
-| eta, 400 most truncated | 400 | +0.7 %, rms 1.5 %, max 16.0 % | +1.07 %, rms 0.48 % |
+**What differs** is which variable is frozen during the photon
+integration.  EXCLURAD is written for (W, Q2, cos(theta*), phi) binning —
+its native 2002 parameterization — and the DVMP wrapper maps the supplied
+t onto cos(theta*) once, at Born.  Freezing the angle lets the physical t
+of tail events drift.
 
-Truncated pi0 bins are ~10 % of the grid: high Q2, xB >= 0.31, v_max down
-to 0.018.  There the conventions shift eta by a **median 2.9 % and up to
-13-17 %**.
+**Size of the effect: negligible.**  The drift is ~0.007 GeV^2 at the top
+of the window.  The analysis t bins are 0.06-0.5 GeV^2 wide (centres at
+|t| ~ 0.12, 0.18, 0.26, 0.36, 0.51, 0.80, 1.25, 1.75), so tail events move
+about a tenth of a bin and migration in/out largely cancels.
 
-**Resolved (VPK):** t = (p - p')^2 with p the target at rest and p' the
-MEASURED recoil proton.  Radiation is from the LEPTON line only —
-hadron-line radiation is neglected in EXCLURAD, DIFFRAD and here, and the
-proton is heavy — so the photon never touches p'.  **t is fixed by the
-measurement and cannot shift**; only Q2~ and W2~ do.  At fixed
-(Q2, W2, t, phi) it is the proton's DIRECTION that moves as v runs, not
-its lab energy.
+**An earlier claim of a 13-17 % bias is WITHDRAWN.**  It came from
+comparing `t_kind="target"` to the published values at bins where the
+fixed-t window truncates — and those bins are simply the ones sitting on
+the kinematic edge:
 
-Therefore `t_kind="target"` is the physical bin definition and is the
-default.  `t_kind="cm_angle"` freezes cos(theta_CM) instead, letting t
-drift ~5.5 % of |t| across the window; tail events there would have been
-measured into a neighbouring t bin.  It is retained as an
-EXCLURAD-COMPATIBILITY mode for reproducing published tables, not for new
-physics.
+| | median \|t\| - \|t_min\| | n |
+|---|---:|---:|
+| truncated (v_max < v_cut) | **0.019** | 302 |
+| untruncated | 0.416 | 2802 |
 
-This also settles where the structure functions belong: at
-(W2~, Q2~, t) with **t fixed** — which is what `ProtonDetectedModel` does.
-EXCLURAD instead recomputes a shifted t at every point of the photon
-integration (sffun -> csthcm -> CHECK_KINE -> del2), which follows from
-its frozen-angle phase space.  An earlier draft of this report proposed
-copying that; it was wrong and is retracted.
+Every bin within 0.02 GeV^2 of t_min is truncated (186/186).  At t = t_min,
+v_max -> 0 by construction: any energy loss moves t_min itself.  In the
+worst bin (Q2=2.733, xB=0.384, t_min=-0.1915, bin t=-0.195) v_max recovers
+0.018 -> 0.227 over Delta|t| = 0.045, well inside one bin width, and eta
+recovers 0.778 -> 0.898 with it.  So the "effect" is a point-evaluation
+artifact at the kinematic edge, not something a finite-width bin sees.
 
-**Consequence.**  The validation in 3.2b answers "does mesonrc reproduce
-EXCLURAD?" (yes, 0.15-0.20 %, in compatibility mode).  It does not endorse
-the convention.  On the physical definition the correction differs from
-the published one by up to 13-17 % in the ~10 % of pi0 bins where
-v_max(t) < v_cut — high Q2, xB >= 0.31.  Whether EXCLURAD's frozen-angle
-treatment is an oversight or a deliberate approximation with a
-compensating argument (bin-width migration, say) is worth putting to
-Akushevich/Afanasev before it is called a bias in the published results.
-
-**Methodological note.**  An earlier version of this section reported the
-convention effect as 1e-5 ("negligible").  That was measured at a single
-*untruncated* bin and does not generalize.  Sweep first, characterize
-second.
+**Conclusion.**  No evidence of a problem in the published RC from this,
+and nothing to raise with the EXCLURAD authors.  `t_kind="target"` remains
+the default because t is fixed by the measurement (radiation is from the
+lepton line; p' is untouched), but for bins near t_min a point evaluation
+at fixed t under-counts the tail, and a bin-integrated treatment would be
+needed there.  That is a limitation of evaluating RC at bin centroids, and
+it applies to any code.
 
 ### 3.3 A process failure worth recording
 
@@ -460,10 +452,9 @@ the project name.
 
 Listed plainly because these are what would bite.
 
-1. **The bin-definition question is open** (§3.2c): which of `t_kind`
-   describes the analysis binning. It is worth up to 13-17 % on eta in
-   ~10 % of pi0 bins. Needs the analysis' own treatment of the radiative
-   tail, not more kinematics from me.
+1. **Bins adjacent to t_min need bin-integration, not point evaluation**
+   (§3.2c). Not specific to this code; ~10 % of the pi0 grid sits within
+   0.05 GeV^2 of t_min where v_max(t) varies fast across the bin.
 2. **The eta published table may not be reproducible from Table B.1**
    (§3.2b): mesonrc and EXCLURAD agree to 0.15 % and both sit ~0.5 % above
    the published numbers. Worth settling before the revisiting work leans
