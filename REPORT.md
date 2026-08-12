@@ -407,17 +407,36 @@ Truncated pi0 bins are ~10 % of the grid: high Q2, xB >= 0.31, v_max down
 to 0.018.  There the conventions shift eta by a **median 2.9 % and up to
 13-17 %**.
 
-The two integrate genuinely different regions.  EXCLURAD freezes the CM
-angle, so v runs to the global bound and tail events carry a *drifted* t_N
-— they would be measured into a neighbouring t bin.  The fixed-t
-prescription truncates at v_max(t_N) on the grounds that no configuration
-has both that missing mass and that measured t_N.  Since the CLAS
-analyses measure t from the recoil proton, the truncation looks like the
-correct description of the bin — but that is an argument about the
-analysis, not the RC code, and it is **left open here deliberately**: two
-earlier confident kinematic arguments in this work turned out wrong (§3.2
-retraction).  Both conventions are available as `t_kind`; the physics
-choice needs the analysis' own treatment of the radiative tail.
+**Resolved (VPK):** t = (p - p')^2 with p the target at rest and p' the
+MEASURED recoil proton.  Radiation is from the LEPTON line only —
+hadron-line radiation is neglected in EXCLURAD, DIFFRAD and here, and the
+proton is heavy — so the photon never touches p'.  **t is fixed by the
+measurement and cannot shift**; only Q2~ and W2~ do.  At fixed
+(Q2, W2, t, phi) it is the proton's DIRECTION that moves as v runs, not
+its lab energy.
+
+Therefore `t_kind="target"` is the physical bin definition and is the
+default.  `t_kind="cm_angle"` freezes cos(theta_CM) instead, letting t
+drift ~5.5 % of |t| across the window; tail events there would have been
+measured into a neighbouring t bin.  It is retained as an
+EXCLURAD-COMPATIBILITY mode for reproducing published tables, not for new
+physics.
+
+This also settles where the structure functions belong: at
+(W2~, Q2~, t) with **t fixed** — which is what `ProtonDetectedModel` does.
+EXCLURAD instead recomputes a shifted t at every point of the photon
+integration (sffun -> csthcm -> CHECK_KINE -> del2), which follows from
+its frozen-angle phase space.  An earlier draft of this report proposed
+copying that; it was wrong and is retracted.
+
+**Consequence.**  The validation in 3.2b answers "does mesonrc reproduce
+EXCLURAD?" (yes, 0.15-0.20 %, in compatibility mode).  It does not endorse
+the convention.  On the physical definition the correction differs from
+the published one by up to 13-17 % in the ~10 % of pi0 bins where
+v_max(t) < v_cut — high Q2, xB >= 0.31.  Whether EXCLURAD's frozen-angle
+treatment is an oversight or a deliberate approximation with a
+compensating argument (bin-width migration, say) is worth putting to
+Akushevich/Afanasev before it is called a bias in the published results.
 
 **Methodological note.**  An earlier version of this section reported the
 convention effect as 1e-5 ("negligible").  That was measured at a single

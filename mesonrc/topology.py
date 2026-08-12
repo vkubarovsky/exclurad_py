@@ -126,15 +126,24 @@ def baryon_detected(m_meson, meson="meson", m_recoil=M_P, recoil="p"):
                     m_detected=m_recoil, m_missing=m_meson,
                     sf_t=FIXED_NUCLEON, lt_sign=-1.0,
                     detected=recoil, missing=meson,
-                    # DEFAULT = EXCLURAD's convention.  EXCLURAD is the
-                    # reference the published CLAS pi0/eta corrections were
-                    # made with, and mesonrc reproduces it to 0.15-0.20 %
-                    # over both full grids in this mode.  The alternative,
-                    # t_kind="target" (hold t = (p-p')^2 itself), is
-                    # available and differs by up to 13-17 % in the ~10 % of
-                    # bins where v_max(t) < v_cut -- see REPORT.md 3.2c.
-                    # Change this default only with that question settled.
-                    t_kind="cm_angle",
+                    # DEFAULT = the physical bin definition.
+                    #
+                    #   t = (p - p')^2 with p the target at rest and p' the
+                    #   MEASURED recoil proton.  Radiation is from the lepton
+                    #   line only (hadron-line radiation is neglected here as
+                    #   in EXCLURAD/DIFFRAD, and the proton is heavy), so the
+                    #   photon does not touch p'.  t is therefore fixed by the
+                    #   measurement and cannot shift: only Q2~ and W2~ do.
+                    #   At fixed (Q2, W2, t, phi) it is the proton's DIRECTION
+                    #   that moves as v runs, not its lab energy.
+                    #
+                    # t_kind="cm_angle" is an EXCLURAD-COMPATIBILITY mode: it
+                    # freezes cos(theta_CM) instead, which lets t drift ~5.5 %
+                    # of |t| across the window.  Use it to reproduce published
+                    # tables (mesonrc matches EXCLURAD to 0.15-0.20 % there);
+                    # do not use it for new physics.  The two differ by up to
+                    # 13-17 % in the ~10 % of bins where v_max(t) < v_cut.
+                    t_kind="target",
                     note="EXCLURAD pi0/eta configuration: v = MX^2 - m_meson^2; "
                          "SFs at fixed t_N=(p-p')^2; hadron-plane x axis "
                          "flipped -> sigma_LT, sigma_LT' change sign.")
