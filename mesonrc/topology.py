@@ -126,7 +126,15 @@ def baryon_detected(m_meson, meson="meson", m_recoil=M_P, recoil="p"):
                     m_detected=m_recoil, m_missing=m_meson,
                     sf_t=FIXED_NUCLEON, lt_sign=-1.0,
                     detected=recoil, missing=meson,
-                    t_kind="target",
+                    # DEFAULT = EXCLURAD's convention.  EXCLURAD is the
+                    # reference the published CLAS pi0/eta corrections were
+                    # made with, and mesonrc reproduces it to 0.15-0.20 %
+                    # over both full grids in this mode.  The alternative,
+                    # t_kind="target" (hold t = (p-p')^2 itself), is
+                    # available and differs by up to 13-17 % in the ~10 % of
+                    # bins where v_max(t) < v_cut -- see REPORT.md 3.2c.
+                    # Change this default only with that question settled.
+                    t_kind="cm_angle",
                     note="EXCLURAD pi0/eta configuration: v = MX^2 - m_meson^2; "
                          "SFs at fixed t_N=(p-p')^2; hadron-plane x axis "
                          "flipped -> sigma_LT, sigma_LT' change sign.")
