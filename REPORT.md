@@ -405,15 +405,16 @@ its native 2002 parameterization — and the DVMP wrapper maps the supplied
 t onto cos(theta*) once, at Born.  Freezing the angle lets the physical t
 of tail events drift.
 
-**Size of the effect: negligible.**  The drift is ~0.007 GeV^2 at the top
-of the window.  The analysis t bins are 0.06-0.5 GeV^2 wide (centres at
-|t| ~ 0.12, 0.18, 0.26, 0.36, 0.51, 0.80, 1.25, 1.75), so tail events move
-about a tenth of a bin and migration in/out largely cancels.
+**Size of the drift.**  ~0.007 GeV^2 at the top of the window, against
+analysis t bins 0.06-0.5 GeV^2 wide.  NOTE (VPK): the RC is evaluated at a
+KINEMATICAL POINT, not integrated over a bin, so bin width does not absorb
+this in the calculation itself; it only matters when the point value is
+applied to binned data.  An earlier draft used bin width as the resolution
+and was wrong to.
 
-**An earlier claim of a 13-17 % bias is WITHDRAWN.**  It came from
-comparing `t_kind="target"` to the published values at bins where the
-fixed-t window truncates — and those bins are simply the ones sitting on
-the kinematic edge:
+**Status of the claimed 13-17 % effect: REAL AT A POINT, but its
+significance is unsettled.**  It comes from bins where the fixed-t window
+truncates, and those are exactly the bins sitting on the kinematic edge:
 
 | | median \|t\| - \|t_min\| | n |
 |---|---:|---:|
@@ -421,19 +422,25 @@ the kinematic edge:
 | untruncated | 0.416 | 2802 |
 
 Every bin within 0.02 GeV^2 of t_min is truncated (186/186).  At t = t_min,
-v_max -> 0 by construction: any energy loss moves t_min itself.  In the
-worst bin (Q2=2.733, xB=0.384, t_min=-0.1915, bin t=-0.195) v_max recovers
-0.018 -> 0.227 over Delta|t| = 0.045, well inside one bin width, and eta
-recovers 0.778 -> 0.898 with it.  So the "effect" is a point-evaluation
-artifact at the kinematic edge, not something a finite-width bin sees.
+v_max -> 0 IDENTICALLY: the Born configuration is already collinear, so any
+energy loss is kinematically forbidden at that t.  This is not an artifact
+of the evaluation — it is the correct fixed-t limit.  In the worst bin
+(Q2=2.733, xB=0.384, t_min=-0.1915, bin t=-0.195) v_max recovers
+0.018 -> 0.227 over Delta|t| = 0.045 and eta recovers 0.778 -> 0.898.
 
-**Conclusion.**  No evidence of a problem in the published RC from this,
-and nothing to raise with the EXCLURAD authors.  `t_kind="target"` remains
-the default because t is fixed by the measurement (radiation is from the
-lepton line; p' is untouched), but for bins near t_min a point evaluation
-at fixed t under-counts the tail, and a bin-integrated treatment would be
-needed there.  That is a limitation of evaluating RC at bin centroids, and
-it applies to any code.
+**What is settled and what is not.**
+* Settled: EXCLURAD uses the standard definition of t; there is no
+  redefinition (above).
+* Settled: at a fixed kinematical point, v_max(t) is a genuine limit, and
+  EXCLURAD integrates past it for bins near t_min.
+* NOT settled: whether that biases the published results.  The RC is
+  evaluated at a point but APPLIED to a bin of data whose events span a t
+  range where v_max runs from ~0 to past the cut.  The strictly-fixed-t
+  point value may be a worse estimator of the bin's correction than
+  EXCLURAD's.  Deciding this needs a t-integrated (Born-weighted) RC across
+  the edge bins, compared against both point prescriptions.  Neither code
+  does that today.  Until it is done, no claim of bias is supported and
+  none is made here.
 
 ### 3.3 A process failure worth recording
 
