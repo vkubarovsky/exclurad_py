@@ -278,77 +278,61 @@ exercise.
 on eta at the demo point, but those are invented parameterizations and the
 number means nothing physically — it exercises the code path, no more.
 
-### 3.2 Against EXCLURAD on the published eta bin — **PASSED**
+### 3.2 Against the PUBLISHED eta table — **PASSED, 0.76 % mean**
 
-Target: the first (Q2, xB, t) bin of the published eta RC grid
-(`~/eta-rc-2026/grids/radcoreta_published.vec`, PRC 95 035202), 20 phi
-points, using `model2013note` (Table B.1 eta column) as the reference.
-Reproduce with `validation/eta_matched/run_matched.py`.
+Target: first (Q2, xB, t) bin of `radcoreta_published.vec` (PRC 95 035202),
+20 phi points, E = 5.75 GeV (CLAS6), vcut = 0.20, model `eta.tableB1`.
+Reproduce with `validation/eta_published_direct/run_direct.py`.
 
-**Port verification first.** `eta.tableB1` was checked against the
-double-precision Fortran via the `sfdrv` driver over a 48-point
-(Q2, xB, t) grid:
+**Port verified first** against the double-precision Fortran (`sfdrv`
+driver) over a 48-point grid: sigma_T and sigma_L to 2.2e-16, sigma_TT to
+5.6e-14, sigma_LT to 2.8e-14, tminq to 6.6e-15 — machine level, so any RC
+difference is the RC code, not the model.
 
-| quantity | max relative deviation | significant digits |
-|---|---:|---:|
-| `sigma_T` | 2.2e-16 | 15.7 |
-| `sigma_L` | 2.2e-16 | 15.7 |
-| `sigma_TT` | 5.6e-14 | 13.3 |
-| `sigma_LT` | 2.8e-14 | 13.6 |
-| `tminq` | 6.6e-15 | 14.2 |
+**The bin definition — this was the whole story.** In the CLAS pi0/eta
+analyses **t is measured from the recoil proton**, always:
 
-The port is exact at machine level, so any RC difference is the RC code,
-not the model.
+    t = (p - p')^2 = 2 M^2 - 2 M E_p'(lab)
 
-**The window difference, located precisely.** EXCLURAD's inelasticity
-limit is set in `bornkin`:
-
-```fortran
-vmax = w2 - amu2 + amh2 - 2*sqrt(w2)*sqrt(amh2) - 1d-8
-if (cutv.gt.1d-12) vmax = min(vmax, cutv)
-```
-
-That is the GLOBAL bound at fixed detected-hadron **angle** — 3.58 GeV^2
-at this bin — so the 0.20 cut binds and EXCLURAD integrates v to 0.20.
-mesonrc works at fixed observed t, where the kinematic limit is
-**0.0845**. Comparing directly therefore measures the bin definition, not
-the physics: it gives a near-constant offset of **-0.0435** on eta (with
-the phi-shape already agreeing, residual varying only +-0.006 while delta
-itself varies by 0.047).
-
-**Matched window** (`vcut = 0.08`, below both limits, so both codes
-integrate the identical v range):
+so fixing t fixes the proton's LAB ENERGY, and as v runs across the
+missing-mass window it is the proton's ANGLE that moves.  `EventKin` now
+takes `t_kind`, and `baryon_detected` selects `t_kind="target"`.
 
 | | value |
 |---|---:|
 | points compared | 20 |
-| mean residual | **+0.00181 (+0.199 %)** |
-| rms residual | **0.00044 (0.047 %)** |
-| max abs residual | **0.00277 (0.298 %)** |
+| mean residual | **+0.00721 (+0.757 %)** |
+| rms residual | **0.00304 (0.328 %)** |
+| max abs residual | 0.01160 (1.237 %) |
 
-**Verdict: mesonrc reproduces EXCLURAD to 0.2 % mean, 0.05 % rms.** For
-context, EXCLURAD writes delta with `f8.3` — 0.001 granularity is 0.11 %
-at delta ~ 0.9 — so the rms is below the Fortran's own printed precision
-and the mean offset is about two quantization units. The residual is also
-the right size for the known `delta_VR` Li2 mass difference (~0.1 %, §4.6).
+No window matching, no remapping of t: mesonrc is run in the analysis's own
+bin definition and compared straight to the published numbers.
 
-This is the level the earlier `2026_RC_test_comparison` study found for
-pi0 (0.2-0.4 %), reached here independently with a different channel,
-a different model vintage and a different beam energy.
+The residual has a **shape**: ~+0.002 at the phi endpoints, ~+0.011
+mid-phi.  `~/eta-rc-2026/README.md` records the *same shape* for the
+Fortran's own reproduction of this table (endpoints +-0.001, mid-phi
++0.007) and flags it as unexplained — probably a slightly different
+2010-era code or model iteration.  mesonrc sits about +0.004 above the
+Fortran's reproduction, consistently across phi.  So the disagreement with
+the published table is largely a feature the reference code shares, not
+something mesonrc introduces.
 
-**Caveat on scope.** This validates one (Q2, xB, t) bin at 20 phi points
-against the Fortran, with the Fortran itself known (from
-`~/eta-rc-2026/README.md`) to reproduce the published table at vcut=0.20
-to +-0.001 at the endpoints. It is not yet a sweep over the full 2920
-physical bins, and it is a comparison against EXCLURAD rather than
-directly against the published numbers at their own window.
+**Retracted: an earlier "4 % fixed-t effect".**  A first pass ran with
+`t_kind="photon"` — holding (q - p')^2 fixed instead of (p - p')^2.  That
+convention has a spurious kinematic limit v_max = 0.087 at this bin (vs
+1.18 for the correct one), truncating the 0.20 window and shifting eta by
+about -0.04.  It was reported as a physics finding about fixed-t versus
+fixed-angle binning.  It was not: it was the wrong invariant.  There is no
+4 % effect.  The lesson is recorded rather than quietly deleted because the
+wrong number looked entirely plausible — the phi-shape agreed to 0.13 %
+rms throughout, which is exactly the kind of partial agreement that makes a
+convention error easy to believe.
 
-**A physics note worth separating out.** The -0.0435 unmatched offset is
-not an error in either code: it is the statement that the published eta
-RC was computed at fixed hadron angle with v running to 0.20, and that a
-fixed-t analysis of the same bin sees a materially different correction
-(0.89 vs 0.94 at this bin). That is a real, ~4 % effect and it is relevant
-to the RC-revisiting work in `~/eta-rc-2026`.
+An intermediate matched-window comparison against EXCLURAD (both codes
+forced to v < 0.08, where the conventions nearly coincide) gave mean
++0.199 %, rms 0.047 %, and remains valid as a check of the RC machinery
+alone; it lives in `validation/eta_matched/`.  It is superseded by the
+direct comparison above.
 
 ### 3.3 A process failure worth recording
 
@@ -367,11 +351,11 @@ the project name.
 
 Listed plainly because these are what would bite.
 
-1. **Only one bin validated** (§3.2): 20 phi points at one (Q2, xB, t),
-   against EXCLURAD rather than directly against the published table at
-   its own window. A sweep over the 2920 physical bins is the obvious next
-   step and is now cheap — the machinery is in
-   `validation/eta_matched/run_matched.py`.
+1. **Only one bin validated** (§3.2): 20 phi points at one (Q2, xB, t).
+   A sweep over the 2920 physical bins is the obvious next step and is now
+   cheap — `validation/eta_published_direct/run_direct.py` generalizes by
+   changing one slice. Whether the +0.4 % offset against the Fortran's own
+   reproduction is flat across the grid is the thing to find out.
 2. **pi0 against PRC 90 025205 not started.** The natural second target.
 3. **The photon spectrum uses the majorant cell centre, not the exact
    event kinematics.** The soft/hard *branching* uses the event's own

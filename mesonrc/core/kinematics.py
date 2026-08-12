@@ -35,7 +35,11 @@ def kallen(a, b, c):
 class EventKin:
     """Event kinematics at fixed (E_beam, Q2, W2, t, phi) and given v."""
 
-    def __init__(self, Ebeam, Q2, W2, t, phi, mV, v=0.0, M=M_P, m=M_E, mU=None):
+    T_PHOTON = "photon"     # t = (q - p_detected)^2
+    T_TARGET = "target"     # t = (p - p_detected)^2   <-- CLAS pi0/eta binning
+
+    def __init__(self, Ebeam, Q2, W2, t, phi, mV, v=0.0, M=M_P, m=M_E, mU=None,
+                 t_kind="photon"):
         self.Ebeam, self.Q2, self.W2, self.t, self.phi = Ebeam, Q2, W2, t, phi
         self.mV, self.M, self.m, self.v = mV, M, m, v
         self.mU = M if mU is None else mU        # undetected recoil baryon
@@ -81,7 +85,25 @@ class EventKin:
         if Ev < mV:
             raise ValueError("v too large: E_h < m_h")
         pv = np.sqrt(Ev * Ev - mV * mV)
-        cv = (t + Q2 - mV * mV + 2.0 * q0 * Ev) / (2.0 * qv * pv)
+        # WHICH invariant the bin holds fixed as v runs across the
+        # missing-mass window.  E_detected is fixed by v alone (above); only
+        # cos(theta) is free, and the conventions differ in how they fix it:
+        #
+        #   t_kind="photon"  t = (q - p_det)^2   -- DVMP convention
+        #   t_kind="target"  t = (p - p_det)^2   -- CLAS pi0/eta: t is measured
+        #                                          from the recoil PROTON, so
+        #                                          fixing t fixes E_p'(lab).
+        #
+        # These agree at v = 0 and separate as v grows; the choice is part of
+        # the bin definition, not a detail.
+        self.t_kind = t_kind
+        if t_kind == self.T_PHOTON:
+            cv = (t + Q2 - mV * mV + 2.0 * q0 * Ev) / (2.0 * qv * pv)
+        elif t_kind == self.T_TARGET:
+            # t = M^2 + mV^2 - 2 (Ep Ev + qv pv cv)   (target moves along -z)
+            cv = (M * M + mV * mV - t - 2.0 * Ep * Ev) / (2.0 * qv * pv)
+        else:
+            raise ValueError(f"unknown t_kind {t_kind!r}")
         if abs(cv) > 1.0 + 1e-9:
             raise ValueError("unphysical (t,v): |cos theta_V| > 1")
         cv = np.clip(cv, -1.0, 1.0)
@@ -96,7 +118,8 @@ class EventKin:
 
     # ------------------------------------------------------------------ #
     @staticmethod
-    def vmax_kin(Ebeam, Q2, W2, t, mV, M=M_P, m=M_E, mU=None):
+    def vmax_kin(Ebeam, Q2, W2, t, mV, M=M_P, m=M_E, mU=None,
+                 t_kind="photon"):
         """Largest v allowed at fixed (Q2,W2,t): |cos theta_V(v)| <= 1."""
         if mU is None:
             mU = M
@@ -109,12 +132,15 @@ class EventKin:
         lam_q = Sx * Sx + 4.0 * M * M * Q2
         q0 = (W2 - Q2 - M * M) / (2.0 * W)
         qv = np.sqrt(lam_q) / (2.0 * W)
+        Ep = (W2 + Q2 + M * M) / (2.0 * W)
 
         def cos_v(v):
             Ev = (W2 + mV * mV - mU * mU - v) / (2.0 * W)
             if Ev <= mV:
                 return None
             pv = np.sqrt(Ev * Ev - mV * mV)
+            if t_kind == "target":
+                return (M * M + mV * mV - t - 2.0 * Ep * Ev) / (2.0 * qv * pv)
             return (t + Q2 - mV * mV + 2.0 * q0 * Ev) / (2.0 * qv * pv)
 
         c0 = cos_v(0.0)

@@ -75,6 +75,7 @@ class Topology:
     lt_sign: float = +1.0
     detected: str = ""
     missing: str = ""
+    t_kind: str = "photon"     # which invariant the t bin holds fixed
     note: str = ""
 
     def __post_init__(self):
@@ -93,7 +94,7 @@ class Topology:
         return dict(topology=self.name, detected=self.detected,
                     missing=self.missing, m_detected=self.m_detected,
                     m_missing=self.m_missing, sf_t=self.sf_t,
-                    lt_sign=self.lt_sign)
+                    lt_sign=self.lt_sign, t_kind=self.t_kind)
 
     def __str__(self):
         return (f"{self.name}(detected={self.detected} m={self.m_detected:.6f}, "
@@ -125,6 +126,7 @@ def baryon_detected(m_meson, meson="meson", m_recoil=M_P, recoil="p"):
                     m_detected=m_recoil, m_missing=m_meson,
                     sf_t=FIXED_NUCLEON, lt_sign=-1.0,
                     detected=recoil, missing=meson,
+                    t_kind="target",
                     note="EXCLURAD pi0/eta configuration: v = MX^2 - m_meson^2; "
                          "SFs at fixed t_N=(p-p')^2; hadron-plane x axis "
                          "flipped -> sigma_LT, sigma_LT' change sign.")

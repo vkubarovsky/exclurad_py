@@ -17,7 +17,7 @@ from .radiative import sigma_F
 def rc_factor(Ebeam, Q2, W2, t, phi, sfmodel, h=+1,
               mx2_cut=None, M=M_P, m=M_E,
               n_v=30, n_core=16, n_tail=24, n_phi=16,
-              exponentiate=True):
+              exponentiate=True, t_kind=None):
     """Radiative correction at fixed observed (Q2, W2, t, phi), beam helicity h.
 
     mx2_cut : missing-mass-squared cut MX^2 < mx2_cut  (GeV^2), where the
@@ -28,9 +28,14 @@ def rc_factor(Ebeam, Q2, W2, t, phi, sfmodel, h=+1,
     individual pieces.
     """
     mU = getattr(sfmodel, 'mU', None)
-    kin = EventKin(Ebeam, Q2, W2, t, phi, sfmodel.mV, v=0.0, M=M, m=m, mU=mU)
+    if t_kind is None:
+        topo = getattr(sfmodel, 'topology', None)
+        t_kind = getattr(topo, 't_kind', 'photon') if topo else 'photon'
+    kin = EventKin(Ebeam, Q2, W2, t, phi, sfmodel.mV, v=0.0, M=M, m=m, mU=mU,
+                   t_kind=t_kind)
 
-    v_kin = EventKin.vmax_kin(Ebeam, Q2, W2, t, sfmodel.mV, M=M, m=m, mU=mU)
+    v_kin = EventKin.vmax_kin(Ebeam, Q2, W2, t, sfmodel.mV, M=M, m=m, mU=mU,
+                              t_kind=t_kind)
     v_m = v_kin
     if mx2_cut is not None:
         v_m = min(v_m, mx2_cut - kin.mU ** 2)
