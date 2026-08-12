@@ -317,16 +317,40 @@ Fortran's reproduction, consistently across phi.  So the disagreement with
 the published table is largely a feature the reference code shares, not
 something mesonrc introduces.
 
-**Retracted: an earlier "4 % fixed-t effect".**  A first pass ran with
-`t_kind="photon"` — holding (q - p')^2 fixed instead of (p - p')^2.  That
-convention has a spurious kinematic limit v_max = 0.087 at this bin (vs
-1.18 for the correct one), truncating the 0.20 window and shifting eta by
-about -0.04.  It was reported as a physics finding about fixed-t versus
-fixed-angle binning.  It was not: it was the wrong invariant.  There is no
-4 % effect.  The lesson is recorded rather than quietly deleted because the
-wrong number looked entirely plausible — the phi-shape agreed to 0.13 %
-rms throughout, which is exactly the kind of partial agreement that makes a
-convention error easy to believe.
+**Retracted: an earlier "4 % fixed-t effect", and the claim that EXCLURAD
+uses a different t.**  Both were wrong, and it is worth being precise about
+how.
+
+A first pass ran with `t_kind="photon"` — holding (q - p')^2 fixed instead
+of (p - p')^2.  That invariant has a spurious kinematic limit v_max = 0.087
+at this bin (vs 1.18 for the correct one), truncating the 0.20 window and
+shifting eta by about -0.04.  That was a plain bug.  It was then reported
+as a physics finding about "fixed-t versus fixed-angle" binning, which
+compounded the error with a wrong story.
+
+EXCLURAD converts t to cos(theta) at Born (main loop, iphy=11 block) and
+freezes the ANGLE through the v integration, while mesonrc's `T_TARGET`
+holds t itself.  Those are genuinely different prescriptions, and the
+kinematics do drift: at this bin, freezing cos(theta) lets t move from
+-0.12000 to -0.12665 by v = 0.199, i.e. 5.5 % of |t|.  **But the effect on
+the RC is 1e-5 absolute (0.001 %)** — see the table below.  The two agree
+to five decimals at every phi.
+
+| convention | eta vs published: mean | rms |
+|---|---:|---:|
+| `t_kind="target"` (t held fixed) | +0.757 % | 0.00304 |
+| `t_kind="cm_angle"` (EXCLURAD) | +0.757 % | 0.00305 |
+
+Two reasons it does not propagate: the drift is small in absolute terms,
+and in this topology `ProtonDetectedModel` evaluates the structure
+functions at the *supplied* t_N with shifted (W2~, Q2~), so the model never
+sees the drift — only the phase space does.
+
+So the published-table agreement above is **independent of the angle-vs-t
+choice**, which strengthens it.  `t_kind` is kept because the real
+distinction — WHICH PARTICLE t is measured from, `"photon"` vs `"target"` —
+does matter and was the actual bug.  `"cm_angle"` is retained only as a
+verification of EXCLURAD's convention.
 
 An intermediate matched-window comparison against EXCLURAD (both codes
 forced to v < 0.08, where the conventions nearly coincide) gave mean

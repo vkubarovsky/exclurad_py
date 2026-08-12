@@ -37,6 +37,7 @@ class EventKin:
 
     T_PHOTON = "photon"     # t = (q - p_detected)^2
     T_TARGET = "target"     # t = (p - p_detected)^2   <-- CLAS pi0/eta binning
+    T_CMANGLE = "cm_angle"  # cos(theta_CM) frozen at its Born value <-- EXCLURAD
 
     def __init__(self, Ebeam, Q2, W2, t, phi, mV, v=0.0, M=M_P, m=M_E, mU=None,
                  t_kind="photon"):
@@ -102,6 +103,14 @@ class EventKin:
         elif t_kind == self.T_TARGET:
             # t = M^2 + mV^2 - 2 (Ep Ev + qv pv cv)   (target moves along -z)
             cv = (M * M + mV * mV - t - 2.0 * Ep * Ev) / (2.0 * qv * pv)
+        elif t_kind == self.T_CMANGLE:
+            # EXCLURAD: convert t -> cos(theta) ONCE at v = 0, then freeze the
+            # ANGLE while E and |p| of the detected hadron follow v.  At v = 0
+            # this coincides with T_TARGET; the two separate as v grows,
+            # because E_det(CM) = (W2 + mV^2 - mU^2 - v)/2W depends on v.
+            Ev0 = (W2 + mV * mV - mU * mU) / (2.0 * W)
+            pv0 = np.sqrt(max(Ev0 * Ev0 - mV * mV, 0.0))
+            cv = (M * M + mV * mV - t - 2.0 * Ep * Ev0) / (2.0 * qv * pv0)
         else:
             raise ValueError(f"unknown t_kind {t_kind!r}")
         if abs(cv) > 1.0 + 1e-9:
@@ -141,6 +150,10 @@ class EventKin:
             pv = np.sqrt(Ev * Ev - mV * mV)
             if t_kind == "target":
                 return (M * M + mV * mV - t - 2.0 * Ep * Ev) / (2.0 * qv * pv)
+            if t_kind == "cm_angle":
+                Ev0 = (W2 + mV * mV - mU * mU) / (2.0 * W)
+                pv0 = np.sqrt(max(Ev0 * Ev0 - mV * mV, 0.0))
+                return (M * M + mV * mV - t - 2.0 * Ep * Ev0) / (2.0 * qv * pv0)
             return (t + Q2 - mV * mV + 2.0 * q0 * Ev) / (2.0 * qv * pv)
 
         c0 = cos_v(0.0)
