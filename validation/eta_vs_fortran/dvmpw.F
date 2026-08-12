@@ -218,6 +218,7 @@ C      JAC=4*P1cm*P2CM*W*XB/(W2+Q2-Mp*Mp)
       JACG=2*W*XB/(W2+Q2-Mp*Mp)
       JACR=2*P1cm*P2CM
 
+      WRITE(77,'(4(1X,1PE20.12))') W2, Q2, COST, DEL2
       CHECK_KINE=.TRUE.
 
       RETURN

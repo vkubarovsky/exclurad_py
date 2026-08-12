@@ -412,6 +412,31 @@ this in the calculation itself; it only matters when the point value is
 applied to binned data.  An earlier draft used bin width as the resolution
 and was wrong to.
 
+**Measured directly (VPK challenge): does EXCLURAD shift t?  No.**
+`CHECK_KINE` was instrumented to dump `del2` -- the t at which the fit is
+actually evaluated -- over 1.75e6 photon points for one grid point
+(`validation/eta_vs_fortran/del2_dump.dat`):
+
+| percentile | del2 |
+|---:|---:|
+| 50-100 % | **-0.120022**  (the bin's t) |
+| 25 % | -0.12244 |
+| 1 % | -0.12652 |
+| 0.01 % | -0.12670 |
+
+52 % of evaluations are within 1e-4 of the bin's t while W2~ swings
+8.38 -> 5.43 and Q2~ 1.36 -> 0.73.  **t is held; only W2~ and Q2~ shift** --
+exactly as the physics requires (radiation from the lepton line, p'
+measured).  The residual drift to -0.1267 is 0.0067 GeV^2, 5.5 % of |t|,
+matching the frozen-angle estimate; it is a side effect of EXCLURAD's
+angle parameterization, not a different definition of t.
+
+`ProtonDetectedModel` holds t exactly, which is the correct treatment and
+agrees with EXCLURAD to better than 5 % in t over the tail.  An earlier
+draft claimed EXCLURAD evaluates at a shifted t and proposed a
+compatibility wrapper to match it; both are retracted, and the wrapper was
+deleted.
+
 **Status of the claimed 13-17 % effect: REAL AT A POINT, but its
 significance is unsettled.**  It comes from bins where the fixed-t window
 truncates, and those are exactly the bins sitting on the kinematic edge:
