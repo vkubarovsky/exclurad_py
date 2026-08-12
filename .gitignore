@@ -10,3 +10,8 @@ rad*.dat
 all*.dat
 run.log
 __pycache__/
+sf_pi0.out
+pts.txt
+exclurad.f
+sfdrv*.exe
+*.log

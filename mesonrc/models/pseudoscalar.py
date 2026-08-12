@@ -46,17 +46,22 @@ _PS_VALIDITY = dict(W2=(1.15, 20.0), Q2=(0.5, 12.0), mt=(0.0, 5.0))
 #  pi0
 # --------------------------------------------------------------------------- #
 @register
-class Pi0_VPK2014(ProtonDetectedModel):
-    name = "pi0.vpk2014"
+class Pi0_VPK2013(ProtonDetectedModel):
+    name = "pi0.vpk2013"
     channel = "pi0"
-    version = "2014"
+    version = "2013"
     topology = _PI0_TOPO
     validity = _PS_VALIDITY
     provenance = (
-        "Port of dvmpx.F XSIGMA_T/L/TT/LT with pi0eta.par column k=1, as "
-        "built into exclurad-2014 (copy: ~/eta-rc-2026/model2013note/). "
-        "Verified against the Fortran by validation/verify_ports.py.")
-    reference = "EXCLURAD-2014 built-in fit; ~/OneDrive/Work/2026_RC_test_comparison/exclurad/"
+        "Port of XSIGMA_T/L/TT/LT with pi0eta.par column k=1: the sigma_L-"
+        "dominant model used for the PUBLISHED CLAS6 pi0 radiative "
+        "corrections (PRC 90, 025205). Parameters byte-identical in "
+        "~/excl2013/pi0eta.par (July 2013 production) and "
+        "~/eta-rc-2026/model2013note/. NOTE: some directories label this "
+        "same model '2014' (e.g. 'dvmpx-2014'); it is the 2013 production "
+        "model. Alias pi0.vpk2014 kept for old references.")
+    reference = ("PRC 90, 025205 (2014); ~/excl2013/ (July 2013 production, "
+                 "radcor_all.vec); ~/exclurad-2026/report/report.pdf")
 
     def _sfs_tn(self, t_nucl, xB, Q2):
         return F.dvmp2013_form(t_nucl, xB, Q2, F.P2013_PI0, M_PI0_FIT)
@@ -139,3 +144,14 @@ class Eta_VPK2021(ProtonDetectedModel):
     def _sfs_tn(self, t_nucl, xB, Q2):
         sT, sL, sTT, sLT = F.vpk2021_form(t_nucl, xB, Q2, F.P2021_ETA, M_ETA_FIT)
         return sT, sL, sTT, 2.0 * sLT
+
+
+# Deprecated alias: this model is labelled "2014" in several older
+# directories, but the parameters are the July-2013 production set.
+@register
+class Pi0_VPK2014(Pi0_VPK2013):
+    name = "pi0.vpk2014"
+    version = "2013"
+    provenance = ("DEPRECATED ALIAS of pi0.vpk2013 -- identical parameters. "
+                  "Kept so older scripts and notes resolve; prefer "
+                  "pi0.vpk2013, which names the production year correctly.")
