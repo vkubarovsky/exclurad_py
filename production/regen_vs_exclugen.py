@@ -16,8 +16,8 @@ are generated; the comparison is then done on the overlap region.
 """
 import os, sys, time, json
 import numpy as np
-from mesonrc import models, stamp
-from mesonrc.generator import Generator, Box, write_lund
+from exclurad_py import models, stamp
+from exclurad_py.generator import Generator, Box, write_lund
 
 N = int(os.environ.get("NEV", "100000"))
 OUT = os.path.dirname(os.path.abspath(__file__))
@@ -54,7 +54,7 @@ for ch in channels:
                               Ebeam=10.6, n_events=len(ev),
                               reference="exclugen out/%s/20260810_10.6_rad_osg_v2" % ch,
                               eta_interp=chk))
-    lund = os.path.join(OUT, f"{ch}_mesonrc_vs_exclugen_{N//1000}k.lund")
+    lund = os.path.join(OUT, f"{ch}_exclurad_py_vs_exclugen_{N//1000}k.lund")
     n = write_lund(lund, ev, channel=ch, topology=sf.topology, stamp=st)
     np.savez_compressed(os.path.join(OUT, f"{ch}_vs_exclugen_kin.npz"),
                         Q2=np.array([e["Q2"] for e in ev]),

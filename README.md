@@ -1,4 +1,4 @@
-# mesonrc
+# exclurad_py
 
 QED radiative corrections and unweighted event generation for exclusive
 meson electroproduction at CLAS12:
@@ -13,19 +13,39 @@ helicity — serving every channel, with the cross-section model, the meson,
 and the detection topology as **plug-in axes rather than compile-time
 choices**.
 
-This replaces three codes with one: EXCLURAD (pi0/eta, 5 SF), DIFFRAD
-(vector, 2 SF only), and their generators. The Fortran is retained as a
-frozen validation reference, never as a production path.
+## What the name means, and what it does not
+
+**Same formalism as EXCLURAD, independent implementation.** This is
+EXCLURAD's physics — the exact covariant Bardin–Shumeiko master formula,
+the same `delta_VR`, `delta_inf`, `delta_vac`, the same five structure
+functions — and it reproduces EXCLURAD to **0.15–0.20 %** over ~5000 bins
+in both pi0 and eta (see `REPORT.md` §3.2).
+
+It is **not** a line-by-line translation of the Fortran. EXCLURAD evaluates
+the radiative leptonic tensor through long analytic contractions;
+`exclurad_py` builds it numerically from helicity spinors and contracts it
+with the hadronic tensor. Different method, same physics. That matters: a
+transliteration agreeing with its parent proves nothing, whereas two
+independent implementations agreeing to 0.2 % is evidence both are right.
+It is also why the residual is 0.2 % rather than zero, and why this code is
+smooth through phi = 0/180 where `exclurad.F` returns NaN.
+
+**It also covers vector mesons, which EXCLURAD never did.** rho, phi and
+J/psi run on the models of `~/MC_vector_mesons/diffrad_vm.f90` (ported and
+verified to 8–9 digits) in two-structure-function mode. So the name
+understates the scope: this replaces three codes with one — EXCLURAD
+(pi0/eta), DIFFRAD (vector), and their generators. The Fortran is retained
+as a frozen validation reference, never as a production path.
 
 ## Quick start
 
 ```bash
-python3 -c "from mesonrc import models; print(models.list_models())"
-python3 -m mesonrc.validation.selftest
+python3 -c "from exclurad_py import models; print(models.list_models())"
+python3 -m exclurad_py.validation.selftest
 ```
 
 ```python
-from mesonrc import models, rc_factor
+from exclurad_py import models, rc_factor
 
 sf  = models.get("eta.tableB1", t_nucl=-0.2)     # published eta production model
 res = rc_factor(Ebeam=10.6, Q2=1.5, W2=5.0, t=-0.2, phi=1.1,
@@ -36,8 +56,8 @@ print(res["eta"], res["delta_VR"], res["sigma_F"])
 Unweighted event generation with LUND output:
 
 ```python
-from mesonrc.generator import Generator, Box, write_lund
-from mesonrc import stamp
+from exclurad_py.generator import Generator, Box, write_lund
+from exclurad_py import stamp
 
 gen = Generator(sf, Ebeam=10.6,
                 box=Box(Q2=(1.0, 2.5), W2=(4.5, 7.0), t=(-0.5, -0.15)),
@@ -52,11 +72,11 @@ print(gen.report(), gen.health())
 
 | directory | contents |
 |---|---|
-| `mesonrc/core/` | **frozen** RC machinery. Knows nothing about channels or models. Change only for physics reasons; every change invalidates the validation suite. |
-| `mesonrc/topology.py` | which hadron is detected, which is missing — plus the `sigma_LT` sign and `t_N` conventions that follow |
-| `mesonrc/models/` | the versioned axis: `pi0.vpk2014`, `eta.tableB1`, `jpsi.diffrad`, … |
-| `mesonrc/generator/` | unweighted generation, photon sampling, lab frames, LUND |
-| `mesonrc/validation/` | internal consistency suite + legacy-code comparison |
+| `exclurad_py/core/` | **frozen** RC machinery. Knows nothing about channels or models. Change only for physics reasons; every change invalidates the validation suite. |
+| `exclurad_py/topology.py` | which hadron is detected, which is missing — plus the `sigma_LT` sign and `t_N` conventions that follow |
+| `exclurad_py/models/` | the versioned axis: `pi0.vpk2013`, `eta.tableB1`, `jpsi.diffrad_vm`, … |
+| `exclurad_py/generator/` | unweighted generation, photon sampling, lab frames, LUND |
+| `exclurad_py/validation/` | internal consistency suite + legacy-code comparison |
 
 ## The three axes
 
@@ -64,7 +84,7 @@ Everything that varies across use cases is one of three things, and the
 package is organized around exactly those:
 
 1. **Channel** — rho, phi, J/psi, pi0, eta. Enters only as `(m_V, m_U)`.
-2. **Model vintage** — `pi0.vpk2014` / `pi0.vpk2021`, `eta.tableB1` /
+2. **Model vintage** — `pi0.vpk2013` / `pi0.vpk2021`, `eta.tableB1` /
    `eta.refit2013` / `eta.vpk2021`, three J/psi models. This is where the
    physics content lives and where new work lands.
 3. **Topology** — which hadron is detected. Easy to overlook, and wrong
@@ -95,8 +115,8 @@ default and **counted** — `sf.usage()` reports the fraction.
 ## Adding a model
 
 ```python
-from mesonrc.models import ProtonDetectedModel, register
-from mesonrc.topology import baryon_detected
+from exclurad_py.models import ProtonDetectedModel, register
+from exclurad_py.topology import baryon_detected
 
 @register
 class Eta_MyFit2026(ProtonDetectedModel):
@@ -114,7 +134,7 @@ class Eta_MyFit2026(ProtonDetectedModel):
 ## Validation
 
 ```bash
-python3 -m mesonrc.validation.selftest      # 8 internal checks
+python3 -m exclurad_py.validation.selftest      # 8 internal checks
 ```
 
 See `REPORT.md` for the current status, the numbers, and what is not yet

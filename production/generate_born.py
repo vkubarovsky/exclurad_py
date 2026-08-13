@@ -15,16 +15,16 @@ Boxes match the reference Born run cards:
   rho      diffrad_vm defaults
 
 CAVEAT: exclugen's Born run has itarg=1, i.e. PRE-VERTEX EXTERNAL RADIATION
-IS ON even in its Born sample.  mesonrc Born is pure Born.  Expect a
+IS ON even in its Born sample.  exclurad_py Born is pure Born.  Expect a
 difference in the scattered-electron spectrum from that alone.
 """
 import os, sys, json, time
 import numpy as np
-from mesonrc import models, stamp
-from mesonrc.generator import Generator, Box, write_lund
+from exclurad_py import models, stamp
+from exclurad_py.generator import Generator, Box, write_lund
 
 N = int(os.environ.get("NEV", "100000"))
-ROOT = "/Volumes/wd_14tb/mc/mesonrc"
+ROOT = "/Volumes/wd_14tb/mc/exclurad_py"
 DATE, EB = "20260813", "10.6"
 
 CFG = {
@@ -60,7 +60,7 @@ for ch in channels:
 
     st = stamp(sf, extra=dict(mode="BORN ONLY (no radiative corrections)",
                               box=c["box"].as_dict(), Ebeam=10.6, n_events=len(ev)))
-    lund = os.path.join(d, "lund", f"{ch}_mesonrc_born_{EB}GeV.lund")
+    lund = os.path.join(d, "lund", f"{ch}_exclurad_py_born_{EB}GeV.lund")
     n = write_lund(lund, ev, channel=ch, topology=sf.topology, stamp=st)
     np.savez_compressed(os.path.join(d, f"{ch}_born_kin.npz"),
                         Q2=np.array([e["Q2"] for e in ev]),
@@ -77,7 +77,7 @@ for ch in channels:
         json.dump(dict(config=cfg, stamp=st, report={k: (float(v) if isinstance(v, float) else v)
                                                      for k, v in r.items()}), fh, indent=2, default=str)
     with open(os.path.join(d, "README.md"), "w") as fh:
-        fh.write(f"# mesonrc {ch} BORN, {EB} GeV, {n} events\n\n"
+        fh.write(f"# exclurad_py {ch} BORN, {EB} GeV, {n} events\n\n"
                  f"Model `{c['model']}`, box {c['box'].as_dict()}.\n"
                  f"Born only: no radiative corrections, no photon, eta=1.\n"
                  f"Unweighted; LUND weight column is 1.0.\n\n"

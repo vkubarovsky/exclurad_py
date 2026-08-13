@@ -1,7 +1,7 @@
-"""mesonrc vs exclugen (OSG v2, 10.6 GeV, 100k each) for pi0 and eta.
+"""exclurad_py vs exclugen (OSG v2, 10.6 GeV, 100k each) for pi0 and eta.
 
 exclugen = exact first-order RC built on EXCLURAD -- the same formalism
-mesonrc reproduces to 0.15-0.20% at the RC-factor level.  So this compares
+exclurad_py reproduces to 0.15-0.20% at the RC-factor level.  So this compares
 the GENERATOR layer, with the RC engine already validated underneath.
 
 Handled:
@@ -11,12 +11,12 @@ Handled:
    xB, y, W2, Q2, nu, used directly instead of recomputing invariants.
  * E_gamma is the INTERNAL radiated photon (LUND particle 7, parent 0); the
    decay photons (parent 4) are excluded by the reader.
- * Comparison is restricted to the overlap box, since mesonrc was generated
+ * Comparison is restricted to the overlap box, since exclurad_py was generated
    on a narrower box than exclugen's full Q2 0.2-10 / W2 3.2-20.
 
 NOT handled (a real difference, stated not corrected):
  * exclugen has PRE-VERTEX EXTERNAL RADIATION on (Tsai straggling in the LH2
-   cell); mesonrc is internal-only.  External loss shifts the effective beam
+   cell); exclurad_py is internal-only.  External loss shifts the effective beam
    energy per event but does not appear as particle 7, so the internal
    photon spectra remain comparable.
 """
@@ -49,12 +49,12 @@ for row, ch in enumerate(["pi0", "eta"]):
 
     print(f"=== {ch}: overlap Q2 {lo['Q2']:.2f}-{hi['Q2']:.2f}, "
           f"W2 {lo['W2']:.2f}-{hi['W2']:.2f}, |t| {lo['mt']:.3f}-{hi['mt']:.3f}")
-    print(f"    mesonrc {km.sum()} events, exclugen {kr.sum()} events "
+    print(f"    exclurad_py {km.sum()} events, exclugen {kr.sum()} events "
           f"(sum w = {w[kr].sum():.4g})")
     for cut in (0.05, 0.15, 0.30, 0.60, 1.0):
         fm = (m["E_gamma"][km] > cut).mean()
         fr = (r["E_gamma"][kr] > cut).mean()
-        print(f"      Eg>{cut:4.2f} : mesonrc {fm:.4f}   exclugen {fr:.4f}   "
+        print(f"      Eg>{cut:4.2f} : exclurad_py {fm:.4f}   exclugen {fr:.4f}   "
               f"ratio {fm/max(fr,1e-9):.2f}")
 
     for j, (vm, vr, lab, xlog) in enumerate([
@@ -66,7 +66,7 @@ for row, ch in enumerate(["pi0", "eta"]):
             sm, sr = vm > 0.05, vr > 0.05
             b = np.linspace(0.05, min(np.percentile(vr[sr], 99), 3.0), 40)
             a.hist(vm[sm], bins=b, density=True, histtype="step", lw=2, color=BLUE,
-                   label="mesonrc")
+                   label="exclurad_py")
             a.hist(vr[sr], bins=b, density=True, histtype="step",
                    lw=2, color=VERM, label="exclugen")
             a.set_yscale("log")
@@ -74,7 +74,7 @@ for row, ch in enumerate(["pi0", "eta"]):
             b = np.linspace(min(vm.min(), vr.min()),
                             max(np.percentile(vm, 99), np.percentile(vr, 99)), 40)
             a.hist(vm, bins=b, density=True, histtype="step", lw=2, color=BLUE,
-                   label="mesonrc")
+                   label="exclurad_py")
             a.hist(vr, bins=b, density=True, histtype="step", lw=2,
                    color=VERM, label="exclugen")
             a.set_yscale("log")

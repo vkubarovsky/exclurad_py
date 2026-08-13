@@ -17,7 +17,7 @@ routes to the same number:
  7. Sampler closure      the sampled photon spectrum must reproduce the
                          density it was drawn from (chi2 against the grid).
 
-Run:  python3 -m mesonrc.validation.selftest
+Run:  python3 -m exclurad_py.validation.selftest
 """
 
 import numpy as np
@@ -198,7 +198,7 @@ CHECKS = [
 
 def main():
     print("=" * 70)
-    print("mesonrc internal consistency suite")
+    print("exclurad_py internal consistency suite")
     print("=" * 70)
     n_fail = 0
     for label, fn in CHECKS:

@@ -3,12 +3,12 @@ Comparison against the legacy Fortran codes.
 
 EXCLURAD (pi0/eta) and DIFFRAD (vector mesons) are kept as FROZEN
 references, not as production paths.  They are never edited; this module
-runs them and compares.  A regression that changes `mesonrc.core` must move
+runs them and compares.  A regression that changes `exclurad_py.core` must move
 these residuals, which is the point.
 
 Two traps, both of which have bitten this comparison before:
 
-1. BIN DEFINITION.  mesonrc works at fixed observed t, where the kinematic
+1. BIN DEFINITION.  exclurad_py works at fixed observed t, where the kinematic
    limit v_max(t) can truncate the inelasticity window BELOW the nominal
    cut; EXCLURAD bins at fixed detected-hadron ANGLE, where v runs to the
    full cut.  At one CLAS12 pi0 point this alone is a ~1% effect on eta.
@@ -16,11 +16,11 @@ Two traps, both of which have bitten this comparison before:
    v_max(t)) and report the unmatched number separately.
 
 2. TOPOLOGY.  EXCLURAD detects the PROTON and misses the meson.  The
-   corresponding mesonrc models are ProtonDetectedModel subclasses with
+   corresponding exclurad_py models are ProtonDetectedModel subclasses with
    `baryon_detected` topology; using a meson-detected model instead gives
    plausible, wrong numbers.
 
-Known residual: mesonrc puts the undetected mass mU in the Li2 argument of
+Known residual: exclurad_py puts the undetected mass mU in the Li2 argument of
 delta_VR where EXCLURAD uses the target mass (~0.1% on eta).  The covariant
 derivation says mU.  Do not "fix" either code to make them agree; quantify
 and report.
@@ -58,7 +58,7 @@ def run_exe(exe, workdir, timeout=3600):
 
 
 # --------------------------------------------------------------------------- #
-def compare(delta_a, delta_b, label_a="mesonrc", label_b="legacy"):
+def compare(delta_a, delta_b, label_a="exclurad_py", label_b="legacy"):
     """Residual statistics between two RC tables aligned point-by-point."""
     a = np.asarray(delta_a, dtype=float)
     b = np.asarray(delta_b, dtype=float)
@@ -98,7 +98,7 @@ def format_comparison(stats, tol_rel=3e-3):
 # --------------------------------------------------------------------------- #
 def rc_over_points(sfmodel, points, Ebeam, mx2_cut=None, helicity=+1,
                    match_window=False, progress=None):
-    """Evaluate mesonrc eta over a list of (Q2, W2, t, phi) points.
+    """Evaluate exclurad_py eta over a list of (Q2, W2, t, phi) points.
 
     match_window=True reports, alongside eta, the fixed-t kinematic limit
     v_max(t) so a legacy run can be repeated with cutv set to it.
@@ -128,7 +128,7 @@ def rc_over_points(sfmodel, points, Ebeam, mx2_cut=None, helicity=+1,
 
 
 # --------------------------------------------------------------------------- #
-#  EXCLURAD grid variables -> mesonrc arguments
+#  EXCLURAD grid variables -> exclurad_py arguments
 # --------------------------------------------------------------------------- #
 def excl_to_mesonrc(Q2, xB, t_nucl, phi_meson, m_meson, M=0.93827208816):
     """Map published-grid variables onto the detected-proton kinematics.

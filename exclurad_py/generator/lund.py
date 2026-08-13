@@ -88,7 +88,7 @@ def write_lund(path, events, channel, topology=None, stamp=None,
 
     events : iterables of dicts from frames.assemble_event, each optionally
              carrying an 'weight' key (must be 1.0 unless allow_weighted).
-    stamp  : provenance dict (mesonrc.provenance.stamp) written as comments.
+    stamp  : provenance dict (exclurad_py.provenance.stamp) written as comments.
     """
     from ..provenance import header_lines
 

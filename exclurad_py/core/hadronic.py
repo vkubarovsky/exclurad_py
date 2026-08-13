@@ -126,5 +126,5 @@ def hadronic_tensor(qt, p, pv, W2t, sf, M=M_P):
     return H
 
 # NOTE: the StructureFunctions interface and the TwoSF wrapper used to live
-# here.  They now live in mesonrc.models.base -- core/ must not import or
+# here.  They now live in exclurad_py.models.base -- core/ must not import or
 # know about models.

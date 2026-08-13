@@ -1,0 +1,84 @@
+{
+  "pi0": {
+    "model": "pi0.vpk2021",
+    "n": 100000,
+    "eta_interp": {
+      "n": 24,
+      "mean": 0.008528320361344826,
+      "rms": 0.014756593825570137,
+      "max_abs": 0.04976863341255999
+    },
+    "box": {
+      "Q2": [
+        1.0,
+        5.0
+      ],
+      "W2": [
+        4.0,
+        12.0
+      ],
+      "t": [
+        -2.0,
+        -0.1
+      ],
+      "phi": [
+        0.0,
+        6.283185307179586
+      ]
+    },
+    "v_gen": 0.5,
+    "ms_per_event": 7.84199511051178,
+    "trials": 2047096,
+    "accepted": 100000,
+    "efficiency": 0.04884968755739838,
+    "hard": 71682,
+    "soft": 28318,
+    "radiative_fraction": 0.71682,
+    "closure_failures": 0,
+    "overweight": 0,
+    "max_overweight": 1.0,
+    "tail_cells_built": 72,
+    "health": []
+  },
+  "eta": {
+    "model": "eta.vpk2021",
+    "n": 100000,
+    "eta_interp": {
+      "n": 24,
+      "mean": 0.0011554199396800052,
+      "rms": 0.010988997149049358,
+      "max_abs": 0.04280359387208921
+    },
+    "box": {
+      "Q2": [
+        1.0,
+        5.0
+      ],
+      "W2": [
+        4.5,
+        12.0
+      ],
+      "t": [
+        -2.0,
+        -0.1
+      ],
+      "phi": [
+        0.0,
+        6.283185307179586
+      ]
+    },
+    "v_gen": 0.6,
+    "ms_per_event": 3.585010659694672,
+    "trials": 762704,
+    "accepted": 100000,
+    "efficiency": 0.13111246302628543,
+    "hard": 70732,
+    "soft": 29268,
+    "radiative_fraction": 0.70732,
+    "closure_failures": 0,
+    "overweight": 0,
+    "max_overweight": 1.0,
+    "tail_cells_built": 72,
+    "health": []
+  }
+}

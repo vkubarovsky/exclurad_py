@@ -1,4 +1,4 @@
-"""Matched-window validation: mesonrc vs EXCLURAD on the published eta bin.
+"""Matched-window validation: exclurad_py vs EXCLURAD on the published eta bin.
 
 Reproduces the numbers in ../../REPORT.md section 3.2.
 
@@ -9,14 +9,14 @@ Reproduces the numbers in ../../REPORT.md section 3.2.
 WHY A MATCHED WINDOW.  EXCLURAD's inelasticity limit (exclurad.F bornkin,
 `vmax = w2 - amu2 + amh2 - 2 sqrt(w2 amh2)`) is the GLOBAL bound at fixed
 detected-hadron ANGLE -- 3.58 GeV^2 at this bin, so the 0.20 cut binds.
-mesonrc works at fixed observed t, where the kinematic limit is 0.0845.
+exclurad_py works at fixed observed t, where the kinematic limit is 0.0845.
 Comparing those directly measures the bin definition, not the physics
 (it gives -0.043 on eta here).  Setting vcut = 0.08, below both limits,
 makes the two integrate the identical v window.
 """
 import numpy as np
-from mesonrc import models
-from mesonrc.validation.legacy import (excl_to_mesonrc, rc_over_points,
+from exclurad_py import models
+from exclurad_py.validation.legacy import (excl_to_mesonrc, rc_over_points,
                                        compare, format_comparison)
 
 EBEAM, VCUT, M_ETA_EXCL = 5.75, 0.08, 0.5473
@@ -38,7 +38,7 @@ hdr = "phi_deg,Q2,xB,t_N,delta_exclurad,eta_mesonrc,diff,v_max"
 np.savetxt("eta_matched.csv", np.array(rows), delimiter=",", header=hdr,
            comments="", fmt="%.6g")
 eta = np.array([r[5] for r in rows])
-print(format_comparison(compare(eta, delta_f, "mesonrc", "EXCLURAD matched"),
+print(format_comparison(compare(eta, delta_f, "exclurad_py", "EXCLURAD matched"),
                         tol_rel=5e-3))
 print("\nNote: EXCLURAD writes delta with f8.3, i.e. 0.001 granularity "
       "= 0.11% at delta~0.9, comparable to the residual itself.")

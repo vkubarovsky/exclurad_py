@@ -12,7 +12,7 @@ scattered electron, the recoil proton AND both decay daughters
 That matters for any comparison of radiative rates: a radiative event has
 lost beam energy, so its daughters are softer and more likely to fail the
 acceptance.  Comparing a reference sample that lives inside the acceptance
-against a mesonrc sample with no acceptance at all compares two different
+against a exclurad_py sample with no acceptance at all compares two different
 populations, and biases the radiative fraction downward in the reference.
 
 So: decay isotropically the same way, apply the same cuts to both, then

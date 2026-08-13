@@ -9,7 +9,7 @@ The naming convention is  <channel>.<vintage>  :
 
 Usage
 -----
-    from mesonrc.models import get, list_models
+    from exclurad_py.models import get, list_models
     sf = get("eta.tableB1", t_nucl=-0.2)      # ctor args passed through
     list_models("eta")                        # -> printable table
 

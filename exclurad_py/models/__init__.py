@@ -1,6 +1,6 @@
 """Structure-function models, organized as channel x vintage.
 
-    from mesonrc import models
+    from exclurad_py import models
     print(models.list_models())            # everything
     print(models.list_models("eta"))       # one channel
     sf = models.get("eta.tableB1", t_nucl=-0.2)

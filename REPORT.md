@@ -1,7 +1,7 @@
-# mesonrc — build and validation report
+# exclurad_py — build and validation report
 
 Built overnight 2026-08-11 → 12 on branch `feature/mesonrc-package`
-(worktree `~/mesonrc-build`, repo `~/mesonrc`).
+(worktree `~/exclurad_py`, repo `~/mesonrc`).
 
 This report says what was built, what was verified, **what was found to be
 wrong and fixed**, and — importantly — what is *not* yet validated. Read
@@ -209,7 +209,7 @@ precomputed table whose interpolation error is **measured, not assumed**
 
 ### 3.1 Internal consistency — all passing
 
-`python3 -m mesonrc.validation.selftest`
+`python3 -m exclurad_py.validation.selftest`
 
 | check | residual | tolerance |
 |---|---:|---:|
@@ -305,17 +305,17 @@ takes `t_kind`, and `baryon_detected` selects `t_kind="target"`.
 | rms residual | **0.00304 (0.328 %)** |
 | max abs residual | 0.01160 (1.237 %) |
 
-No window matching, no remapping of t: mesonrc is run in the analysis's own
+No window matching, no remapping of t: exclurad_py is run in the analysis's own
 bin definition and compared straight to the published numbers.
 
 The residual has a **shape**: ~+0.002 at the phi endpoints, ~+0.011
 mid-phi.  `~/eta-rc-2026/README.md` records the *same shape* for the
 Fortran's own reproduction of this table (endpoints +-0.001, mid-phi
 +0.007) and flags it as unexplained — probably a slightly different
-2010-era code or model iteration.  mesonrc sits about +0.004 above the
+2010-era code or model iteration.  exclurad_py sits about +0.004 above the
 Fortran's reproduction, consistently across phi.  So the disagreement with
 the published table is largely a feature the reference code shares, not
-something mesonrc introduces.
+something exclurad_py introduces.
 
 **Retracted: an earlier "4 % fixed-t effect", and the claim that EXCLURAD
 uses a different t.**  Both were wrong, and it is worth being precise about
@@ -377,11 +377,11 @@ the production vcut over 180 usable bins and decomposing:
 
 | comparison | mean | rms |
 |---|---:|---:|
-| mesonrc vs Fortran | **+0.148 %** | 0.202 % |
+| exclurad_py vs Fortran | **+0.148 %** | 0.202 % |
 | Fortran vs published | **+0.520 %** | 0.408 % |
-| mesonrc vs published | +0.669 % | 0.392 % |
+| exclurad_py vs published | +0.669 % | 0.392 % |
 
-mesonrc reproduces EXCLURAD to 0.15 %, the same level as pi0.  About 78 %
+exclurad_py reproduces EXCLURAD to 0.15 %, the same level as pi0.  About 78 %
 of the eta discrepancy is the Fortran's own failure to reproduce the
 published table from Table B.1 — which `~/eta-rc-2026/README.md` already
 flags as unexplained.  Two independent codes now agree with each other and
@@ -471,7 +471,7 @@ of the evaluation — it is the correct fixed-t limit.  In the worst bin
 
 The first attempt at this validation ran as a background agent and
 produced nothing. Its processes were killed by an over-broad
-`pkill -f "mesonrc"` issued while debugging unrelated slow generator runs
+`pkill -f "exclurad_py"` issued while debugging unrelated slow generator runs
 — the pattern matched the agent's own processes, since it was working
 under `~/mesonrc/validation/`. It had got as far as porting the model and
 building the Fortran driver; that work (`sfdrv.f`) was reused here.
@@ -488,7 +488,7 @@ Listed plainly because these are what would bite.
    (§3.2c). Not specific to this code; ~10 % of the pi0 grid sits within
    0.05 GeV^2 of t_min where v_max(t) varies fast across the bin.
 2. **The eta published table may not be reproducible from Table B.1**
-   (§3.2b): mesonrc and EXCLURAD agree to 0.15 % and both sit ~0.5 % above
+   (§3.2b): exclurad_py and EXCLURAD agree to 0.15 % and both sit ~0.5 % above
    the published numbers. Worth settling before the revisiting work leans
    on that table.
 3. **The photon spectrum uses the majorant cell centre, not the exact
@@ -507,7 +507,7 @@ Listed plainly because these are what would bite.
    because none of the underlying models provides them. The engine does
    not require this — that is the entire point — but the vector-meson gap
    is only *closable*, not yet *closed*, and needs an SDME fit.
-6. **The `delta_VR` Li2 mass discrepancy is unresolved.** mesonrc uses the
+6. **The `delta_VR` Li2 mass discrepancy is unresolved.** exclurad_py uses the
    undetected mass `m_U`, EXCLURAD uses the target mass; ~0.1% on eta. The
    covariant derivation says `m_U`. Not "fixed" in either code — flagged.
 7. **Vector-channel RC runs (§3.1c) but vector *generation* is untested
@@ -520,9 +520,9 @@ Listed plainly because these are what would bite.
 ## 5. How to pick this up
 
 ```bash
-cd ~/mesonrc-build
-python3 -m mesonrc.validation.selftest          # should print "all checks passed"
-python3 -c "from mesonrc import models; print(models.list_models())"
+cd ~/exclurad_py
+python3 -m exclurad_py.validation.selftest          # should print "all checks passed"
+python3 -c "from exclurad_py import models; print(models.list_models())"
 ```
 
 The branch is `feature/mesonrc-package`; `main` still holds the original

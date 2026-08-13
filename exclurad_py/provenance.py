@@ -7,7 +7,7 @@ point is narrow and practical: pi0 and eta each have several vintages
 (2014, 2021, 2026 refit) that give visibly different RC, and a file with
 no stamp cannot be traced back to the model that made it.
 
-    from mesonrc import stamp
+    from exclurad_py import stamp
     hdr = stamp(sfmodel=sf, extra=dict(v_cut=0.20))
     json.dump(hdr, open("run.json", "w"), indent=2)
 
@@ -25,7 +25,7 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 
 
 def git_hash(short=True):
-    """Current commit of the mesonrc working tree, or 'unknown'."""
+    """Current commit of the exclurad_py working tree, or 'unknown'."""
     try:
         args = ["git", "-C", _HERE, "rev-parse"]
         if short:
@@ -68,7 +68,7 @@ def stamp(sfmodel=None, extra=None, timestamp=None):
     from .core import CORE_VERSION
 
     d = {
-        "code": "mesonrc",
+        "code": "exclurad_py",
         "version": VERSION,
         "core_version": CORE_VERSION,
         "git_commit": git_hash(),

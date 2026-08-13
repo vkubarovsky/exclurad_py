@@ -11,7 +11,7 @@ table?" eight months later:
     provenance  where it came from and how the port was verified
     reference   paper / note / repo path
     validity    dict of (lo, hi) ranges for W2, Q2, -t
-    topology    a mesonrc.topology.Topology instance
+    topology    a exclurad_py.topology.Topology instance
 
 `validity` is not bureaucracy: the radiative tail evaluates the structure
 functions at shifted kinematics -- W2~ down to threshold, Q2~ on both sides

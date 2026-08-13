@@ -12,7 +12,7 @@ Ebeam 10.6 GeV, for four channels:
 | phi | `phi.diffrad_vm` | 6.56 | 0.046 | 0 | 0 |
 | jpsi | `jpsi.diffrad_vm` | 4.22 | 0.064 | 75 | 0 |
 
-Files: `production/{pi0,eta,phi,jpsi}_mesonrc_100k.lund` (+ `_kin.npz`).
+Files: `production/{pi0,eta,phi,jpsi}_exclurad_py_100k.lund` (+ `_kin.npz`).
 Every LUND file carries a provenance header (model, version, git commit,
 box, cut).  Four-momentum closure was verified for every event.
 
@@ -52,7 +52,7 @@ One thing that is not directly comparable and was handled:
 
 ### What does not
 
-| | mesonrc | diffrad_vm (weighted) | ratio |
+| | exclurad_py | diffrad_vm (weighted) | ratio |
 |---|---:|---:|---:|
 | phi, frac E_gamma > 0.15 GeV | 0.494 | 0.236 | **2.1** |
 | jpsi, frac E_gamma > 0.15 GeV | 0.273 | 0.051 | **5.4** |
@@ -60,7 +60,7 @@ One thing that is not directly comparable and was handled:
 The ratio is not flat in threshold (phi 1.7 → 2.1 → 0.7 from 0.02 to
 2 GeV), so it is a shape difference, not a normalization.  The Q2
 distributions also differ, severely for jpsi (panel d): the reference has
-almost nothing above Q2 = 0.1 while mesonrc extends across the box.
+almost nothing above Q2 = 0.1 while exclurad_py extends across the box.
 
 **This is unresolved.  The generator is NOT validated against diffrad_vm.**
 
@@ -69,7 +69,7 @@ almost nothing above Q2 = 0.1 while mesonrc extends across the box.
 * Reference weights (weighted and unweighted fractions differ by <10 %).
 * The reference's own kinematic cuts (y, xB, and for jpsi the e'/proton
   momentum and angle cuts) — the reference keeps 100 % of its events under
-  them, mesonrc 90 %, and the ratios barely move.
+  them, exclurad_py 90 %, and the ratios barely move.
 * v_max definition (identical, above).
 
 ### One concrete defect found

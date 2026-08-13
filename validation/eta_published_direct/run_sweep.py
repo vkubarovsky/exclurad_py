@@ -1,4 +1,4 @@
-"""mesonrc vs the PUBLISHED CLAS6 eta radiative corrections (PRC 95, 035202).
+"""exclurad_py vs the PUBLISHED CLAS6 eta radiative corrections (PRC 95, 035202).
 
 Reference: ~/excl2013/radcor_all.vec -- the original July 2013 EXCLURAD
 production over the 7840-point analysis grid.  Per
@@ -13,9 +13,9 @@ t is measured from the recoil proton, so t_kind="target" (set by the
 baryon_detected topology).
 """
 import numpy as np
-from mesonrc import models
-from mesonrc.core.rc import rc_factor
-from mesonrc.validation.legacy import (load_published_vec, compare,
+from exclurad_py import models
+from exclurad_py.core.rc import rc_factor
+from exclurad_py.validation.legacy import (load_published_vec, compare,
                                        format_comparison)
 
 M, EBEAM, VCUT = 0.93827208816, 5.75, 0.20
@@ -55,9 +55,9 @@ np.savetxt("eta_published_sweep%s.csv" % (("_"+T_KIND) if T_KIND else ""), np.ar
            comments="", fmt="%.6g")
 eta = np.array(eta)
 if NBINS <= 40:
-    print("%6s %9s %10s %+10s %8s" % ("phi", "delta_13", "mesonrc", "diff", "v_max"))
+    print("%6s %9s %10s %+10s %8s" % ("phi", "delta_13", "exclurad_py", "diff", "v_max"))
     for r in rows:
         print("%6.1f %9.3f %10.4f %+10.4f %8.4f" % (r[0], r[4], r[5], r[6], r[7]))
     print()
-print(format_comparison(compare(eta, dpub, "mesonrc", "published"),
+print(format_comparison(compare(eta, dpub, "exclurad_py", "published"),
                         tol_rel=1e-2))

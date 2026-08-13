@@ -1,6 +1,6 @@
-"""Direct comparison: mesonrc vs the PUBLISHED eta RC table.
+"""Direct comparison: exclurad_py vs the PUBLISHED eta RC table.
 
-No window matching and no Born-relation remapping of t -- mesonrc is run
+No window matching and no Born-relation remapping of t -- exclurad_py is run
 with the same bin definition the analysis uses.
 
 THE POINT.  In the CLAS pi0/eta analyses t is measured from the RECOIL
@@ -15,9 +15,9 @@ correct convention), which truncates the 0.20 window and shifts eta by
 about -0.04.  That is an artifact of the wrong convention, not physics.
 """
 import numpy as np
-from mesonrc import models
-from mesonrc.core.rc import rc_factor
-from mesonrc.validation.legacy import (load_published_vec, compare,
+from exclurad_py import models
+from exclurad_py.core.rc import rc_factor
+from exclurad_py.validation.legacy import (load_published_vec, compare,
                                        format_comparison)
 
 M, M_ETA_EXCL, EBEAM, VCUT = 0.93827208816, 0.5473, 5.75, 0.20
@@ -42,10 +42,10 @@ np.savetxt("eta_published_direct.csv", np.array(rows), delimiter=",",
            header="phi_deg,Q2,xB,t_N,delta_published,eta_mesonrc,diff,v_max",
            comments="", fmt="%.6g")
 eta = np.array([r[5] for r in rows])
-print(format_comparison(compare(eta, dpub, "mesonrc", "published"),
+print(format_comparison(compare(eta, dpub, "exclurad_py", "published"),
                         tol_rel=1e-2))
 print("\nResidual shape: ~+0.002 at the phi endpoints, ~+0.011 mid-phi.")
 print("~/eta-rc-2026/README.md records the SAME shape for the Fortran's own")
 print("reproduction of this table (endpoints +-0.001, mid-phi +0.007), and")
 print("flags it as unexplained -- probably a slightly different 2010-era")
-print("code or model iteration. mesonrc sits ~0.004 above that, consistently.")
+print("code or model iteration. exclurad_py sits ~0.004 above that, consistently.")

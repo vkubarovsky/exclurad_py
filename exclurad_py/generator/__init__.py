@@ -1,7 +1,7 @@
 """Unweighted event generation with exact radiative corrections.
 
-    from mesonrc import models
-    from mesonrc.generator import Generator, Box, write_lund
+    from exclurad_py import models
+    from exclurad_py.generator import Generator, Box, write_lund
 
     sf  = models.get("eta.tableB1", t_nucl=-0.2)
     gen = Generator(sf, Ebeam=10.6,

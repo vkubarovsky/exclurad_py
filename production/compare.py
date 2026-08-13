@@ -1,13 +1,13 @@
-"""Compare mesonrc 100k samples against the diffrad_vm reference samples.
+"""Compare exclurad_py 100k samples against the diffrad_vm reference samples.
 
 TWO THINGS THAT ARE NOT DIRECTLY COMPARABLE, and why:
 
 1. The reference samples are WEIGHTED (weights span 0.006-78, mean 1.24).
-   mesonrc events are unweighted.  Every reference distribution below is
+   exclurad_py events are unweighted.  Every reference distribution below is
    therefore filled with its weight; mesonrc's with unit weight.
 
 2. The RADIATIVE FRACTION is a bookkeeping choice, not an observable.  It
-   is fixed by where the soft/hard split v_min sits: mesonrc places it so
+   is fixed by where the soft/hard split v_min sits: exclurad_py places it so
    the soft branch keeps ~35% of the cross section, diffrad_vm uses its own
    threshold.  Comparing "fraction of events carrying a photon" compares
    the two conventions, not the physics.  What IS comparable is the photon
@@ -61,7 +61,7 @@ for ch, pid, refpath in PAIRS:
             sm = var_m > EGCUT; sr = var_r > EGCUT
             b = np.linspace(EGCUT, min(np.percentile(var_r[sr], 99.5), 4.0), 40)
             a.hist(var_m[sm], bins=b, density=True, histtype="step", lw=2,
-                   color=BLUE, label="mesonrc (unweighted)")
+                   color=BLUE, label="exclurad_py (unweighted)")
             a.hist(var_r[sr], bins=b, density=True,
                    histtype="step", lw=2, color=VERM, label="diffrad_vm (unweighted)")
             a.set_yscale("log")
@@ -71,7 +71,7 @@ for ch, pid, refpath in PAIRS:
             b = np.linspace(min(var_m.min(), var_r.min()),
                             max(np.percentile(var_m, 99.5), np.percentile(var_r, 99.5)), 40)
             a.hist(var_m, bins=b, density=True, histtype="step", lw=2, color=BLUE,
-                   label="mesonrc")
+                   label="exclurad_py")
             a.hist(var_r, bins=b, density=True, histtype="step",
                    lw=2, color=VERM, label="diffrad_vm")
             if logy:
@@ -86,10 +86,10 @@ for ch, pid, refpath in PAIRS:
     fr_r = (ref["E_gamma"][mr] > EGCUT).mean()
     print(f"{ch}: overlap box Q2 {lo['Q2']:.3f}-{hi['Q2']:.3f}, "
           f"W2 {lo['W2']:.2f}-{hi['W2']:.2f}, |t| {lo['mt']:.3f}-{hi['mt']:.3f}")
-    print(f"   fraction with E_gamma > {EGCUT} GeV :  mesonrc {fr_m:.4f}   "
+    print(f"   fraction with E_gamma > {EGCUT} GeV :  exclurad_py {fr_m:.4f}   "
           f"diffrad_vm {fr_r:.4f}   ratio {fr_m/fr_r:.3f}")
     sm = kin["E_gamma"][mk] > EGCUT; sr = ref["E_gamma"][mr] > EGCUT
-    print(f"   median E_gamma above cut     :  mesonrc {np.median(kin['E_gamma'][mk][sm]):.4f}   "
+    print(f"   median E_gamma above cut     :  exclurad_py {np.median(kin['E_gamma'][mk][sm]):.4f}   "
           f"diffrad_vm {np.median(ref['E_gamma'][mr][sr]):.4f}")
     row += 1
 

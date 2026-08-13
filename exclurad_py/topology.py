@@ -119,7 +119,7 @@ def baryon_detected(m_meson, meson="meson", m_recoil=M_P, recoil="p"):
     """EXCLURAD convention for pi0/eta: recoil proton detected, meson missing.
 
     The SF model must be evaluated at the nucleon transfer t_N, supplied by
-    the caller (see mesonrc.models.base.ProtonDetectedModel), and sigma_LT,
+    the caller (see exclurad_py.models.base.ProtonDetectedModel), and sigma_LT,
     sigma_LT' flip sign relative to the meson frame.
     """
     return Topology(name="baryon_detected",
@@ -140,7 +140,7 @@ def baryon_detected(m_meson, meson="meson", m_recoil=M_P, recoil="p"):
                     # t_kind="cm_angle" is an EXCLURAD-COMPATIBILITY mode: it
                     # freezes cos(theta_CM) instead, which lets t drift ~5.5 %
                     # of |t| across the window.  Use it to reproduce published
-                    # tables (mesonrc matches EXCLURAD to 0.15-0.20 % there);
+                    # tables (exclurad_py matches EXCLURAD to 0.15-0.20 % there);
                     # do not use it for new physics.  The two differ by up to
                     # 13-17 % in the ~10 % of bins where v_max(t) < v_cut.
                     t_kind="target",

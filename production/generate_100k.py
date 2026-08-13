@@ -15,8 +15,8 @@ energy spectrum above a common threshold.
 """
 import os, sys, time, json
 import numpy as np
-from mesonrc import models, stamp
-from mesonrc.generator import Generator, Box, write_lund
+from exclurad_py import models, stamp
+from exclurad_py.generator import Generator, Box, write_lund
 
 N = int(os.environ.get("NEV", "100000"))
 OUT = os.path.dirname(os.path.abspath(__file__))
@@ -54,7 +54,7 @@ for ch in channels:
     t_gen = time.time() - t0
     print(f"  generated {len(ev)} in {t_gen:.1f}s ({1e3*t_gen/len(ev):.2f} ms/ev)", flush=True)
 
-    lund = os.path.join(OUT, f"{ch}_mesonrc_{N//1000}k.lund")
+    lund = os.path.join(OUT, f"{ch}_exclurad_py_{N//1000}k.lund")
     st = stamp(sf, extra=dict(box=c["box"].as_dict(), mx2_cut=c["mx2"],
                               Ebeam=10.6, n_events=len(ev)))
     n = write_lund(lund, ev, channel=ch, topology=sf.topology, stamp=st)

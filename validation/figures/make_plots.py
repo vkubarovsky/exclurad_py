@@ -1,4 +1,4 @@
-"""Validation figures: mesonrc vs the published CLAS6 RC tables."""
+"""Validation figures: exclurad_py vs the published CLAS6 RC tables."""
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")
@@ -10,7 +10,7 @@ plt.rcParams.update({"font.size": 9, "axes.grid": True, "grid.alpha": 0.25,
                      "grid.linewidth": 0.5, "axes.spines.top": False,
                      "axes.spines.right": False, "figure.dpi": 140})
 
-P = "/Users/vpk/mesonrc-build/validation/"
+P = "/Users/vpk/exclurad_py/validation/"
 pi0 = np.genfromtxt(P+"pi0_published/pi0_published_direct_cm_angle.csv",
                     delimiter=",", names=True)
 eta = np.genfromtxt(P+"eta_published_direct/eta_published_sweep_cm_angle.csv",
@@ -26,7 +26,7 @@ s = slice(0, 20)
 a.plot(pi0["phi_deg"][s], pi0["delta_2013"][s], "o", ms=6, color=GREY,
        label="published (PRC 90 025205)", zorder=3)
 a.plot(pi0["phi_deg"][s], pi0["eta_mesonrc"][s], "-", lw=2, color=BLUE,
-       label="mesonrc", zorder=2)
+       label="exclurad_py", zorder=2)
 a.set_xlabel(r"$\phi$  [deg]"); a.set_ylabel(r"RC factor  $\delta$")
 a.set_title(r"(a)  $\pi^0$, first bin: $Q^2$=1.17, $x_B$=0.134, $t$=$-$0.12",
             loc="left", fontsize=9)
@@ -37,7 +37,7 @@ b = ax[0, 1]
 b.plot(eta["phi_deg"][s], eta["delta_published"][s], "o", ms=6, color=GREY,
        label="published (PRC 95 035202)", zorder=3)
 b.plot(eta["phi_deg"][s], eta["eta_mesonrc"][s], "-", lw=2, color=VERM,
-       label="mesonrc", zorder=2)
+       label="exclurad_py", zorder=2)
 b.set_xlabel(r"$\phi$  [deg]"); b.set_ylabel(r"RC factor  $\delta$")
 b.set_title(r"(b)  $\eta$, first bin: $Q^2$=1.16, $x_B$=0.133, $t$=$-$0.12",
             loc="left", fontsize=9)
@@ -82,6 +82,6 @@ d_.set_title(r"(d)  $\pi^0$: the 302 bins where $v_{\max}(t)<v_{\rm cut}$",
 d_.legend(frameon=False, fontsize=8, loc="lower right")
 
 fig.tight_layout()
-fig.savefig("/Users/vpk/mesonrc-build/validation/figures/validation.png",
+fig.savefig("/Users/vpk/exclurad_py/validation/figures/validation.png",
             bbox_inches="tight")
 print("wrote validation.png")
