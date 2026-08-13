@@ -178,6 +178,18 @@ class ProtonDetectedModel(StructureFunctions):
         ok = (xB > 0) & (xB < 1) & (Q2 > 0)
         xBs = np.where(ok, xB, 0.5)
         Q2s = np.where(ok, Q2, 1.0)
+
+        # t is the OBSERVED nucleon transfer and is FIXED: radiation comes
+        # off the lepton line, so the measured proton -- and hence
+        # t = (p-p')^2 -- is untouched by the photon.  The `t` argument
+        # handed to us inside the radiative integral is the SHIFTED one and
+        # must NOT be used here.  Only W2~ and Q2~ shift.
+        #
+        # For GENERATION, where every event has a different observed t, the
+        # caller updates `self.t_nucl` per event (Generator._set_event_t).
+        # Evaluating at one frozen t_nucl for a whole run removes the
+        # model's t-dependence entirely and the sampled |t| spectrum
+        # collapses to phase space -- mean |t| 2.27 vs exclugen's 0.386.
         sT, sL, sTT, sLT = self._sfs_tn(self.t_nucl, xBs, Q2s)
         z = np.zeros_like(np.asarray(sT, dtype=float))
         g = lambda a: np.where(ok, a, 0.0)   # noqa: E731

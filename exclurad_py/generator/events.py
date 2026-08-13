@@ -127,7 +127,20 @@ class Generator:
             return vk
         return min(vk, self.mx2_cut - self.sf.mU ** 2)
 
+    def _set_event_t(self, t):
+        """Point a fixed-t_N model at THIS event's observed transfer.
+
+        pi0/eta models are functions of the nucleon transfer supplied at
+        construction (see models.base.ProtonDetectedModel). In generation t
+        changes event to event, so it has to be updated -- while the model
+        still ignores the shifted t inside the radiative integral, because
+        t does not shift.
+        """
+        if hasattr(self.sf, "t_nucl"):
+            self.sf.t_nucl = float(t)
+
     def _born(self, Q2, W2, t, phi, h):
+        self._set_event_t(t)
         try:
             return born_xsec(self._kin(Q2, W2, t, phi), self.sf, h)
         except (ValueError, ZeroDivisionError, FloatingPointError):
@@ -372,6 +385,7 @@ class Generator:
             v_max = self._vmax(Q2, W2, t)
             if v_max <= 0:
                 continue
+            self._set_event_t(t)
             kin = self._kin(Q2, W2, t, phi)
 
             photon4 = meson4 = None

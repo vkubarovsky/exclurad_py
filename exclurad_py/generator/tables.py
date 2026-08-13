@@ -75,6 +75,12 @@ class RCTable:
                 for k, t in enumerate(ta):
                     for l, ph in enumerate(pa):
                         try:
+                            # fixed-t_N models (pi0/eta) must be pointed at
+                            # THIS node's transfer, exactly as the generator
+                            # does per event -- otherwise the whole table is
+                            # built at one stale t_nucl.
+                            if hasattr(self.sf, "t_nucl"):
+                                self.sf.t_nucl = float(t)
                             r = rc_factor(Ebeam=self.Ebeam, Q2=Q2, W2=W2, t=t,
                                           phi=ph, sfmodel=self.sf,
                                           h=self.helicity,
@@ -142,6 +148,8 @@ class RCTable:
             t = rng.uniform(*self.box.t)
             ph = rng.uniform(*self.box.phi)
             try:
+                if hasattr(self.sf, "t_nucl"):
+                    self.sf.t_nucl = float(t)
                 ex = rc_factor(Ebeam=self.Ebeam, Q2=Q2, W2=W2, t=t, phi=ph,
                                sfmodel=self.sf, h=self.helicity,
                                mx2_cut=self.mx2_cut)["eta"]
