@@ -85,15 +85,17 @@ REF = {
  "jpsi": ("diffrad_vm", ["/Users/vpk/MC_vector_mesons/samples_v2/jpsi_born_100k.lund"], False),
 }
 
-chans = [c for c in sys.argv[1:] or list(REF)
-         if os.path.exists(f"/Volumes/wd_14tb/mc/exclurad_py/{c}/20260813_10.6_born_v1/"
-                           f"lund/{c}_exclurad_py_born_10.6GeV.lund")]
+def mine_files(ch):
+    d = f"/Volumes/wd_14tb/mc/exclurad_py/{ch}/20260813_10.6_born_v1/lund"
+    return sorted(glob.glob(f"{d}/{ch}_exclurad_py_born_10.6GeV*.lund"))
+
+chans = [c for c in sys.argv[1:] or list(REF) if mine_files(c)]
 fig, ax = plt.subplots(len(chans), 3, figsize=(13, 3.4 * len(chans)), squeeze=False)
 
 for row, ch in enumerate(chans):
     refname, files, need_eeff = REF[ch]
-    mine = read_lund(f"/Volumes/wd_14tb/mc/exclurad_py/{ch}/20260813_10.6_born_v1/"
-                     f"lund/{ch}_exclurad_py_born_10.6GeV.lund", MESON_PID[ch])
+    mp = [read_lund(f, MESON_PID[ch]) for f in mine_files(ch)]
+    mine = tuple(np.concatenate([q[i] for q in mp]) for i in range(3))
     parts = [read_lund(f, MESON_PID[ch], need_eeff) for f in files]
     ref = tuple(np.concatenate([p[i] for p in parts]) for i in range(3))
 

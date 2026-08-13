@@ -237,8 +237,13 @@ class Generator:
                     shape=list(self.majorant_shape), safety=self.safety,
                     born_only=self.born_only, eta_hi=round(float(eta_hi), 9),
                     cuts={k: (list(v) if isinstance(v, tuple) else v)
-                          for k, v in sorted(self.cuts.items())},
-                    t_nucl=getattr(self.sf, "t_nucl", None))
+                          for k, v in sorted(self.cuts.items())})
+        # NOTE: t_nucl is deliberately NOT part of the key. Since the
+        # per-event-t fix it is mutable state -- the generator rewrites it
+        # for every event -- so including it recorded whatever t the last
+        # calibration event happened to have (-0.432 instead of the card's
+        # -0.30). The key never matched, every worker silently rebuilt the
+        # majorant, and --jobs looked far slower than it is.
 
     def save_majorant(self, path):
         """Persist the CALIBRATED majorant so parallel workers can share it."""
