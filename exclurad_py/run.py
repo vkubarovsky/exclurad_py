@@ -80,6 +80,12 @@ def run_parallel(card_path, jobs, date=None, verbose=True):
 
     args = [(card_path, date, i + 1, jobs, cfg["seed"] + 1000 * i)
             for i in range(jobs)]
+    # record the split so the sample can be reproduced exactly
+    d, _, _ = _outdir(cfg, date)
+    with open(os.path.join(d, "inputs", "parallel.json"), "w") as fh:
+        json.dump(dict(jobs=jobs, base_seed=cfg["seed"],
+                       part_seeds=[a[4] for a in args],
+                       nev_total=cfg["nev"]), fh, indent=2)
     t0 = time.time()
     with ProcessPoolExecutor(max_workers=jobs) as ex:
         res = list(ex.map(_worker, args))
@@ -196,14 +202,18 @@ if __name__ == "__main__":
     if len(sys.argv) < 2:
         print(__doc__)
         sys.exit(1)
-    jobs = None
+    # DEFAULT 1, deliberately. Parallel runs split the events into parts
+    # with seed + 1000*i, so the part COUNT changes the sample. Defaulting to
+    # cpu_count() would make the same run card produce different events on a
+    # 14-core and an 8-core machine -- machine-dependent output from a
+    # physics generator. Parallelism must be asked for explicitly and is
+    # recorded in config.json.
+    jobs = 1
     if "--jobs" in sys.argv:
         i = sys.argv.index("--jobs")
         jobs = int(sys.argv[i + 1])
     elif os.environ.get("EXRU_JOBS"):
         jobs = int(os.environ["EXRU_JOBS"])
-    if jobs is None:
-        jobs = max(1, (os.cpu_count() or 2) - 1)
     if jobs > 1:
         run_parallel(sys.argv[1], jobs)
     else:
