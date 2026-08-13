@@ -48,9 +48,10 @@ FIELDS = [
     ("y", "pair", "y range (inelasticity nu/E)"),
     ("xB", "pair", "xB range"),
     ("iacc", str, "acceptance preset: none | jpsi"),
+    ("vmin", float, "soft/hard split (GeV^2); 0 = choose automatically"),
 ]
 N_REQUIRED = 13          # fields up to and including outroot
-DEFAULT_OPT = dict(y=(0.0, 1.0), xB=(0.0, 1.0), iacc="none")
+DEFAULT_OPT = dict(y=(0.0, 1.0), xB=(0.0, 1.0), iacc="none", vmin=0.0)
 
 
 def _num(tok):
@@ -153,6 +154,7 @@ TEMPLATE = """! exclurad_py run card -- plain text, one value per line, ! starts
 {y:<34} ! y range  (nu/E)   -- match the reference generator's cut
 {xB:<34} ! xB range          -- match the reference generator's cut
 {iacc:<34} ! iacc    acceptance preset: none | jpsi  (|p|,theta on e',p',daughters)
+{vmin:<34} ! vmin    soft/hard split (GeV^2); 0 = auto.  exclugen uses 1.0d-4
 """
 
 
@@ -161,7 +163,7 @@ def write_template(path, **kw):
              W2="4.5 12.0", Q2="1.0 5.0", t="-2.0 -0.10", vcut="0.20",
              t_nucl="-0.30", ihel="0", seed="20260813", idecay="1",
              outroot="/Volumes/wd_14tb/mc/exclurad_py",
-             y="0.0 1.0", xB="0.0 1.0", iacc="none")
+             y="0.0 1.0", xB="0.0 1.0", iacc="none", vmin="0.0")
     d.update({k: str(v) for k, v in kw.items()})
     with open(path, "w") as fh:
         fh.write(TEMPLATE.format(**d))

@@ -61,6 +61,7 @@ def run(card_path, date=None, verbose=True):
                   helicity=cfg["ihel"], seed=cfg["seed"],
                   born_only=bool(cfg["iborn"]),
                   cuts=dict(y=cfg["y"], xB=cfg["xB"], iacc=cfg["iacc"]),
+                  v_min=cfg["vmin"] or None,
                   cache=None if cfg["iborn"] else os.path.join(d, "etatable.npz"))
     t0 = time.time()
     g.setup(verbose=verbose)

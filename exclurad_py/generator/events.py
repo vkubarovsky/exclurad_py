@@ -68,7 +68,8 @@ class Generator:
     def __init__(self, sfmodel, Ebeam, box, mx2_cut=None, helicity=0,
                  seed=1234, majorant_shape=(8, 8, 8, 12),
                  table_shape=(5, 5, 5, 8), tail_shape=(2, 2, 2, 2),
-                 safety=1.6, cache=None, born_only=False, cuts=None):
+                 safety=1.6, cache=None, born_only=False, cuts=None,
+                 v_min=None):
         """born_only=True: no radiative corrections at all.
 
         sigma_obs == sigma_Born, eta == 1, no photon is ever emitted, and
@@ -94,8 +95,14 @@ class Generator:
         # these the two samples are different populations and any rate
         # comparison is meaningless -- see decay.py.
         self.cuts = dict(cuts or {})
+        # Explicit soft/hard split, as exclugen takes it (vmin=1e-4).  None
+        # -> choose_vmin picks one.  Exposing it matters: the radiative
+        # FRACTION is set by this number, so two generators cannot be
+        # compared on it unless both are told the same value.
+        self.v_min_fixed = v_min
         self.n_cut_yxb = 0
         self.n_cut_acc = 0
+        self.n_vmin_fallback = 0
 
         self.table = None
         self.maj = None
@@ -250,7 +257,18 @@ class Generator:
             if vm <= 0:
                 self._tail_cache[key] = None
                 return None
-            v_min, soft_frac = choose_vmin(kin, self.sf, h, vm, sigma_obs)
+            if self.v_min_fixed:
+                v_min = min(self.v_min_fixed, 0.5 * vm)
+                soft, hard, hf = None, None, None
+                from .tail import TailSampler as _TS
+                ts_probe = _TS(kin, self.sf, h, vm, v_min=v_min)
+                soft, hard, hf = ts_probe.split(sigma_obs)
+                soft_frac = 1.0 - hf
+                if soft <= 0:
+                    v_min, soft_frac = choose_vmin(kin, self.sf, h, vm, sigma_obs)
+                    self.n_vmin_fallback += 1
+            else:
+                v_min, soft_frac = choose_vmin(kin, self.sf, h, vm, sigma_obs)
             if v_min is None:
                 self._tail_cache[key] = None
                 return None
@@ -373,6 +391,7 @@ class Generator:
                     overweight=self.n_overweight,
                     max_overweight=self.max_overweight,
                     cut_yxb=self.n_cut_yxb, cut_acceptance=self.n_cut_acc,
+                    vmin_fallback=self.n_vmin_fallback,
                     tail_cells_built=len(self._tail_cache))
 
     def health(self):
