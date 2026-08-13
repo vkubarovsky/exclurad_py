@@ -1,7 +1,14 @@
 """
 Run exclurad_py from a run card.
 
-    python3 -m exclurad_py.run gen_input.txt
+    python3 -m exclurad_py.run gen_input.txt [--jobs N]
+
+`--jobs N` splits the requested events across N processes, each with its own
+seed, writing N LUND part files exactly as exclugen's OSG runs do
+(`..._01.lund` ... `..._NN.lund`).  Parts are statistically independent and
+can be concatenated or fed to GEMC separately.  Default: all cores but one.
+The eta table is built ONCE in the parent (itself parallel) and cached, so
+workers only rebuild the cheap majorant.
 
 Writes, under `outroot`, the exclugen-style layout:
 
@@ -25,6 +32,7 @@ import numpy as np
 
 from . import models, stamp
 from .generator import Generator, Box, write_lund, decay_two_body, DECAY
+from .generator.tables import RCTable
 from .runcard import parse, echo
 
 
@@ -39,10 +47,62 @@ def _outdir(cfg, date=None, version="v1"):
     return d, mode, ch
 
 
-def run(card_path, date=None, verbose=True):
+def _worker(payload):
+    card_path, date, ipart, npart, seed = payload
+    return run(card_path, date=date, verbose=False, _part=(ipart, npart, seed))
+
+
+def run_parallel(card_path, jobs, date=None, verbose=True):
+    """Split the run across `jobs` processes, one LUND part each."""
+    from concurrent.futures import ProcessPoolExecutor
     cfg = parse(card_path)
     if verbose:
         echo(cfg)
+        print(f" splitting {cfg['nev']} events across {jobs} processes")
+
+    # Build (and cache) the eta table once in the parent -- it is the same
+    # for every part, and rebuilding it per worker would dominate.
+    if not cfg["iborn"]:
+        d, _, _ = _outdir(cfg, date)
+        ch = cfg["model"].split(".")[0]
+        kw = dict(t_nucl=cfg["t_nucl"]) if ch in ("pi0", "eta") else {}
+        sf = models.get(cfg["model"], **kw)
+        mx2 = cfg["vcut"] + sf.mU ** 2 if cfg["vcut"] > 0 else None
+        cache = os.path.join(d, "etatable.npz")
+        if not os.path.exists(cache):
+            box = Box(Q2=cfg["Q2"], W2=cfg["W2"], t=cfg["t"])
+            h = cfg["ihel"] if cfg["ihel"] != 0 else +1
+            t0 = time.time()
+            RCTable(sf, cfg["ebeam"], box, mx2, h, (5, 5, 5, 8)).build(
+                verbose=verbose).save(cache)
+            if verbose:
+                print(f" eta table built and cached in {time.time()-t0:.0f}s")
+
+    args = [(card_path, date, i + 1, jobs, cfg["seed"] + 1000 * i)
+            for i in range(jobs)]
+    t0 = time.time()
+    with ProcessPoolExecutor(max_workers=jobs) as ex:
+        res = list(ex.map(_worker, args))
+    n = sum(r["n"] for r in res)
+    if verbose:
+        print(f" {n} events in {time.time()-t0:.0f}s across {jobs} parts")
+        for r in res:
+            if r["health"]:
+                print("  ", os.path.basename(r["lund"]), "->", "; ".join(r["health"]))
+    return res
+
+
+def run(card_path, date=None, verbose=True, _part=None):
+    cfg = parse(card_path)
+    if verbose:
+        echo(cfg)
+    part_tag = ""
+    if _part is not None:
+        ipart, npart, seed = _part
+        cfg = dict(cfg)
+        cfg["nev"] = cfg["nev"] // npart + (1 if ipart <= cfg["nev"] % npart else 0)
+        cfg["seed"] = seed
+        part_tag = f"_{ipart:02d}"
 
     ch = cfg["model"].split(".")[0]
     kw = {}
@@ -106,13 +166,14 @@ def run(card_path, date=None, verbose=True):
                               n_events=len(ev), seed=cfg["seed"],
                               eta_interp=interp))
     lund = os.path.join(d, "lund",
-                        f"{ch}_exclurad_py_{mode}_{cfg['ebeam']:g}GeV.lund")
+                        f"{ch}_exclurad_py_{mode}_{cfg['ebeam']:g}GeV{part_tag}.lund")
     n = write_lund(lund, ev, channel=ch, topology=sf.topology, stamp=st)
 
     shutil.copyfile(card_path, os.path.join(d, "inputs", "gen_input.txt"))
     rep = {k: (float(v) if isinstance(v, float) else v)
            for k, v in g.report().items()}
-    with open(os.path.join(d, "inputs", "config.json"), "w") as fh:
+    cfgname = f"config{part_tag or ''}.json"
+    with open(os.path.join(d, "inputs", cfgname), "w") as fh:
         json.dump(dict(card=cfg, stamp=st, report=rep, health=g.health(),
                        calibration=cal, setup_s=t_setup, gen_s=t_gen),
                   fh, indent=2, default=str)
@@ -135,4 +196,15 @@ if __name__ == "__main__":
     if len(sys.argv) < 2:
         print(__doc__)
         sys.exit(1)
-    run(sys.argv[1])
+    jobs = None
+    if "--jobs" in sys.argv:
+        i = sys.argv.index("--jobs")
+        jobs = int(sys.argv[i + 1])
+    elif os.environ.get("EXRU_JOBS"):
+        jobs = int(os.environ["EXRU_JOBS"])
+    if jobs is None:
+        jobs = max(1, (os.cpu_count() or 2) - 1)
+    if jobs > 1:
+        run_parallel(sys.argv[1], jobs)
+    else:
+        run(sys.argv[1])

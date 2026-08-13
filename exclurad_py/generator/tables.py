@@ -27,6 +27,7 @@ not match what was asked for.
 
 import json
 import os
+from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
 
@@ -64,8 +65,53 @@ class RCTable:
                     box=self.box.as_dict(),
                     t_nucl=getattr(self.sf, "t_nucl", None))
 
-    def build(self, verbose=False):
-        """Evaluate eta at every grid node. This is the expensive step."""
+    def build(self, verbose=False, jobs=None):
+        """Evaluate eta at every grid node. This is the expensive step.
+
+        Embarrassingly parallel -- every node is independent -- so it is
+        split across `jobs` processes (default: all cores but one). A
+        4096-node table is ~7 minutes serial and well under a minute on 14
+        cores, which matters because a rad run cannot start without it.
+
+        Workers rebuild the model from its registry name rather than
+        receiving a pickled object, so this works under spawn as well as
+        fork.
+        """
+        if jobs is None:
+            jobs = max(1, (os.cpu_count() or 2) - 1)
+        if jobs > 1:
+            try:
+                return self._build_parallel(jobs, verbose)
+            except Exception as exc:            # fall back rather than fail
+                if verbose:
+                    print(f"  parallel table build unavailable ({exc}); serial")
+        return self._build_serial(verbose)
+
+    def _build_parallel(self, jobs, verbose):
+        Q2a, W2a, ta, pa = self.axes
+        nodes = [(i, j, k, l, float(Q2), float(W2), float(t), float(ph))
+                 for i, Q2 in enumerate(Q2a) for j, W2 in enumerate(W2a)
+                 for k, t in enumerate(ta) for l, ph in enumerate(pa)]
+        kw = dict(t_nucl=getattr(self.sf, "t_nucl", None),
+                  Ebeam=getattr(self.sf, "Ebeam", None))
+        args = dict(model=self.sf.name, ctor=kw, Ebeam=self.Ebeam,
+                    mx2_cut=self.mx2_cut, helicity=self.helicity)
+        chunks = [nodes[i::jobs] for i in range(jobs)]
+        if verbose:
+            print(f"  eta table: {len(nodes)} nodes on {jobs} processes...")
+        eta = np.ones(self.shape)
+        valid = np.zeros(self.shape, dtype=bool)
+        with ProcessPoolExecutor(max_workers=jobs) as ex:
+            for res in ex.map(_eta_chunk, [(c, args) for c in chunks]):
+                for (i, j, k, l), e in res:
+                    eta[i, j, k, l] = e
+                    valid[i, j, k, l] = True
+        if valid.any():
+            eta[~valid] = float(eta[valid].mean())
+        self.eta, self.valid = eta, valid
+        return self
+
+    def _build_serial(self, verbose=False):
         Q2a, W2a, ta, pa = self.axes
         eta = np.ones(self.shape)
         valid = np.zeros(self.shape, dtype=bool)
@@ -194,3 +240,29 @@ class RCTable:
         obj.valid = d["valid"]
         obj.axes = list(d["axes"])
         return obj
+
+
+# --------------------------------------------------------------------------- #
+def _eta_chunk(payload):
+    """Worker: evaluate eta at a list of grid nodes. Top level, so picklable."""
+    nodes, args = payload
+    from .. import models
+    from ..core.rc import rc_factor
+    import numpy as _np
+
+    ctor = {k: v for k, v in args["ctor"].items() if v is not None}
+    sf = models.get(args["model"], **ctor)
+    out = []
+    for (i, j, k, l, Q2, W2, t, ph) in nodes:
+        try:
+            if hasattr(sf, "t_nucl"):
+                sf.t_nucl = float(t)
+            r = rc_factor(Ebeam=args["Ebeam"], Q2=Q2, W2=W2, t=t, phi=ph,
+                          sfmodel=sf, h=args["helicity"],
+                          mx2_cut=args["mx2_cut"])
+            e = r["eta"]
+            if _np.isfinite(e) and 0.2 < e < 5.0:
+                out.append(((i, j, k, l), float(e)))
+        except (ValueError, ZeroDivisionError, FloatingPointError):
+            pass
+    return out
