@@ -11,13 +11,17 @@ Registry keys
 
 All use the DVMP topology (meson detected, recoil proton missing).
 
-Note on sigma_TT / sigma_LT / sigma_LT': every J/psi model here sets them
-to zero, because none of the underlying models provides them -- DIFFRAD is
-a two-structure-function code by construction. The whole point of this
-package is that the RC machinery does NOT require that, so as soon as a
-vector-meson SDME fit exists it can be dropped in as a new class with the
-interference SFs filled and the RC recomputed. `TwoSF` wrapping a full
-model quantifies what the missing SFs are worth.
+TWO-STRUCTURE-FUNCTION MODE (the intended configuration for vector mesons).
+Every vector model here supplies sigma_T and sigma_L and returns
+sigma_TT = sigma_LT = sigma_LT' = 0 as deliberate zero placeholders.  That
+is not a missing model: the rho, phi and J/psi cross sections in
+~/MC_vector_mesons/diffrad_vm.f90 are complete two-SF models, and the
+vector program is being tested in two-SF mode on purpose.  SDMEs are not
+yet in a ready-to-use form and are deliberately out of scope here.
+
+The RC engine does not require the zeros -- it carries all five SFs -- so
+when interference SFs do become available they drop straight into the same
+classes.  Until then the zeros are the model, not a gap.
 """
 
 import numpy as np
@@ -219,10 +223,11 @@ class _DemoVector(StructureFunctions):
 
 
 _DEMO_WARNING = (
-    "*** ILLUSTRATIVE ONLY *** smooth parameterization with roughly "
-    "realistic magnitudes, W/Q2 slopes and t-slopes, to make the package "
-    "runnable and testable out of the box. NOT a fit to data. Replace with "
-    "a real fit before using any number from it.")
+    "*** ILLUSTRATIVE ONLY -- DO NOT USE *** invented smooth parameterization "
+    "kept solely as a self-test fixture with non-zero sigma_TT/LT/LT' (nothing "
+    "else in the registry exercises the interference SFs). The REAL models for "
+    "this channel are rho.diffrad_vm / phi.diffrad_vm, transcribed from "
+    "~/MC_vector_mesons/diffrad_vm.f90. Never use a demo for physics.")
 
 
 @register
@@ -294,5 +299,37 @@ class Phi_DiffradVM(StructureFunctions):
         sigT = cT / (1.0 + Q2 / m2) ** self.nuT
         sT = np.where(ok, sigT * self.bt * np.exp(self.bt * t), 0.0)
         sL = self.cR * Q2 / m2 * sT
+        z = np.zeros_like(sT)
+        return {"sT": sT, "sL": sL, "sTT": z, "sLT": z, "sLTp": z}
+
+
+# --------------------------------------------------------------------------- #
+#  rho0 -- the model of diffrad_vm.f90 (two structure functions)
+# --------------------------------------------------------------------------- #
+@register
+class Rho_DiffradVM(StructureFunctions):
+    """sigma_T = AT exp(bT t) xB/(1-xB) / Q2^3 ,  sigma_L = AL exp(bL t) xB / Q2^2."""
+
+    name = "rho.diffrad_vm"
+    channel = "rho"
+    version = "vm2026"
+    topology = meson_detected(M_RHO, meson="rho0")
+    validity = dict(W2=(4.0, 400.0), Q2=(0.3, 30.0), mt=(0.0, 12.0))
+    provenance = (
+        "Transcribed from `sigma_T_rho` / `sigma_L_rho` of "
+        "~/MC_vector_mesons/diffrad_vm.f90 with the defaults set at line 281: "
+        "AT=15, bT=2.0, AL=25, bL=4.0. Two-SF model; sigma_TT/LT/LT' are "
+        "deliberate zeros. TRANSCRIBED FROM SOURCE, not executed against "
+        "the Fortran.")
+    reference = "~/MC_vector_mesons/diffrad_vm.f90 (sigma_T_rho, line 1614)"
+
+    AT, bT, AL, bL = 15.0, 2.0, 25.0, 4.0
+
+    def _sfs(self, W2, Q2, t):
+        xB = Q2 / np.maximum(W2 + Q2 - _MP ** 2, 1e-12)
+        ok = (xB > 0) & (xB < 1) & (Q2 > 0)
+        xs = np.where(ok, xB, 0.5)
+        sT = np.where(ok, self.AT * np.exp(self.bT * t) * xs / (1.0 - xs) / Q2 ** 3, 0.0)
+        sL = np.where(ok, self.AL * np.exp(self.bL * t) * xs / Q2 ** 2, 0.0)
         z = np.zeros_like(sT)
         return {"sT": sT, "sL": sL, "sTT": z, "sLT": z, "sLTp": z}
