@@ -89,15 +89,34 @@ def mine_files(ch):
     d = f"/Volumes/wd_14tb/mc/exclurad_py/{ch}/20260813_10.6_born_v1/lund"
     return sorted(glob.glob(f"{d}/{ch}_exclurad_py_born_10.6GeV*.lund"))
 
-chans = [c for c in sys.argv[1:] or list(REF) if mine_files(c)]
-fig, ax = plt.subplots(len(chans), 3, figsize=(13, 3.4 * len(chans)), squeeze=False)
+# Split by reference: pseudoscalars are compared to exclugen, vector
+# mesons to diffrad_vm.  Two pages rather than one, since the groups share
+# neither the reference nor the physics.
+GROUPS = {"ps": ["pi0", "eta"], "vm": ["rho", "phi", "jpsi"]}
+args = [a for a in sys.argv[1:] if not a.startswith("-")]
+if args and args[0] in GROUPS:
+    chans = [c for c in GROUPS[args[0]] if mine_files(c)]
+    OUTNAME = f"compare_born_{args[0]}.png"
+    TITLE = ("pseudoscalar mesons vs exclugen" if args[0] == "ps"
+             else "vector mesons vs diffrad_vm")
+else:
+    chans = [c for c in args or list(REF) if mine_files(c)]
+    OUTNAME, TITLE = "compare_born.png", "Born"
+from matplotlib.gridspec import GridSpec
+
+nrow = len(chans)
+# 3 rows per channel: histogram, ratio, and a blank spacer so the next
+# channel's title does not land on the previous ratio panel.
+fig = plt.figure(figsize=(13, 4.4 * nrow))
+gs = GridSpec(3 * nrow, 3, figure=fig,
+              height_ratios=[3, 1, 0.55] * nrow, hspace=0.08, wspace=0.28)
 
 for row, ch in enumerate(chans):
     refname, files, need_eeff = REF[ch]
     mp = [read_lund(f, MESON_PID[ch]) for f in mine_files(ch)]
     mine = tuple(np.concatenate([q[i] for q in mp]) for i in range(3))
     parts = [read_lund(f, MESON_PID[ch], need_eeff) for f in files]
-    ref = tuple(np.concatenate([p[i] for p in parts]) for i in range(3))
+    ref = tuple(np.concatenate([p_[i] for p_ in parts]) for i in range(3))
 
     lo = [max(mine[i].min(), ref[i].min()) for i in range(3)]
     hi = [min(mine[i].max(), ref[i].max()) for i in range(3)]
@@ -110,24 +129,49 @@ for row, ch in enumerate(chans):
     for i, lab in enumerate(("Q2", "W2", "|t|")):
         a, b = mine[i][mm], ref[i][rm]
         print(f"     {lab:>4}  mean {a.mean():9.4f} vs {b.mean():9.4f}  "
-              f"ratio {a.mean()/b.mean():6.3f}   median {np.median(a):9.4f} vs {np.median(b):9.4f}")
+              f"ratio {a.mean()/b.mean():6.3f}")
 
-    for j, (lab, unit) in enumerate((("Q^2", "GeV$^2$"), ("W^2", "GeV$^2$"), ("|t|", "GeV$^2$"))):
-        A = ax[row, j]
+    for j, (lab, unit) in enumerate((("Q^2", "GeV$^2$"), ("W^2", "GeV$^2$"),
+                                     ("|t|", "GeV$^2$"))):
+        A = fig.add_subplot(gs[3 * row, j])
+        R = fig.add_subplot(gs[3 * row + 1, j], sharex=A)
         a, b = mine[j][mm], ref[j][rm]
-        bins = np.linspace(min(a.min(), b.min()),
-                           max(np.percentile(a, 99.5), np.percentile(b, 99.5)), 45)
-        A.hist(b, bins=bins, density=True, histtype="step", lw=2.4, color=VERM,
-               label=f"{refname}  (reference)")
-        A.hist(a, bins=bins, density=True, histtype="step", lw=1.6, color=BLUE,
-               ls="--", label="exclurad_py  (new)")
-        A.set_yscale("log")
-        A.set_xlabel(rf"${lab}$  [{unit}]"); A.set_ylabel("normalized")
-        A.set_title(f"({chr(97 + row * 3 + j)})  {ch.upper()} BORN", loc="left",
-                    fontsize=10, fontweight="bold")
-        A.legend(frameon=False, fontsize=8, loc="upper right")
+        bins = np.linspace(lo[j], max(np.percentile(a, 99.5),
+                                      np.percentile(b, 99.5)), 41)
+        ha, _ = np.histogram(a, bins=bins)
+        hb, _ = np.histogram(b, bins=bins)
+        wa, wb = ha / ha.sum(), hb / hb.sum()
+        ctr = 0.5 * (bins[:-1] + bins[1:])
 
-fig.tight_layout()
-out = f"{P}/compare_born.png"
+        A.step(ctr, wb, where="mid", lw=2.4, color=VERM,
+               label=f"{refname}  (reference)")
+        A.step(ctr, wa, where="mid", lw=1.6, color=BLUE, ls="--",
+               label="exclurad_py  (new)")
+        A.set_yscale("log")
+        A.set_ylabel("normalized")
+        A.set_title(f"({chr(97 + row * 3 + j)})  {ch.upper()} BORN",
+                    loc="left", fontsize=10, fontweight="bold")
+        A.legend(frameon=False, fontsize=8, loc="upper right")
+        A.tick_params(labelbottom=False)
+
+        # ratio with Poisson errors on both samples
+        ok = (ha > 0) & (hb > 0)
+        r = np.full(len(ctr), np.nan); e = np.full(len(ctr), np.nan)
+        r[ok] = wa[ok] / wb[ok]
+        e[ok] = r[ok] * np.sqrt(1.0 / ha[ok] + 1.0 / hb[ok])
+        R.axhline(1.0, color=GREY, lw=1, ls="--")
+        R.errorbar(ctr[ok], r[ok], yerr=e[ok], fmt="o", ms=2.5, lw=0.8,
+                   color=BLUE, capsize=0)
+        R.set_ylim(0.4, 1.6)
+        R.set_ylabel("new/ref", fontsize=8)
+        R.set_xlabel(rf"${lab}$  [{unit}]")
+        R.grid(alpha=0.25, lw=0.5)
+    print()
+
+# tight_layout fights the GridSpec hspace that pairs each histogram with
+# its ratio panel; the spacing is set explicitly in the GridSpec instead.
+fig.suptitle(f"BORN only (no radiative corrections) -- {TITLE}",
+             fontsize=12, fontweight="bold", y=0.995)
+out = f"{P}/{OUTNAME}"
 fig.savefig(out, bbox_inches="tight")
 print("wrote", out)

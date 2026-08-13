@@ -30,6 +30,23 @@ SF_KEYS = ("sT", "sL", "sTT", "sLT", "sLTp")
 
 
 class OutOfRange:
+    """What to do when kinematics leave the declared validity range.
+
+    DEFAULT IS `REPORT`: evaluate the model as written and only COUNT the
+    excursions.  Clamping (`FREEZE`) substitutes a cross section the model
+    never produced, and there is no evidence that the boundary value is
+    closer to the truth than the model's own extrapolation -- an analytic
+    fit is at least self-consistent, while a clamp invents a plateau and a
+    kink in the derivative.  It also hides itself: the event is generated
+    at its true kinematics but carries a foreign weight.
+
+    Measured cost of the old FREEZE default: with validity Q2 > 0.5 and a
+    generation box starting at 0.3, HALF the sample was clamped, and pi0's
+    Born chi2/dof against exclugen was 24.25 (Q2) and 10.51 (|t|). With the
+    clamp removed: 1.96 and 0.93 -- statistical agreement.
+    """
+
+    REPORT = "report"    # evaluate as-is, only count excursions  <- default
     FREEZE = "freeze"    # clamp arguments to the validity boundary
     ZERO = "zero"        # return 0 outside (discontinuous -- use with care)
     RAISE = "raise"      # abort
@@ -53,7 +70,7 @@ class StructureFunctions:
     provenance = ""
     reference = ""
     validity = {}                 # e.g. dict(W2=(1.2, 12.0), Q2=(0.1, 8.0))
-    out_of_range = OutOfRange.FREEZE
+    out_of_range = OutOfRange.REPORT
     topology: Topology = None
 
     def __init__(self):
@@ -125,6 +142,7 @@ class StructureFunctions:
 
         if self.out_of_range == OutOfRange.FREEZE:
             return clamped["W2"], clamped["Q2"], -clamped["mt"], inrange
+        # REPORT / ZERO / RAISE: hand the model its true arguments
         return W2, Q2, t, inrange
 
     # -- provenance --------------------------------------------------------- #

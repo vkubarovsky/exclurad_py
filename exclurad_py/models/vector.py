@@ -68,7 +68,7 @@ class Jpsi_Diffrad(StructureFunctions):
     version = "diffrad"
     topology = _JPSI_TOPO
     validity = dict(W2=(16.4, 400.0), Q2=(1e-4, 30.0), mt=(0.0, 12.0))
-    out_of_range = "freeze"
+    # (was "freeze"; clamping removed -- see models.base.OutOfRange)
     provenance = (
         "Exact port of the internal two-gluon J/psi model `difflt` of "
         "idiffrad.f (ivec=4), the model DIFFRAD uses for its own RC. "
