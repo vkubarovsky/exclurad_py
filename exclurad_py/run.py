@@ -60,6 +60,7 @@ def run(card_path, date=None, verbose=True):
     g = Generator(sf, Ebeam=cfg["ebeam"], box=box, mx2_cut=mx2,
                   helicity=cfg["ihel"], seed=cfg["seed"],
                   born_only=bool(cfg["iborn"]),
+                  cuts=dict(y=cfg["y"], xB=cfg["xB"], iacc=cfg["iacc"]),
                   cache=None if cfg["iborn"] else os.path.join(d, "etatable.npz"))
     t0 = time.time()
     g.setup(verbose=verbose)

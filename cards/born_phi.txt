@@ -1,0 +1,18 @@
+! exclurad_py run card -- plain text, one value per line, ! starts a comment.
+! Positional (exclugen convention): the ORDER of the lines is the format.
+phi.diffrad_vm                     ! model  <channel>.<vintage>   (--models to list)
+10.6                               ! ebeam (GeV)
+100000                             ! nev
+1                                  ! iborn   1 = Born only, 0 = full RC
+4.14 18.37                         ! W2 range (GeV^2)
+0.4 9.61                           ! Q2 range (GeV^2)
+-7.46 -0.20                        ! t range (GeV^2, both negative)
+0.0                                ! vcut    MX^2 - m_miss^2 (GeV^2);  0 = no cut (kinematic limit)
+-0.30                              ! t_nucl  (GeV^2) for pi0/eta models; ignored for vector mesons
+0                                  ! ihel    +1, -1, or 0 = helicity-averaged
+20260813                           ! seed
+1                                  ! idecay  1 = decay vector meson to h+h- isotropically, 0 = no decay
+/Volumes/wd_14tb/mc/exclurad_py    ! output root (<channel>/<date>_<E>_<mode>_v1/ created under it)
+0.25 0.90                          ! y range  (nu/E)   -- match the reference generator's cut
+0.001 0.60                         ! xB range          -- match the reference generator's cut
+none                               ! iacc    acceptance preset: none | jpsi  (|p|,theta on e',p',daughters)

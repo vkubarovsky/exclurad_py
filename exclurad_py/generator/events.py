@@ -68,7 +68,7 @@ class Generator:
     def __init__(self, sfmodel, Ebeam, box, mx2_cut=None, helicity=0,
                  seed=1234, majorant_shape=(8, 8, 8, 12),
                  table_shape=(5, 5, 5, 8), tail_shape=(2, 2, 2, 2),
-                 safety=1.6, cache=None, born_only=False):
+                 safety=1.6, cache=None, born_only=False, cuts=None):
         """born_only=True: no radiative corrections at all.
 
         sigma_obs == sigma_Born, eta == 1, no photon is ever emitted, and
@@ -90,6 +90,12 @@ class Generator:
         self.safety = float(safety)
         self.cache = cache
         self.born_only = bool(born_only)
+        # Cuts the REFERENCE generators apply at generation time.  Without
+        # these the two samples are different populations and any rate
+        # comparison is meaningless -- see decay.py.
+        self.cuts = dict(cuts or {})
+        self.n_cut_yxb = 0
+        self.n_cut_acc = 0
 
         self.table = None
         self.maj = None
@@ -186,6 +192,19 @@ class Generator:
                         eta_hi=eta_hi)
         return self
 
+    def _pass_yxb(self, Q2, W2):
+        ylo, yhi = self.cuts.get("y", (0.0, 1.0))
+        xlo, xhi = self.cuts.get("xB", (0.0, 1.0))
+        if (ylo, yhi, xlo, xhi) == (0.0, 1.0, 0.0, 1.0):
+            return True
+        M = self.sf.topology.m_detected if False else 0.93827208816
+        nu = (W2 + Q2 - M * M) / (2.0 * M)
+        if nu <= 0:
+            return False
+        y = nu / self.Ebeam
+        xB = Q2 / (W2 + Q2 - M * M)
+        return (ylo <= y <= yhi) and (xlo <= xB <= xhi)
+
     # ------------------------------------------------------------------ #
     def _propose(self):
         s = self.maj
@@ -268,6 +287,12 @@ class Generator:
                 (+1 if self.rng.random() < 0.5 else -1)
             self.n_trials += 1
 
+            # y / xB cuts first: they are arithmetic and reject before the
+            # (much more expensive) Born evaluation.
+            if not self._pass_yxb(Q2, W2):
+                self.n_cut_yxb += 1
+                continue
+
             b = self._born(Q2, W2, t, phi, h)
             if b is None or not np.isfinite(b) or b <= 0:
                 continue
@@ -316,6 +341,22 @@ class Generator:
                 continue
             ev.update(weight=1.0, Q2=Q2, W2=W2, t=t, phi=phi, helicity=h,
                       eta=eta, radiative=photon4 is not None)
+
+            acc = self.cuts.get("iacc", "none")
+            if acc != "none":
+                from .decay import in_acceptance, DECAY, decay_two_body
+                dau = None
+                ch = self.sf.channel
+                if ch in DECAY:
+                    a, bq = decay_two_body(ev["meson"], DECAY[ch][2], self.rng)
+                    if a is None:
+                        self.n_cut_acc += 1
+                        continue
+                    ev["daughters"] = (a, bq)
+                    dau = (a, bq)
+                if not in_acceptance(acc, ev["scattered"], ev["recoil"], dau)[0]:
+                    self.n_cut_acc += 1
+                    continue
             out.append(ev)
             if progress and len(out) % progress == 0:
                 print(f"  {len(out)}/{n_events}")
@@ -331,6 +372,7 @@ class Generator:
                     closure_failures=self.n_closure_fail,
                     overweight=self.n_overweight,
                     max_overweight=self.max_overweight,
+                    cut_yxb=self.n_cut_yxb, cut_acceptance=self.n_cut_acc,
                     tail_cells_built=len(self._tail_cache))
 
     def health(self):

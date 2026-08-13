@@ -44,7 +44,13 @@ FIELDS = [
     ("seed", int, "seed"),
     ("idecay", int, "idecay  1 = decay vector meson h+h-, 0 = leave it"),
     ("outroot", str, "output root"),
+    # --- optional trailing fields (cards without them still parse) ---
+    ("y", "pair", "y range (inelasticity nu/E)"),
+    ("xB", "pair", "xB range"),
+    ("iacc", str, "acceptance preset: none | jpsi"),
 ]
+N_REQUIRED = 13          # fields up to and including outroot
+DEFAULT_OPT = dict(y=(0.0, 1.0), xB=(0.0, 1.0), iacc="none")
 
 
 def _num(tok):
@@ -60,15 +66,15 @@ def parse(path):
             if line:
                 vals.append((lineno, line))
 
-    if len(vals) < len(FIELDS):
-        missing = [f[0] for f in FIELDS[len(vals):]]
-        raise ValueError(f"{path}: only {len(vals)} value lines, need "
-                         f"{len(FIELDS)}. Missing: {', '.join(missing)}")
+    if len(vals) < N_REQUIRED:
+        missing = [f[0] for f in FIELDS[len(vals):N_REQUIRED]]
+        raise ValueError(f"{path}: only {len(vals)} value lines, need at least "
+                         f"{N_REQUIRED}. Missing: {', '.join(missing)}")
     if len(vals) > len(FIELDS):
-        raise ValueError(f"{path}: {len(vals)} value lines, expected "
+        raise ValueError(f"{path}: {len(vals)} value lines, expected at most "
                          f"{len(FIELDS)} (extra at line {vals[len(FIELDS)][0]})")
 
-    cfg = {}
+    cfg = dict(DEFAULT_OPT)
     for (name, kind, desc), (lineno, tok) in zip(FIELDS, vals):
         try:
             if kind == "pair":
@@ -108,6 +114,13 @@ def _validate(cfg, path):
         raise ValueError(f"{path}: iborn must be 0 or 1")
     if cfg["nev"] <= 0:
         raise ValueError(f"{path}: nev must be positive")
+    for k in ("y", "xB"):
+        if cfg[k][0] >= cfg[k][1]:
+            raise ValueError(f"{path}: {k} range {cfg[k]} is not increasing")
+    from .generator.decay import ACCEPTANCE
+    if cfg["iacc"] not in ("none",) + tuple(ACCEPTANCE):
+        raise ValueError(f"{path}: unknown acceptance preset {cfg['iacc']!r}; "
+                         f"use 'none' or one of {sorted(ACCEPTANCE)}")
 
 
 def echo(cfg, fh=sys.stdout):
@@ -137,6 +150,9 @@ TEMPLATE = """! exclurad_py run card -- plain text, one value per line, ! starts
 {seed:<34} ! seed
 {idecay:<34} ! idecay  1 = decay vector meson to h+h- isotropically, 0 = no decay
 {outroot:<34} ! output root (<channel>/<date>_<E>_<mode>_v1/ created under it)
+{y:<34} ! y range  (nu/E)   -- match the reference generator's cut
+{xB:<34} ! xB range          -- match the reference generator's cut
+{iacc:<34} ! iacc    acceptance preset: none | jpsi  (|p|,theta on e',p',daughters)
 """
 
 
@@ -144,7 +160,8 @@ def write_template(path, **kw):
     d = dict(model="eta.tableB1", ebeam="10.6", nev="100000", iborn="0",
              W2="4.5 12.0", Q2="1.0 5.0", t="-2.0 -0.10", vcut="0.20",
              t_nucl="-0.30", ihel="0", seed="20260813", idecay="1",
-             outroot="/Volumes/wd_14tb/mc/exclurad_py")
+             outroot="/Volumes/wd_14tb/mc/exclurad_py",
+             y="0.0 1.0", xB="0.0 1.0", iacc="none")
     d.update({k: str(v) for k, v in kw.items()})
     with open(path, "w") as fh:
         fh.write(TEMPLATE.format(**d))
