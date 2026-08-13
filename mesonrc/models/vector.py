@@ -158,7 +158,8 @@ class Jpsi_DiffradVM(StructureFunctions):
     provenance = (
         "Tuned J/psi model of diffrad_vm.f90 (v2 defaults, June/July 2026): "
         "alf1=2.33e-8, alf2=0.5, alf3=7.8, nuT=3.114, cR=0.4, mg2=2.637; "
-        "Mariana-fit anchored, power-law Q2, dipole t-form.")
+        "Mariana-fit anchored, power-law Q2, dipole t-form. VERIFIED against "
+        "diffrad_vm.f90 itself to 8 significant digits (validation/vm_models/).")
     reference = "~/RC_vector_mesons_DIFFRAD/diffrad_vm.f90 (v2)"
 
     alf1, alf2, alf3 = 2.33e-8, 0.500, 7.800
@@ -280,7 +281,8 @@ class Phi_DiffradVM(StructureFunctions):
         "W-shape retuned 2026-06-30 (alf2 fixed at the physical +2, "
         "Donnachie-Landshoff; alf3=0.20 Pomeron exponent from Roberts et al. "
         "arXiv:2510.08845). This is the model behind samples_v2/phi_*_100k. "
-        "TRANSCRIBED FROM SOURCE, not yet executed against the Fortran.")
+        "VERIFIED against diffrad_vm.f90 itself to 9 significant digits "
+        "(validation/vm_models/).")
     reference = "~/MC_vector_mesons/diffrad_vm.f90 (sigma_T_phi)"
 
     alf1, alf2, alf3 = 400.0, 2.000, 0.200
@@ -319,8 +321,8 @@ class Rho_DiffradVM(StructureFunctions):
         "Transcribed from `sigma_T_rho` / `sigma_L_rho` of "
         "~/MC_vector_mesons/diffrad_vm.f90 with the defaults set at line 281: "
         "AT=15, bT=2.0, AL=25, bL=4.0. Two-SF model; sigma_TT/LT/LT' are "
-        "deliberate zeros. TRANSCRIBED FROM SOURCE, not executed against "
-        "the Fortran.")
+        "deliberate zeros. VERIFIED against diffrad_vm.f90 itself to 9 "
+        "significant digits (validation/vm_models/).")
     reference = "~/MC_vector_mesons/diffrad_vm.f90 (sigma_T_rho, line 1614)"
 
     AT, bT, AL, bL = 15.0, 2.0, 25.0, 4.0

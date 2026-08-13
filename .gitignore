@@ -21,3 +21,9 @@ production/*.lund
 production/*.npz
 production/*.log
 production/__pycache__/
+validation/vm_models/diffrad_vm.f90
+validation/vm_models/*.exe
+validation/vm_models/*.o
+validation/vm_models/*.mod
+validation/vm_models/pts.txt
+validation/vm_models/vm_ref.out
