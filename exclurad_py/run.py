@@ -77,6 +77,12 @@ def run(card_path, date=None, verbose=True):
                   f"> 0.02 -- the soft/hard split will be unreliable. "
                   f"Narrow the box or refine table_shape. ***")
 
+    # two passes: the first finds the gross misses, the second the ones
+    # only reachable once the cell probabilities have shifted.
+    cal = g.calibrate(n_probe=30000, margin=2.0, verbose=verbose)
+    cal2 = g.calibrate(n_probe=30000, margin=1.5, verbose=verbose)
+    cal = dict(pass1=cal, pass2=cal2)
+
     t0 = time.time()
     ev = g.generate(cfg["nev"], progress=max(cfg["nev"] // 5, 1) if verbose else None)
     t_gen = time.time() - t0
@@ -108,7 +114,8 @@ def run(card_path, date=None, verbose=True):
            for k, v in g.report().items()}
     with open(os.path.join(d, "inputs", "config.json"), "w") as fh:
         json.dump(dict(card=cfg, stamp=st, report=rep, health=g.health(),
-                       setup_s=t_setup, gen_s=t_gen), fh, indent=2, default=str)
+                       calibration=cal, setup_s=t_setup, gen_s=t_gen),
+                  fh, indent=2, default=str)
     with open(os.path.join(d, "README.md"), "w") as fh:
         fh.write(f"# exclurad_py {ch} {mode.upper()}, {cfg['ebeam']:g} GeV, "
                  f"{n} events\n\nModel `{cfg['model']}`. "

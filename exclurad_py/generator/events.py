@@ -295,6 +295,50 @@ class Generator:
         return dict(v=buf["v"][i], nhat=buf["nhat"][i])
 
     # ------------------------------------------------------------------ #
+    def calibrate(self, n_probe=20000, margin=1.35, verbose=False):
+        """Raise the majorant where a trial run exceeds it, then reset.
+
+        A prescan samples each cell at a finite number of points and can
+        miss its true maximum; the wider the box, the more often.  Any
+        exceedance biases an unweighted sample -- those events are
+        under-represented -- so it must be fixed BEFORE generating, not
+        reported afterwards.
+
+        This makes a throwaway pass, records the worst sigma_obs/M per
+        cell, inflates those cells by that ratio times `margin`, and
+        discards the events.  The generated sample is then produced against
+        the corrected majorant.
+        """
+        s = self.maj
+        shape = s["shape"]
+        worst = np.ones(shape)
+        h0 = self.helicity if self.helicity != 0 else +1
+        for _ in range(n_probe):
+            Q2, W2, t, phi, M, cell = self._propose()
+            if M <= 0 or not self._pass_yxb(Q2, W2):
+                continue
+            h = h0 if self.helicity != 0 else (+1 if self.rng.random() < 0.5 else -1)
+            b = self._born(Q2, W2, t, phi, h)
+            if b is None or not np.isfinite(b) or b <= 0:
+                continue
+            eta = 1.0 if self.born_only else float(self.table(Q2, W2, t, phi)[0])
+            r = (b * eta) / M
+            if r > worst[cell]:
+                worst[cell] = r
+        n_bad = int((worst > 1.0).sum())
+        s["M"] = s["M"] * np.where(worst > 1.0, worst * margin, 1.0)
+        tot = s["M"].sum()
+        s["cdf"] = np.cumsum(s["M"].ravel()) / tot if tot > 0 else None
+        self.n_trials = self.n_accept = 0
+        self.n_overweight = 0
+        self.max_overweight = 1.0
+        self.n_cut_yxb = self.n_cut_acc = 0
+        if verbose:
+            print(f" calibrated majorant: {n_bad} of {int(np.prod(shape))} cells "
+                  f"raised (worst factor {worst.max():.2f})")
+        return dict(cells_raised=n_bad, worst=float(worst.max()))
+
+    # ------------------------------------------------------------------ #
     def generate(self, n_events, progress=None):
         if self.maj is None:
             self.setup()
