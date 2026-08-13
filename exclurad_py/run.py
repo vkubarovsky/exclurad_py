@@ -78,6 +78,31 @@ def run_parallel(card_path, jobs, date=None, verbose=True):
             if verbose:
                 print(f" eta table built and cached in {time.time()-t0:.0f}s")
 
+    # Build AND CALIBRATE the majorant once here, then let the workers load
+    # it.  Without this every worker repeats the ~19 s prescan, which made
+    # --jobs slower than a single core (226 s vs 176 s for 100k).
+    d, _, _ = _outdir(cfg, date)
+    majc = os.path.join(d, "majorant.npz")
+    if not os.path.exists(majc):
+        ch = cfg["model"].split(".")[0]
+        kw = dict(t_nucl=cfg["t_nucl"]) if ch in ("pi0", "eta") else {}
+        sf0 = models.get(cfg["model"], **kw)
+        mx20 = cfg["vcut"] + sf0.mU ** 2 if cfg["vcut"] > 0 else None
+        g0 = Generator(sf0, Ebeam=cfg["ebeam"],
+                       box=Box(Q2=cfg["Q2"], W2=cfg["W2"], t=cfg["t"]),
+                       mx2_cut=mx20, helicity=cfg["ihel"], seed=cfg["seed"],
+                       born_only=bool(cfg["iborn"]),
+                       cuts=dict(y=cfg["y"], xB=cfg["xB"], iacc=cfg["iacc"]),
+                       v_min=cfg["vmin"] or None,
+                       cache=None if cfg["iborn"] else os.path.join(d, "etatable.npz"))
+        t0 = time.time()
+        g0.setup(verbose=verbose)
+        g0.calibrate(n_probe=30000, margin=2.0, verbose=verbose)
+        g0.calibrate(n_probe=30000, margin=1.5, verbose=verbose)
+        g0.save_majorant(majc)
+        if verbose:
+            print(f" majorant built+calibrated once in {time.time()-t0:.0f}s, shared")
+
     args = [(card_path, date, i + 1, jobs, cfg["seed"] + 1000 * i)
             for i in range(jobs)]
     # record the split so the sample can be reproduced exactly
@@ -128,6 +153,7 @@ def run(card_path, date=None, verbose=True, _part=None):
                   born_only=bool(cfg["iborn"]),
                   cuts=dict(y=cfg["y"], xB=cfg["xB"], iacc=cfg["iacc"]),
                   v_min=cfg["vmin"] or None,
+                  maj_cache=os.path.join(d, "majorant.npz"),
                   cache=None if cfg["iborn"] else os.path.join(d, "etatable.npz"))
     t0 = time.time()
     g.setup(verbose=verbose)
@@ -145,9 +171,12 @@ def run(card_path, date=None, verbose=True, _part=None):
 
     # two passes: the first finds the gross misses, the second the ones
     # only reachable once the cell probabilities have shifted.
-    cal = g.calibrate(n_probe=30000, margin=2.0, verbose=verbose)
-    cal2 = g.calibrate(n_probe=30000, margin=1.5, verbose=verbose)
-    cal = dict(pass1=cal, pass2=cal2)
+    if _part is None:
+        cal = g.calibrate(n_probe=30000, margin=2.0, verbose=verbose)
+        cal2 = g.calibrate(n_probe=30000, margin=1.5, verbose=verbose)
+        cal = dict(pass1=cal, pass2=cal2)
+    else:
+        cal = "shared calibrated majorant loaded from majorant.npz"
 
     t0 = time.time()
     ev = g.generate(cfg["nev"], progress=max(cfg["nev"] // 5, 1) if verbose else None)

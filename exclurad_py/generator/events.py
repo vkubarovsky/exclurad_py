@@ -38,6 +38,9 @@ photon exact needs a final accept/reject against the event's true density,
 batched over a block of events -- see REPORT.md.
 """
 
+import json
+import os
+
 import numpy as np
 
 from ..core.born import born_xsec
@@ -69,7 +72,7 @@ class Generator:
                  seed=1234, majorant_shape=(8, 8, 8, 12),
                  table_shape=(5, 5, 5, 8), tail_shape=(2, 2, 2, 2),
                  safety=1.6, cache=None, born_only=False, cuts=None,
-                 v_min=None):
+                 v_min=None, maj_cache=None):
         """born_only=True: no radiative corrections at all.
 
         sigma_obs == sigma_Born, eta == 1, no photon is ever emitted, and
@@ -90,6 +93,11 @@ class Generator:
         self.tail_shape = tuple(tail_shape)
         self.safety = float(safety)
         self.cache = cache
+        # The majorant prescan (~19 s) is identical for every worker of a
+        # parallel run.  Rebuilding it per worker is why --jobs made things
+        # SLOWER than one core: 12 x 19 s of duplicated setup against 40 s
+        # of actual generation each.  Cached to disk and shared instead.
+        self.maj_cache = maj_cache
         self.born_only = bool(born_only)
         # Cuts the REFERENCE generators apply at generation time.  Without
         # these the two samples are different populations and any rate
@@ -174,6 +182,17 @@ class Generator:
 
         eta_hi = 1.0 if self.born_only else float(np.nanmax(self.table.eta))
 
+        if self.maj_cache and os.path.exists(self.maj_cache):
+            d = np.load(self.maj_cache, allow_pickle=True)
+            key = json.loads(str(d["key"]))
+            if key == self._maj_key(eta_hi):
+                self.maj = dict(edges={k: d["e_" + k] for k in ("Q2", "W2", "t", "phi")},
+                                M=d["M"], shape=tuple(d["shape"]),
+                                cdf=d["cdf"], eta_hi=float(d["eta_hi"]))
+                if verbose:
+                    print(f" majorant loaded from {os.path.basename(self.maj_cache)}")
+                return self
+
         nQ, nW, nt, nph = self.majorant_shape
         edges = dict(Q2=np.linspace(*self.box.Q2, nQ + 1),
                      W2=np.linspace(*self.box.W2, nW + 1),
@@ -211,6 +230,24 @@ class Generator:
                         cdf=np.cumsum(M.ravel()) / tot if tot > 0 else None,
                         eta_hi=eta_hi)
         return self
+
+    def _maj_key(self, eta_hi):
+        return dict(model=self.sf.name, Ebeam=self.Ebeam, box=self.box.as_dict(),
+                    mx2_cut=self.mx2_cut, helicity=self.helicity,
+                    shape=list(self.majorant_shape), safety=self.safety,
+                    born_only=self.born_only, eta_hi=round(float(eta_hi), 9),
+                    cuts={k: (list(v) if isinstance(v, tuple) else v)
+                          for k, v in sorted(self.cuts.items())},
+                    t_nucl=getattr(self.sf, "t_nucl", None))
+
+    def save_majorant(self, path):
+        """Persist the CALIBRATED majorant so parallel workers can share it."""
+        s = self.maj
+        np.savez_compressed(path, M=s["M"], cdf=s["cdf"],
+                            shape=np.array(s["shape"]), eta_hi=s["eta_hi"],
+                            key=json.dumps(self._maj_key(s["eta_hi"])),
+                            **{"e_" + k: v for k, v in s["edges"].items()})
+        return path
 
     def _pass_yxb(self, Q2, W2):
         ylo, yhi = self.cuts.get("y", (0.0, 1.0))
