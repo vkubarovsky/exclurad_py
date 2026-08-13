@@ -68,7 +68,16 @@ class Generator:
     def __init__(self, sfmodel, Ebeam, box, mx2_cut=None, helicity=0,
                  seed=1234, majorant_shape=(8, 8, 8, 12),
                  table_shape=(5, 5, 5, 8), tail_shape=(2, 2, 2, 2),
-                 safety=1.6, cache=None):
+                 safety=1.6, cache=None, born_only=False):
+        """born_only=True: no radiative corrections at all.
+
+        sigma_obs == sigma_Born, eta == 1, no photon is ever emitted, and
+        neither the RC table nor the tail samplers are built.  This is the
+        discriminating test when a radiative sample disagrees with another
+        generator: if the BORN distributions already differ, the problem is
+        the cross section, the flux convention or the sampling -- not the
+        radiative tail.
+        """
         self.sf = sfmodel
         self.Ebeam = float(Ebeam)
         self.box = box
@@ -80,6 +89,7 @@ class Generator:
         self.tail_shape = tuple(tail_shape)
         self.safety = float(safety)
         self.cache = cache
+        self.born_only = bool(born_only)
 
         self.table = None
         self.maj = None
@@ -115,12 +125,19 @@ class Generator:
         """Build the eta table and the Born-based majorant."""
         h = self.helicity if self.helicity != 0 else +1
 
+        if self.born_only:
+            self.table = None
+            eta_hi = 1.0
+        else:
+            eta_hi = None
         self.table = None
-        if self.cache:
+        if self.born_only:
+            pass
+        elif self.cache:
             self.table = RCTable.load(self.cache, self.sf, self.Ebeam,
                                       self.box, self.mx2_cut, h,
                                       self.table_shape)
-        if self.table is None:
+        if self.table is None and not self.born_only:
             if verbose:
                 print("building eta table "
                       f"({int(np.prod(self.table_shape))} RC points)...")
@@ -129,7 +146,7 @@ class Generator:
             if self.cache:
                 self.table.save(self.cache)
 
-        eta_hi = float(np.nanmax(self.table.eta))
+        eta_hi = 1.0 if self.born_only else float(np.nanmax(self.table.eta))
 
         nQ, nW, nt, nph = self.majorant_shape
         edges = dict(Q2=np.linspace(*self.box.Q2, nQ + 1),
@@ -254,7 +271,7 @@ class Generator:
             b = self._born(Q2, W2, t, phi, h)
             if b is None or not np.isfinite(b) or b <= 0:
                 continue
-            eta = float(self.table(Q2, W2, t, phi)[0])
+            eta = 1.0 if self.born_only else float(self.table(Q2, W2, t, phi)[0])
             s_obs = b * eta
             if s_obs <= 0:
                 continue
@@ -271,7 +288,7 @@ class Generator:
             kin = self._kin(Q2, W2, t, phi)
 
             photon4 = meson4 = None
-            got = self._tail_for_cell(cell, h, s_obs)
+            got = None if self.born_only else self._tail_for_cell(cell, h, s_obs)
             if got is not None:
                 if self.rng.random() > got["soft_frac"]:
                     try:

@@ -19,7 +19,9 @@ from .frames import LabTransform, assemble_event
 from .events import Generator, Box
 from .tables import RCTable
 from .lund import write_lund, event_lines, PID
+from .decay import decay_two_body, in_acceptance, DECAY, ACCEPTANCE, p_theta
 
 __all__ = ["TailSampler", "check_vmin_independence", "choose_vmin",
            "CellGrid", "ChannelGeometry", "LabTransform", "assemble_event",
-           "Generator", "Box", "RCTable", "write_lund", "event_lines", "PID"]
+           "Generator", "Box", "RCTable", "write_lund", "event_lines", "PID",
+           "decay_two_body", "in_acceptance", "DECAY", "ACCEPTANCE", "p_theta"]
