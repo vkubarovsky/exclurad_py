@@ -1,0 +1,165 @@
+"""
+Run card in the exclugen style: plain text, one value per line, `!` comment.
+
+Positional, like `exclugen/gen_input.txt` -- the order below IS the format.
+Blank lines and whole-line comments are skipped; anything after `!` on a
+value line is ignored.  Fortran-style exponents (1.0d-4) are accepted.
+
+    eta.tableB1        ! model  <channel>.<vintage>
+    10.6               ! ebeam (GeV)
+    100000             ! nev
+    0                  ! iborn   1 = Born only, 0 = full RC
+    4.5 12.0           ! W2 range (GeV^2)
+    1.0 5.0            ! Q2 range (GeV^2)
+    -2.0 -0.10         ! t range (GeV^2, both negative)
+    0.60               ! vcut    MX^2 - m_miss^2 (GeV^2); 0 = no cut
+    -0.30              ! t_nucl  (GeV^2), pi0/eta only; ignored for vector
+    0                  ! ihel    +1, -1, or 0 = helicity-averaged
+    20260813           ! seed
+    1                  ! idecay  1 = decay vector meson h+h-, 0 = leave it
+    /Volumes/wd_14tb/mc/exclurad_py   ! output root
+
+The one departure from exclugen: line 1 is a MODEL NAME, not an `ivec`
+integer.  pi0 and eta each have several vintages that give visibly
+different RC (2013 / 2021 / Table B.1), and an integer channel code cannot
+say which one you ran.  The model name goes into the LUND provenance
+header, so a sample can always be traced back to the cross section that
+made it.  `python3 -m exclurad_py.runcard --models` lists them.
+"""
+
+import os
+import sys
+
+FIELDS = [
+    ("model", str, "model  <channel>.<vintage>"),
+    ("ebeam", float, "ebeam (GeV)"),
+    ("nev", int, "nev"),
+    ("iborn", int, "iborn   1 = Born only, 0 = full RC"),
+    ("W2", "pair", "W2 range (GeV^2)"),
+    ("Q2", "pair", "Q2 range (GeV^2)"),
+    ("t", "pair", "t range (GeV^2, both negative)"),
+    ("vcut", float, "vcut    MX^2 - m_miss^2 (GeV^2); 0 = no cut"),
+    ("t_nucl", float, "t_nucl  (GeV^2), pi0/eta only"),
+    ("ihel", int, "ihel    +1, -1, or 0 = helicity-averaged"),
+    ("seed", int, "seed"),
+    ("idecay", int, "idecay  1 = decay vector meson h+h-, 0 = leave it"),
+    ("outroot", str, "output root"),
+]
+
+
+def _num(tok):
+    return float(tok.replace("d", "e").replace("D", "E"))
+
+
+def parse(path):
+    """Read a run card -> dict.  Raises ValueError with the line number."""
+    vals = []
+    with open(path) as fh:
+        for lineno, raw in enumerate(fh, 1):
+            line = raw.split("!")[0].strip()
+            if line:
+                vals.append((lineno, line))
+
+    if len(vals) < len(FIELDS):
+        missing = [f[0] for f in FIELDS[len(vals):]]
+        raise ValueError(f"{path}: only {len(vals)} value lines, need "
+                         f"{len(FIELDS)}. Missing: {', '.join(missing)}")
+    if len(vals) > len(FIELDS):
+        raise ValueError(f"{path}: {len(vals)} value lines, expected "
+                         f"{len(FIELDS)} (extra at line {vals[len(FIELDS)][0]})")
+
+    cfg = {}
+    for (name, kind, desc), (lineno, tok) in zip(FIELDS, vals):
+        try:
+            if kind == "pair":
+                a, b = tok.split()[:2]
+                cfg[name] = (_num(a), _num(b))
+            elif kind is float:
+                cfg[name] = _num(tok.split()[0])
+            elif kind is int:
+                cfg[name] = int(_num(tok.split()[0]))
+            else:
+                cfg[name] = tok.split()[0] if name != "outroot" else tok
+        except Exception as exc:
+            raise ValueError(f"{path}:{lineno}: cannot read {name} "
+                             f"({desc}) from {tok!r}: {exc}") from exc
+
+    _validate(cfg, path)
+    return cfg
+
+
+def _validate(cfg, path):
+    from .models import names
+    if cfg["model"] not in names():
+        chan = cfg["model"].split(".")[0]
+        near = [n for n in names() if n.startswith(chan + ".")]
+        hint = f"  did you mean one of {near}?" if near else ""
+        raise ValueError(f"{path}: unknown model {cfg['model']!r}.{hint}\n"
+                         f"available: {names()}")
+    for k in ("W2", "Q2"):
+        if cfg[k][0] >= cfg[k][1]:
+            raise ValueError(f"{path}: {k} range {cfg[k]} is not increasing")
+    if not (cfg["t"][0] < cfg["t"][1] < 0):
+        raise ValueError(f"{path}: t range {cfg['t']} must be increasing and "
+                         f"both negative (e.g. -2.0 -0.10)")
+    if cfg["ihel"] not in (-1, 0, 1):
+        raise ValueError(f"{path}: ihel must be +1, -1 or 0")
+    if cfg["iborn"] not in (0, 1):
+        raise ValueError(f"{path}: iborn must be 0 or 1")
+    if cfg["nev"] <= 0:
+        raise ValueError(f"{path}: nev must be positive")
+
+
+def echo(cfg, fh=sys.stdout):
+    """Print the parsed card back, exclugen-style, so a log records the run."""
+    w = max(len(f[0]) for f in FIELDS)
+    print(" exclurad_py run card", file=fh)
+    print(" " + "-" * 48, file=fh)
+    for name, kind, desc in FIELDS:
+        v = cfg[name]
+        v = f"{v[0]:g} {v[1]:g}" if isinstance(v, tuple) else v
+        print(f"   {name:<{w}} = {v}", file=fh)
+    print(" " + "-" * 48, file=fh)
+
+
+TEMPLATE = """! exclurad_py run card -- plain text, one value per line, ! starts a comment.
+! Positional (exclugen convention): the ORDER of the lines is the format.
+{model:<34} ! model  <channel>.<vintage>   (--models to list)
+{ebeam:<34} ! ebeam (GeV)
+{nev:<34} ! nev
+{iborn:<34} ! iborn   1 = Born only, 0 = full RC
+{W2:<34} ! W2 range (GeV^2)
+{Q2:<34} ! Q2 range (GeV^2)
+{t:<34} ! t range (GeV^2, both negative)
+{vcut:<34} ! vcut    MX^2 - m_miss^2 (GeV^2);  0 = no cut (kinematic limit)
+{t_nucl:<34} ! t_nucl  (GeV^2) for pi0/eta models; ignored for vector mesons
+{ihel:<34} ! ihel    +1, -1, or 0 = helicity-averaged
+{seed:<34} ! seed
+{idecay:<34} ! idecay  1 = decay vector meson to h+h- isotropically, 0 = no decay
+{outroot:<34} ! output root (<channel>/<date>_<E>_<mode>_v1/ created under it)
+"""
+
+
+def write_template(path, **kw):
+    d = dict(model="eta.tableB1", ebeam="10.6", nev="100000", iborn="0",
+             W2="4.5 12.0", Q2="1.0 5.0", t="-2.0 -0.10", vcut="0.20",
+             t_nucl="-0.30", ihel="0", seed="20260813", idecay="1",
+             outroot="/Volumes/wd_14tb/mc/exclurad_py")
+    d.update({k: str(v) for k, v in kw.items()})
+    with open(path, "w") as fh:
+        fh.write(TEMPLATE.format(**d))
+    return path
+
+
+if __name__ == "__main__":
+    if "--models" in sys.argv:
+        from .models import list_models
+        print(list_models())
+    elif "--template" in sys.argv:
+        i = sys.argv.index("--template")
+        out = sys.argv[i + 1] if len(sys.argv) > i + 1 else "gen_input.txt"
+        print("wrote", write_template(out))
+    elif len(sys.argv) > 1 and os.path.exists(sys.argv[1]):
+        echo(parse(sys.argv[1]))
+    else:
+        print(__doc__)
