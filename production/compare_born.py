@@ -117,15 +117,15 @@ for row, ch in enumerate(chans):
         a, b = mine[j][mm], ref[j][rm]
         bins = np.linspace(min(a.min(), b.min()),
                            max(np.percentile(a, 99.5), np.percentile(b, 99.5)), 45)
-        A.hist(b, bins=bins, density=True, histtype="step", lw=2, color=VERM,
-               label=refname)
-        A.hist(a, bins=bins, density=True, histtype="step", lw=2, color=BLUE,
-               label="exclurad_py")
+        A.hist(b, bins=bins, density=True, histtype="step", lw=2.4, color=VERM,
+               label=f"{refname}  (reference)")
+        A.hist(a, bins=bins, density=True, histtype="step", lw=1.6, color=BLUE,
+               ls="--", label="exclurad_py  (new)")
         A.set_yscale("log")
         A.set_xlabel(rf"${lab}$  [{unit}]"); A.set_ylabel("normalized")
-        A.set_title(f"({chr(97 + row * 3 + j)})  {ch} BORN", loc="left", fontsize=9)
-        if j == 0:
-            A.legend(frameon=False, fontsize=8)
+        A.set_title(f"({chr(97 + row * 3 + j)})  {ch.upper()} BORN", loc="left",
+                    fontsize=10, fontweight="bold")
+        A.legend(frameon=False, fontsize=8, loc="upper right")
 
 fig.tight_layout()
 out = f"{P}/compare_born.png"
