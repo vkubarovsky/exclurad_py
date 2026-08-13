@@ -27,6 +27,7 @@ def read(path, meson_pid, max_events=None):
                 if len(p) < 11:
                     continue
                 pid = int(p[3]); status = int(p[2])
+                parent = int(p[4])
                 px, py, pz, E = map(float, p[6:10])
                 v4 = (E, px, py, pz)
                 if pid == 11 and status == 1 and ee is None:
@@ -35,7 +36,8 @@ def read(path, meson_pid, max_events=None):
                     mm = v4
                 elif pid == 2212:
                     pp = v4
-                elif pid == 22:
+                elif pid == 22 and parent == 0:
+                    # RADIATED photon only -- decay photons carry parent>0
                     g = max(g, E)
             if ee is None or pp is None:
                 continue

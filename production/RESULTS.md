@@ -24,12 +24,22 @@ current source (nuT=3.114, mg2=2.637, cR=0.4).
 
 ## Comparison against `~/MC_vector_mesons/samples_v2` — **DISAGREES**
 
-Two things are not directly comparable and were handled:
-* the reference samples are **weighted** (0.006–78, mean 1.24) — their
-  histograms are weight-filled;
+**CORRECTION (VPK, 2026-08-13): the reference output is UNWEIGHTED.**  None
+of these generators produce weighted LUND.  Header column 10 is the event
+cross section `sigev`, written for information (`gen_lib.f90:386`:
+`npart,1,1,0,ihel, 11,ebeam,2212,1,sigev, xb,y,w2,q2,nu`) — not a weight.
+Column 5 is the beam HELICITY, and columns 11-15 are xB, y, W2, Q2, nu,
+which can be read directly instead of recomputing invariants.  An earlier
+draft weight-filled the reference histograms with column 10; every number
+below has been recomputed unweighted.  The diffrad_vm discrepancy gets
+slightly WORSE: phi frac(E_gamma>0.15) is 0.177 unweighted (not 0.236), so
+the ratio is 2.8 rather than 2.1; jpsi 0.051, ratio 5.3.
+
+One thing that is not directly comparable and was handled:
 * the **radiative fraction is not an observable** — it is set by where the
   soft/hard split v_min sits.  The comparable quantity is the photon
-  spectrum above a common threshold.
+  spectrum above a common threshold.  (exclugen states its split
+  explicitly: `vmin = 1e-4` in the run card.)
 
 ### What agrees
 

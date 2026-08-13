@@ -62,8 +62,8 @@ for ch, pid, refpath in PAIRS:
             b = np.linspace(EGCUT, min(np.percentile(var_r[sr], 99.5), 4.0), 40)
             a.hist(var_m[sm], bins=b, density=True, histtype="step", lw=2,
                    color=BLUE, label="mesonrc (unweighted)")
-            a.hist(var_r[sr], bins=b, weights=rw[mr][sr], density=True,
-                   histtype="step", lw=2, color=VERM, label="diffrad_vm (weighted)")
+            a.hist(var_r[sr], bins=b, density=True,
+                   histtype="step", lw=2, color=VERM, label="diffrad_vm (unweighted)")
             a.set_yscale("log")
             a.set_title(f"({chr(97+row*3+j)})  {ch}: photon spectrum, "
                         f"$E_\\gamma>{EGCUT}$ GeV", loc="left", fontsize=9)
@@ -72,7 +72,7 @@ for ch, pid, refpath in PAIRS:
                             max(np.percentile(var_m, 99.5), np.percentile(var_r, 99.5)), 40)
             a.hist(var_m, bins=b, density=True, histtype="step", lw=2, color=BLUE,
                    label="mesonrc")
-            a.hist(var_r, bins=b, weights=rw[mr], density=True, histtype="step",
+            a.hist(var_r, bins=b, density=True, histtype="step",
                    lw=2, color=VERM, label="diffrad_vm")
             if logy:
                 a.set_yscale("log")
@@ -83,7 +83,7 @@ for ch, pid, refpath in PAIRS:
             a.legend(frameon=False, fontsize=8)
 
     fr_m = (kin["E_gamma"][mk] > EGCUT).mean()
-    fr_r = np.average(ref["E_gamma"][mr] > EGCUT, weights=rw[mr])
+    fr_r = (ref["E_gamma"][mr] > EGCUT).mean()
     print(f"{ch}: overlap box Q2 {lo['Q2']:.3f}-{hi['Q2']:.3f}, "
           f"W2 {lo['W2']:.2f}-{hi['W2']:.2f}, |t| {lo['mt']:.3f}-{hi['mt']:.3f}")
     print(f"   fraction with E_gamma > {EGCUT} GeV :  mesonrc {fr_m:.4f}   "
