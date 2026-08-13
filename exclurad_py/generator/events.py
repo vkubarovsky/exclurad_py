@@ -125,12 +125,26 @@ class Generator:
         self.max_overweight = 1.0
 
     # ------------------------------------------------------------------ #
+    @property
+    def _t_kind(self):
+        """Which invariant the box's t axis means -- from the topology.
+
+        rc_factor takes this from the model's topology; the generator did
+        NOT, so it built every event in the default "photon" convention
+        (t = (q-p')^2) while pi0/eta topologies mean "target"
+        (t = (p-p')^2). The sampled t and the t you recompute from the
+        written proton then disagree -- 0.42 vs 3.33 -- and the |t| spectrum
+        came out 8x too hard against exclugen.
+        """
+        return getattr(self.sf.topology, "t_kind", "photon")
+
     def _kin(self, Q2, W2, t, phi):
         return EventKin(self.Ebeam, Q2, W2, t, phi, self.sf.mV,
-                        v=0.0, mU=self.sf.mU)
+                        v=0.0, mU=self.sf.mU, t_kind=self._t_kind)
 
     def _vmax(self, Q2, W2, t):
-        vk = EventKin.vmax_kin(self.Ebeam, Q2, W2, t, self.sf.mV, mU=self.sf.mU)
+        vk = EventKin.vmax_kin(self.Ebeam, Q2, W2, t, self.sf.mV,
+                               mU=self.sf.mU, t_kind=self._t_kind)
         if self.mx2_cut is None:
             return vk
         return min(vk, self.mx2_cut - self.sf.mU ** 2)

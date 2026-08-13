@@ -98,7 +98,6 @@ def run_parallel(card_path, jobs, date=None, verbose=True):
         t0 = time.time()
         g0.setup(verbose=verbose)
         g0.calibrate(n_probe=30000, margin=2.0, verbose=verbose)
-        g0.calibrate(n_probe=30000, margin=1.5, verbose=verbose)
         g0.save_majorant(majc)
         if verbose:
             print(f" majorant built+calibrated once in {time.time()-t0:.0f}s, shared")
@@ -172,9 +171,13 @@ def run(card_path, date=None, verbose=True, _part=None):
     # two passes: the first finds the gross misses, the second the ones
     # only reachable once the cell probabilities have shifted.
     if _part is None:
+        # ONE pass only. A second calibration pass corrupts the sampled t
+        # spectrum: pi0 |t| mean goes 0.42 (0 or 1 pass, matching exclugen's
+        # 0.39) -> 3.67 with two passes. Pass 2 probes with the cdf already
+        # reshaped by pass 1, so it re-inflates an over-sampled subset of
+        # cells and compounds; the mechanism is not yet fully understood, so
+        # the second pass stays OFF until it is.
         cal = g.calibrate(n_probe=30000, margin=2.0, verbose=verbose)
-        cal2 = g.calibrate(n_probe=30000, margin=1.5, verbose=verbose)
-        cal = dict(pass1=cal, pass2=cal2)
     else:
         cal = "shared calibrated majorant loaded from majorant.npz"
 
