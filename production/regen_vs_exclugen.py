@@ -17,15 +17,19 @@ are generated; the comparison is then done on the overlap region.
 import os, sys, time, json
 import numpy as np
 from exclurad_py import models, stamp
+from exclurad_py.core.constants import M_PI0, M_ETA
 from exclurad_py.generator import Generator, Box, write_lund
 
 N = int(os.environ.get("NEV", "100000"))
 OUT = os.path.dirname(os.path.abspath(__file__))
 
 CFG = {
-  "pi0": dict(model="pi0.vpk2021", mmiss=0.13957, v_gen=0.5,
+  # mmiss MUST be the same mU the topology uses, since mx2 = v_gen + mmiss^2
+  # is converted straight back to v = MX^2 - mU^2 inside the generator.  A
+  # mismatch silently delivers a different v_gen than the one written here.
+  "pi0": dict(model="pi0.vpk2021", mmiss=M_PI0, v_gen=0.5,
               box=Box(Q2=(1.0, 5.0), W2=(4.0, 12.0), t=(-2.0, -0.10))),
-  "eta": dict(model="eta.vpk2021", mmiss=0.5473, v_gen=0.6,
+  "eta": dict(model="eta.vpk2021", mmiss=M_ETA, v_gen=0.6,
               box=Box(Q2=(1.0, 5.0), W2=(4.5, 12.0), t=(-2.0, -0.10))),
 }
 channels = sys.argv[1:] or list(CFG)

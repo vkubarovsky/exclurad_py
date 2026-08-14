@@ -19,7 +19,17 @@ from exclurad_py.validation.legacy import (load_published_vec, compare,
                                        format_comparison)
 
 M, EBEAM, VCUT = 0.93827208816, 5.75, 0.17
-M_PI_EXCL = 0.13957          # EXCLURAD uses the charged pion mass for amu
+# DELIBERATELY the charged pion mass, and NOT the package's mU.  The published
+# table defines v_cut = 0.17 through EXCLURAD's amu, so the physical cut it was
+# produced at is MX^2 = 0.17 + m_pi+^2.  Comparing like-for-like means matching
+# that physical cut, not our v.  Since the package now uses the pi0 mass for mU
+# (see models/pseudoscalar.py), our effective v_cut here is 0.17126 rather than
+# 0.17 -- that 0.74 % offset is the measured cost of the mass fix, and it made
+# agreement slightly better, not worse:
+#     mean residual  -0.145 % -> -0.081 %,  max |residual|  0.935 % -> 0.881 %.
+# Do not "correct" this constant to M_PI0; that would move the comparison onto
+# a different physical missing-mass cut than the published one.
+M_PI_EXCL = 0.13957
 GRID = "/Users/vpk/excl2013/radcor_all.vec"
 import os
 NBINS = int(os.environ.get("NBINS", "20"))

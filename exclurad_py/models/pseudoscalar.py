@@ -26,15 +26,29 @@ from .registry import register
 from ..core.constants import M_PI0, M_ETA
 from ..topology import baryon_detected
 
-# EXCLURAD-2014 uses the CHARGED pion mass for the missing-mass variable amu
-# even for pi0 -- reproduced here so the v definition matches the Fortran.
-M_PI_EXCL = 0.13957
+# EXCLURAD-2014 used the CHARGED pion mass for the missing-mass variable amu
+# even for pi0.  We do NOT reproduce that here, for two reasons.
+#
+# mU is a single number: it defines both  v = MX^2 - mU^2  and the four-vector
+# of the missing meson written to LUND.  Giving those two different masses
+# would emit events whose missing mass contradicts the v they were sampled at,
+# so "keep the convention for v, fix only the output" is not available -- it is
+# one choice, not two.  And eta already runs on the physical mass in the same
+# slot (_ETA_TOPO below), so the charged mass made pi0 the odd channel out.
+#
+# Cost of the change: v_cut moves by m_pi+^2 - m_pi0^2 = 0.00126 GeV^2, i.e.
+# 0.74 % of the published v_cut = 0.17.  Measured effect on agreement with the
+# 2013 production is recorded in validation/pi0_published/.
+#
+# This package generates pi0 only.  A future pi- n generator should start from
+# a working copy of this one and change the masses there, not carry a dormant
+# second channel here.
 
 # meson mass as hardcoded in dvmpx.F AM(2) -- used inside the fit's tminq
 M_ETA_FIT = 0.547300
 M_PI0_FIT = 0.134976
 
-_PI0_TOPO = baryon_detected(M_PI_EXCL, meson="pi0")
+_PI0_TOPO = baryon_detected(M_PI0, meson="pi0")
 _ETA_TOPO = baryon_detected(M_ETA, meson="eta")
 
 # The fits were made on the CLAS12 pi0/eta grids; outside them the radiative

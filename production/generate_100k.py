@@ -16,6 +16,7 @@ energy spectrum above a common threshold.
 import os, sys, time, json
 import numpy as np
 from exclurad_py import models, stamp
+from exclurad_py.core.constants import M_PI0, M_ETA
 from exclurad_py.generator import Generator, Box, write_lund
 
 N = int(os.environ.get("NEV", "100000"))
@@ -24,10 +25,12 @@ OUT = os.path.dirname(os.path.abspath(__file__))
 CFG = {
   "pi0":  dict(model="pi0.vpk2013", kw=dict(t_nucl=-0.30),
                box=Box(Q2=(1.0, 4.5), W2=(4.0, 10.0), t=(-0.8, -0.15)),
-               mx2=0.17 + 0.13957**2, safety=2.0),
+               # mx2 = v_cut + mU^2 with the SAME mU the topology uses, so the
+               # delivered cut really is v < 0.17 as the docstring claims.
+               mx2=0.17 + M_PI0**2, safety=2.0),
   "eta":  dict(model="eta.tableB1", kw=dict(t_nucl=-0.30),
                box=Box(Q2=(1.0, 4.5), W2=(4.5, 10.0), t=(-0.8, -0.15)),
-               mx2=0.20 + 0.5473**2, safety=2.0),
+               mx2=0.20 + M_ETA**2, safety=2.0),
   "phi":  dict(model="phi.diffrad_vm", kw={},
                box=Box(Q2=(0.4, 6.0), W2=(5.0, 20.5), t=(-4.0, -0.2)),
                mx2=None, safety=2.5),
