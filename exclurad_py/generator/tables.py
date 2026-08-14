@@ -63,7 +63,10 @@ class RCTable:
                     Ebeam=self.Ebeam, mx2_cut=self.mx2_cut,
                     helicity=self.helicity, shape=list(self.shape),
                     box=self.box.as_dict(),
-                    t_nucl=getattr(self.sf, "t_nucl", None))
+                    t_nucl=getattr(self.sf, "t_nucl", None),
+                    # bump when the build filter or interpolation changes,
+                    # so stale cached tables are not silently reused
+                    interp="log-v2")
 
     def build(self, verbose=False, jobs=None):
         """Evaluate eta at every grid node. This is the expensive step.
@@ -107,7 +110,7 @@ class RCTable:
                     eta[i, j, k, l] = e
                     valid[i, j, k, l] = True
         if valid.any():
-            eta[~valid] = float(eta[valid].mean())
+            eta[~valid] = float(np.exp(np.log(eta[valid]).mean()))
         self.eta, self.valid = eta, valid
         return self
 
@@ -132,7 +135,9 @@ class RCTable:
                                           h=self.helicity,
                                           mx2_cut=self.mx2_cut)
                             e = r["eta"]
-                            if np.isfinite(e) and 0.2 < e < 5.0:
+                            # keep every positive finite value -- see the
+                            # matching comment in _eta_chunk
+                            if np.isfinite(e) and e > 0.0:
                                 eta[i, j, k, l] = e
                                 valid[i, j, k, l] = True
                         except (ValueError, ZeroDivisionError,
@@ -142,10 +147,12 @@ class RCTable:
             if verbose:
                 print(f"  eta table: Q2 slice {i+1}/{len(Q2a)} "
                       f"({n_done}/{int(np.prod(self.shape))} nodes)")
-        # fill unusable nodes with the mean of the valid ones so the
-        # interpolator stays finite at the edges of phase space
+        # fill unusable nodes with the GEOMETRIC mean of the valid ones so the
+        # interpolator stays finite at the edges of phase space; with eta
+        # spanning decades the arithmetic mean is dominated by the few
+        # largest nodes and would poison every neighbouring cell
         if valid.any():
-            eta[~valid] = float(eta[valid].mean())
+            eta[~valid] = float(np.exp(np.log(eta[valid]).mean()))
         self.eta, self.valid = eta, valid
         return self
 
@@ -169,6 +176,10 @@ class RCTable:
             idx.append(i)
             frac.append(np.clip((x - ax[i]) / (ax[i + 1] - ax[i]), 0.0, 1.0))
 
+        # Interpolate log(eta), not eta: the value spans several decades and
+        # linear interpolation between e.g. 1 and 1e3 gives ~500 halfway,
+        # where the geometric (log-linear) 30 is the right order.  This is
+        # also what makes the un-clipped high nodes usable at all.
         out[...] = 0.0
         for corner in range(16):
             w = np.ones(pts[0].shape)
@@ -180,8 +191,8 @@ class RCTable:
                     continue
                 sel.append(idx[d] + bit)
                 w = w * (frac[d] if bit else (1.0 - frac[d]))
-            out += w * self.eta[tuple(sel)]
-        return out
+            out += w * np.log(self.eta[tuple(sel)])
+        return np.exp(out)
 
     # ------------------------------------------------------------------ #
     def check_interpolation(self, n=25, rng=None):
@@ -261,7 +272,12 @@ def _eta_chunk(payload):
                           sfmodel=sf, h=args["helicity"],
                           mx2_cut=args["mx2_cut"])
             e = r["eta"]
-            if _np.isfinite(e) and 0.2 < e < 5.0:
+            # eta legitimately spans several decades on wide boxes: it blows
+            # up where sigma_born -> 0 (the pi0 box holds nodes with eta ~ 1e5,
+            # median 129 among those the old 0.2 < e < 5 filter DISCARDED).
+            # Clipping them biased the radiative tail soft by exactly the
+            # missing enhancement; keep every positive finite value.
+            if _np.isfinite(e) and e > 0.0:
                 out.append(((i, j, k, l), float(e)))
         except (ValueError, ZeroDivisionError, FloatingPointError):
             pass
