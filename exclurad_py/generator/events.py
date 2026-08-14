@@ -45,6 +45,7 @@ import numpy as np
 
 from ..core.born import born_xsec
 from ..core.kinematics import EventKin
+from ..core.rc import rc_factor
 from .tail import TailSampler, choose_vmin, photon_at
 from .frames import assemble_event
 from .tables import RCTable
@@ -120,6 +121,15 @@ class Generator:
         self.n_accept = 0
         self.n_hard = 0
         self.n_soft = 0
+        # INSTRUMENTATION: where hard events are lost between "branch chosen"
+        # and "photon written".  The tail sampler is built at the tail-CELL
+        # CENTRE but its draw is tested against THIS event's v_max, and every
+        # failure silently falls through to the soft branch.
+        self.n_hard_chosen = 0     # rng said "hard"
+        self.n_drop_no_tail = 0    # no tail sampler for the cell at all
+        self.n_drop_v_ge_vmax = 0  # drawn v >= this event's v_max
+        self.n_drop_photon_at = 0  # photon_at() could not build the photon
+        self.n_drop_except = 0     # ValueError/ZeroDivisionError in the draw
         self.n_closure_fail = 0
         self.n_overweight = 0
         self.max_overweight = 1.0
@@ -326,18 +336,41 @@ class Generator:
             if vm <= 0:
                 self._tail_cache[key] = None
                 return None
+            # sigma_obs MUST be evaluated at the same point as sigma_hard.
+            #
+            # sigma_hard below is built at the tail-CELL CENTRE, but the caller
+            # passes this EVENT's sigma_obs (Born x interpolated eta).  With
+            # tail_shape=(2,2,2,2) a tail cell spans e.g. Q2 0.2-5.1, across
+            # which sigma_born moves by orders of magnitude -- so
+            # frac = sigma_hard(centre)/sigma_obs(event) is not a probability
+            # at all.  It collapsed to a median of 6e-4 where the correct value
+            # at fixed kinematics is 0.59-0.62, which is what emptied the hard
+            # branch and left every RAD sample effectively Born.
+            #
+            # One exact rc_factor per tail cell (there are only
+            # prod(tail_shape) of them) puts numerator and denominator back at
+            # the same kinematics and takes the eta table out of the split.
+            self._set_event_t(ct)
+            rc_c = rc_factor(Ebeam=self.Ebeam, Q2=cQ2, W2=cW2, t=ct, phi=cph,
+                             sfmodel=self.sf, h=h, mx2_cut=self.mx2_cut,
+                             t_kind=self._t_kind)
+            sigma_obs_c = float(rc_c["sigma_obs"])
+            if not np.isfinite(sigma_obs_c) or sigma_obs_c <= 0:
+                self._tail_cache[key] = None
+                return None
+
             if self.v_min_fixed:
                 v_min = min(self.v_min_fixed, 0.5 * vm)
-                soft, hard, hf = None, None, None
                 from .tail import TailSampler as _TS
                 ts_probe = _TS(kin, self.sf, h, vm, v_min=v_min)
-                soft, hard, hf = ts_probe.split(sigma_obs)
+                soft, hard, hf = ts_probe.split(sigma_obs_c)
                 soft_frac = 1.0 - hf
                 if soft <= 0:
-                    v_min, soft_frac = choose_vmin(kin, self.sf, h, vm, sigma_obs)
+                    v_min, soft_frac = choose_vmin(kin, self.sf, h, vm,
+                                                   sigma_obs_c)
                     self.n_vmin_fallback += 1
             else:
-                v_min, soft_frac = choose_vmin(kin, self.sf, h, vm, sigma_obs)
+                v_min, soft_frac = choose_vmin(kin, self.sf, h, vm, sigma_obs_c)
             if v_min is None:
                 self._tail_cache[key] = None
                 return None
@@ -446,8 +479,12 @@ class Generator:
 
             photon4 = meson4 = None
             got = None if self.born_only else self._tail_for_cell(cell, h, s_obs)
-            if got is not None:
+            if got is None:
+                if not self.born_only:
+                    self.n_drop_no_tail += 1
+            else:
                 if self.rng.random() > got["soft_frac"]:
+                    self.n_hard_chosen += 1
                     try:
                         s = self._draw_photon(got)
                         v = float(s["v"])
@@ -458,8 +495,13 @@ class Generator:
                             got2 = photon_at(kin, v, s["nhat"])
                             if got2 is not None:
                                 photon4, meson4 = got2
+                            else:
+                                self.n_drop_photon_at += 1
+                        else:
+                            self.n_drop_v_ge_vmax += 1
                     except (ValueError, ZeroDivisionError):
                         photon4 = meson4 = None
+                        self.n_drop_except += 1
 
             if photon4 is not None:
                 self.n_hard += 1
@@ -506,7 +548,12 @@ class Generator:
                     max_overweight=self.max_overweight,
                     cut_yxb=self.n_cut_yxb, cut_acceptance=self.n_cut_acc,
                     vmin_fallback=self.n_vmin_fallback,
-                    tail_cells_built=len(self._tail_cache))
+                    tail_cells_built=len(self._tail_cache),
+                    hard_chosen=self.n_hard_chosen,
+                    drop_no_tail=self.n_drop_no_tail,
+                    drop_v_ge_vmax=self.n_drop_v_ge_vmax,
+                    drop_photon_at=self.n_drop_photon_at,
+                    drop_except=self.n_drop_except)
 
     def health(self):
         r = self.report()
