@@ -76,8 +76,11 @@ def v_spectrum(paths, m2, drop_straggled=False, limit=None):
 
 def main(ch, mode="rad"):
     m2 = MESON_M2[ch]
-    mine = sorted(glob.glob(
-        f"/Volumes/wd_14tb/mc/exclurad_py/{ch}/*_{mode}_v1/lund/*.lund"))
+    # MINE_GLOB lets this run against a scratch sample without touching the
+    # shared tree, which is how a fix is checked before anything is regenerated
+    mine = sorted(glob.glob(os.environ.get(
+        "MINE_GLOB",
+        f"/Volumes/wd_14tb/mc/exclurad_py/{ch}/*_{mode}_v1/lund/*.lund")))
     if not mine:
         sys.exit(f"no exclurad_py {ch} {mode} samples")
     a = v_spectrum(mine, m2)

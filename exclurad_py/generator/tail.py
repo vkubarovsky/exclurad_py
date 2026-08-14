@@ -143,12 +143,35 @@ class TailSampler:
         v = np.atleast_1d(np.asarray(v, dtype=float))
         W, W2, Q2, t, mV, mU = k0.W, k0.W2, k0.Q2, k0.t, k0.mV, k0.mU
         q0, qv = k0.q[0], k0.q[3]
+        M, Ep = k0.M, k0.p[0]
 
         Ev = (W2 + mV * mV - mU * mU - v) / (2.0 * W)
         if np.any(Ev < mV):
             raise ValueError("v too large: E_h < m_h")
         pvm = np.sqrt(np.maximum(Ev * Ev - mV * mV, 0.0))
-        cv = (t + Q2 - mV * mV + 2.0 * q0 * Ev) / (2.0 * qv * pvm)
+
+        # The t convention MUST match EventKin's -- the three agree at v = 0 and
+        # separate as v grows, which is precisely the regime this function is
+        # for.  Hardcoding the photon form here while the pi0/eta topology
+        # declares t_kind="target" walked the recoil proton off its measured t
+        # as soon as a photon was emitted: soft events came out at <-t> = 0.308
+        # (exact) and hard events at 2.968, with only 0.3% below -t = 0.5.
+        # Born and soft events never showed it because they take their hadron
+        # from EventKin, which does branch on t_kind.
+        tk = getattr(k0, "t_kind", EventKin.T_PHOTON)
+        if tk == EventKin.T_PHOTON:
+            cv = (t + Q2 - mV * mV + 2.0 * q0 * Ev) / (2.0 * qv * pvm)
+        elif tk == EventKin.T_TARGET:
+            cv = (M * M + mV * mV - t - 2.0 * Ep * Ev) / (2.0 * qv * pvm)
+        elif tk == EventKin.T_CMANGLE:
+            # angle frozen at its v = 0 value; E and |p| still follow v
+            Ev0 = (W2 + mV * mV - mU * mU) / (2.0 * W)
+            pv0 = np.sqrt(max(Ev0 * Ev0 - mV * mV, 0.0))
+            cv = np.full_like(pvm,
+                              (M * M + mV * mV - t - 2.0 * Ep * Ev0)
+                              / (2.0 * qv * pv0))
+        else:
+            raise ValueError(f"unknown t_kind {tk!r}")
         cv = np.clip(cv, -1.0, 1.0)
         sv = np.sqrt(np.maximum(1.0 - cv * cv, 0.0))
         pv = np.stack([Ev,
