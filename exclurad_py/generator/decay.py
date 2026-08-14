@@ -30,7 +30,23 @@ DECAY = {
     "rho":  (211, -211, 0.13957039),      # rho0 -> pi+ pi-
     "phi":  (321, -321, 0.493677),        # phi -> K+ K-
     "jpsi": (-11, 11, 0.51099895e-3),     # J/psi -> e+ e-
+    # pi0/eta -> gamma gamma.  exclugen writes 2 photons per meson and GEMC
+    # needs them: an undecayed pi0 deposits nothing in the calorimeter.
+    # Isotropic in the meson rest frame is exact here -- a pseudoscalar
+    # decaying to two photons has no preferred direction.
+    "pi0":  (22, 22, 0.0),
+    "eta":  (22, 22, 0.0),
 }
+
+# Which event slot holds the MESON.  The core kinematics names its slots by
+# role, not by particle: ev["meson"] is the DETECTED hadron and ev["recoil"]
+# the missing one.  Under the EXCLURAD pi0/eta topology the detected hadron is
+# the PROTON, so decaying ev["meson"] there would blow apart the proton.
+def meson_slot(topology, channel):
+    """'meson' or 'recoil' -- whichever slot actually holds the meson."""
+    if topology is None:
+        return "meson"
+    return "recoil" if getattr(topology, "missing", "") == channel else "meson"
 
 
 def boost_from_rest(p4_parent, p4_rest):

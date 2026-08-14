@@ -31,7 +31,8 @@ import time
 import numpy as np
 
 from . import models, stamp
-from .generator import Generator, Box, write_lund, decay_two_body, DECAY
+from .generator import (Generator, Box, write_lund, decay_two_body, DECAY,
+                        meson_slot)
 from .generator.tables import RCTable
 from .runcard import parse, echo
 
@@ -185,13 +186,17 @@ def run(card_path, date=None, verbose=True, _part=None):
     ev = g.generate(cfg["nev"], progress=max(cfg["nev"] // 5, 1) if verbose else None)
     t_gen = time.time() - t0
 
-    # optional isotropic decay of the vector meson, as diffrad_vm does
+    # optional isotropic decay of the meson: vector -> h+ h- as diffrad_vm
+    # does, pi0/eta -> gamma gamma as exclugen does.
     if cfg["idecay"] and ch in DECAY:
         rng = np.random.default_rng(cfg["seed"] + 1)
         m_d = DECAY[ch][2]
+        # NOT always ev["meson"] -- slots are named by role, and under the
+        # EXCLURAD pi0/eta topology the detected hadron is the PROTON.
+        slot = meson_slot(getattr(sf, "topology", None), ch)
         n_bad = 0
         for e in ev:
-            a, b = decay_two_body(e["meson"], m_d, rng)
+            a, b = decay_two_body(e[slot], m_d, rng)
             if a is None:
                 n_bad += 1
             e["daughters"] = (a, b)

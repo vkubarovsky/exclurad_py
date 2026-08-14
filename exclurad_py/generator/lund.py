@@ -42,10 +42,12 @@ def _fmt_particle(index, pid, mass, p4, parent=0, daughter=0,
 NAME_TO_PID = {"pi0": 111, "pi+": 211, "eta": 221, "rho0": 113, "phi": 333,
                "J/psi": 443, "p": 2212, "n": 2112, "gamma": 22}
 
-# daughters written for a decayed vector meson; mirrors generator.decay.DECAY
+# daughters written for a decayed meson; mirrors generator.decay.DECAY
 DECAY_PID = {"rho":  (211, -211, 0.13957039),
              "phi":  (321, -321, 0.493677),
-             "jpsi": (-11, 11, 0.51099895e-3)}
+             "jpsi": (-11, 11, 0.51099895e-3),
+             "pi0":  (22, 22, 0.0),
+             "eta":  (22, 22, 0.0)}
 
 
 def event_lines(ev, channel, topology=None, target_pid=PID["p"],
@@ -86,10 +88,18 @@ def event_lines(ev, channel, topology=None, target_pid=PID["p"],
     d = ev.get("daughters")
     if d is not None and d[0] is not None and channel in DECAY_PID:
         pid_a, pid_b, m_d = DECAY_PID[channel]
-        parts[1][3] = 0                      # meson -> documentation
-        parts[1][5] = len(parts) + 1         # daughter index
-        for pid_d, p4_d in ((pid_a, d[0]), (pid_b, d[1])):
-            parts.append([pid_d, m_d, p4_d, 1, 2, 0])
+        # Locate the meson by PID, not by slot position: it is the DETECTED
+        # hadron for the vector mesons but the MISSING one for pi0/eta, so
+        # parts[1] is the proton in the EXCLURAD topology.  Matching on
+        # CHANNEL_PID is unambiguous even when a radiated photon is already
+        # in the list -- that is pid 22, the pi0 is 111.
+        meson_pid = CHANNEL_PID[channel]
+        mi = next((i for i, p in enumerate(parts) if p[0] == meson_pid), None)
+        if mi is not None:
+            parts[mi][3] = 0                     # meson -> documentation
+            parts[mi][5] = len(parts) + 1        # first daughter (1-based)
+            for pid_d, p4_d in ((pid_a, d[0]), (pid_b, d[1])):
+                parts.append([pid_d, m_d, p4_d, 1, mi + 1, 0])
 
     head = (f"{len(parts):4d} {1:4d} {1:4d} {pol_target:6.3f} {pol_beam:6.3f} "
             f"{PID['e-']:5d} {beam_energy:8.4f} {target_pid:6d} "
