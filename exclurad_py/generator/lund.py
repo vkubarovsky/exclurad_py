@@ -42,6 +42,11 @@ def _fmt_particle(index, pid, mass, p4, parent=0, daughter=0,
 NAME_TO_PID = {"pi0": 111, "pi+": 211, "eta": 221, "rho0": 113, "phi": 333,
                "J/psi": 443, "p": 2212, "n": 2112, "gamma": 22}
 
+# daughters written for a decayed vector meson; mirrors generator.decay.DECAY
+DECAY_PID = {"rho":  (211, -211, 0.13957039),
+             "phi":  (321, -321, 0.493677),
+             "jpsi": (-11, 11, 0.51099895e-3)}
+
 
 def event_lines(ev, channel, topology=None, target_pid=PID["p"],
                 beam_energy=10.6, pol_beam=0.0, pol_target=0.0, weight=1.0,
@@ -67,18 +72,33 @@ def event_lines(ev, channel, topology=None, target_pid=PID["p"],
     def mass_of(p4):
         return float(np.sqrt(max(p4[0] ** 2 - np.dot(p4[1:], p4[1:]), 0.0)))
 
-    parts = [(PID["e-"], 0.51099895e-3, ev["scattered"]),
-             (det_pid, mass_of(ev["meson"]), ev["meson"]),
-             (mis_pid, mass_of(ev["recoil"]), ev["recoil"])]
+    # (pid, mass, p4, status, parent, daughter)
+    parts = [[PID["e-"], 0.51099895e-3, ev["scattered"], 1, 0, 0],
+             [det_pid, mass_of(ev["meson"]), ev["meson"], 1, 0, 0],
+             [mis_pid, mass_of(ev["recoil"]), ev["recoil"], 1, 0, 0]]
     if ev.get("photon") is not None:
-        parts.append((PID["gamma"], 0.0, ev["photon"]))
+        parts.append([PID["gamma"], 0.0, ev["photon"], 1, 0, 0])
+
+    # A decayed vector meson becomes documentation (status 0) pointing at the
+    # first daughter, and the two daughters are appended as the tracked
+    # particles.  Without this the daughters computed in run.py are silently
+    # dropped and GEMC is handed an undecayed rho/phi/J/psi.
+    d = ev.get("daughters")
+    if d is not None and d[0] is not None and channel in DECAY_PID:
+        pid_a, pid_b, m_d = DECAY_PID[channel]
+        parts[1][3] = 0                      # meson -> documentation
+        parts[1][5] = len(parts) + 1         # daughter index
+        for pid_d, p4_d in ((pid_a, d[0]), (pid_b, d[1])):
+            parts.append([pid_d, m_d, p4_d, 1, 2, 0])
 
     head = (f"{len(parts):4d} {1:4d} {1:4d} {pol_target:6.3f} {pol_beam:6.3f} "
             f"{PID['e-']:5d} {beam_energy:8.4f} {target_pid:6d} "
             f"{process_id:4d} {weight:12.6e}")
     lines = [head]
-    for i, (pid, mass, p4) in enumerate(parts, start=1):
-        lines.append(_fmt_particle(i, pid, mass, p4, vertex=vertex))
+    for i, (pid, mass, p4, status, parent, daughter) in enumerate(parts, start=1):
+        lines.append(_fmt_particle(i, pid, mass, p4, parent=parent,
+                                   daughter=daughter, status=status,
+                                   vertex=vertex))
     return lines
 
 

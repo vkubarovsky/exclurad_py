@@ -118,12 +118,14 @@ for row, ch in enumerate(chans):
     parts = [read_lund(f, MESON_PID[ch], need_eeff) for f in files]
     ref = tuple(np.concatenate([p_[i] for p_ in parts]) for i in range(3))
 
-    lo = [max(mine[i].min(), ref[i].min()) for i in range(3)]
-    hi = [min(mine[i].max(), ref[i].max()) for i in range(3)]
+    # Cards now carry the reference's own limits on every variable, so the
+    # two samples occupy the same volume and NO overlap restriction is
+    # applied.  Restricting after the fact hid differences and left room for
+    # normalization errors -- when integrated distributions are compared,
+    # everything has to be the same by construction, not by post-selection.
+    lo = [min(mine[i].min(), ref[i].min()) for i in range(3)]
+    hi = [max(mine[i].max(), ref[i].max()) for i in range(3)]
     mm = np.ones(len(mine[0]), bool); rm = np.ones(len(ref[0]), bool)
-    for i in range(3):
-        mm &= (mine[i] >= lo[i]) & (mine[i] <= hi[i])
-        rm &= (ref[i] >= lo[i]) & (ref[i] <= hi[i])
 
     print(f"=== {ch} BORN vs {refname}:  exclurad_py {mm.sum()}  ref {rm.sum()}")
     for i, lab in enumerate(("Q2", "W2", "|t|")):

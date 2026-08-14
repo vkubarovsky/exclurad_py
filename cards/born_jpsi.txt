@@ -4,9 +4,9 @@ jpsi.diffrad_vm                    ! model  <channel>.<vintage>   (--models to l
 10.6                               ! ebeam (GeV)
 100000                             ! nev
 1                                  ! iborn   1 = Born only, 0 = full RC
-16.62 20.57                        ! W2 range (GeV^2)
-0.0014 0.2486                      ! Q2 range (GeV^2)
--6.87 -0.48                        ! t range (GeV^2, both negative)
+16.40 20.80                        ! W2 range (GeV^2)
+0.001 0.25                         ! Q2 range (GeV^2)
+-7.0 -0.0001                       ! t range (GeV^2, both negative)
 0.0                                ! vcut    MX^2 - m_miss^2 (GeV^2);  0 = no cut (kinematic limit)
 -0.30                              ! t_nucl  (GeV^2) for pi0/eta models; ignored for vector mesons
 0                                  ! ihel    +1, -1, or 0 = helicity-averaged
@@ -16,3 +16,4 @@ jpsi.diffrad_vm                    ! model  <channel>.<vintage>   (--models to l
 0.79 0.99                          ! y range  (nu/E)   -- match the reference generator's cut
 0.00001 0.016                      ! xB range          -- match the reference generator's cut
 jpsi                               ! iacc    acceptance preset: none | jpsi  (|p|,theta on e',p',daughters)
+0.0                                ! vmin    soft/hard split (GeV^2); 0 = auto.  exclugen uses 1.0d-4

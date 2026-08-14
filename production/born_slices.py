@@ -48,8 +48,13 @@ def report(ch):
         print(f"{ch}: no sample yet")
         return
     name, ref = load_ref(ch)
-    lo = [max(mine[i].min(), ref[i].min()) for i in range(3)]
-    hi = [min(mine[i].max(), ref[i].max()) for i in range(3)]
+    # Cards now carry the reference's OWN limits on every variable, so both
+    # samples occupy the same volume and no overlap restriction is applied.
+    # Restricting after the fact hid differences and left room for
+    # normalization error: when integrated distributions are compared,
+    # everything must be the same by construction, not by post-selection.
+    lo = [min(mine[i].min(), ref[i].min()) for i in range(3)]
+    hi = [max(mine[i].max(), ref[i].max()) for i in range(3)]
     mm = np.ones(len(mine[0]), bool)
     rm = np.ones(len(ref[0]), bool)
     for i in range(3):
