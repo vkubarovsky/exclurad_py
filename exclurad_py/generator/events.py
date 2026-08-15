@@ -623,14 +623,29 @@ class Generator:
                             u = self.rng.random() * N0
                             j = next(k for k in range(7) if N[k + 1] <= u)
                             lo, hi = nodes[j], nodes[j + 1]
-                            nl, nh = N[j], max(N[j + 1], 1e-300)
-                            # log-log interpolation: N(v) ~ power law
-                            if nl > nh > 0 and u > 0:
+                            nl, nh = N[j], N[j + 1]
+                            if nh > 0 and nl > nh and u > 0:
+                                # log-log interpolation: N(v) ~ power law
                                 fr = np.log(u / nl) / np.log(nh / nl)
+                                v_star = float(
+                                    lo * (hi / lo) ** np.clip(fr, 0.0, 1.0))
                             else:
-                                fr = 0.5
-                            v_star = float(
-                                lo * (hi / lo) ** np.clip(fr, 0.0, 1.0))
+                                # LAST segment: N(v_max) == 0 makes log-log
+                                # degenerate and piled every deep photon onto
+                                # the segment's left edge (pi0 scheme-A came
+                                # out with EXACTLY zero events above v=0.3).
+                                # Invert N(v)=u by geometric bisection with
+                                # exact sigma_obs -- ~5 rc calls on the ~10%
+                                # deepest hard events only.
+                                lo_v, hi_v = lo, hi
+                                for _ in range(5):
+                                    mid = float(np.sqrt(lo_v * hi_v))
+                                    Nm = max(so_e - sobs(mid), 0.0)
+                                    if Nm > u:
+                                        lo_v = mid
+                                    else:
+                                        hi_v = mid
+                                v_star = float(np.sqrt(lo_v * hi_v))
                             ts_e = TailSampler(kin, self.sf, h, v_max,
                                                v_min=vmn)
                             s = ts_e.sample(self.rng, 1)

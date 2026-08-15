@@ -267,12 +267,19 @@ def main(ch):
         eta_tab = np.minimum(eta_tab, cap)
 
     rows = ev[:, :4].tolist()
-    chunks = [rows[i::jobs] for i in range(jobs)]
-    with ProcessPoolExecutor(max_workers=jobs) as ex:
-        parts = list(ex.map(_eta_chunk, [(ch, card, c) for c in chunks]))
-    eta_ex = np.full(len(rows), np.nan)
-    for j, r in enumerate(parts):
-        eta_ex[j::jobs] = r
+    if os.environ.get("SAMPLE_EXACT", "") == "1":
+        # sample produced with EXACT_ACCEPT: its population already follows
+        # exact sigma_obs; reweighting again DOUBLE-corrects (pi0 scheme-A
+        # showed weighted 58.9% vs raw 50.1% -- both wrong, weights worse).
+        eta_ex = np.ones(len(rows))
+        eta_tab = np.ones(len(rows))
+    else:
+        chunks = [rows[i::jobs] for i in range(jobs)]
+        with ProcessPoolExecutor(max_workers=jobs) as ex:
+            parts = list(ex.map(_eta_chunk, [(ch, card, c) for c in chunks]))
+        eta_ex = np.full(len(rows), np.nan)
+        for j, r in enumerate(parts):
+            eta_ex[j::jobs] = r
 
     ok = np.isfinite(eta_ex) & np.isfinite(eta_tab) & (eta_tab > 0)
     w = eta_ex[ok] / eta_tab[ok]
