@@ -66,7 +66,8 @@ class RCTable:
                     t_nucl=getattr(self.sf, "t_nucl", None),
                     # bump when the build filter or interpolation changes,
                     # so stale cached tables are not silently reused
-                    interp="log-v2")
+                    interp="log-v2",
+                    flux="gilman-v3")
 
     def build(self, verbose=False, jobs=None):
         """Evaluate eta at every grid node. This is the expensive step.
