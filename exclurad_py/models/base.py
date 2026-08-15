@@ -210,17 +210,21 @@ class ProtonDetectedModel(StructureFunctions):
         # collapses to phase space -- mean |t| 2.27 vs exclugen's 0.386.
         sT, sL, sTT, sLT = self._sfs_tn(self.t_nucl, xBs, Q2s)
 
-        # FLUX-CONVENTION CONVERSION (found 2026-08-15).  The dvmpx-family
-        # fits are DEFINED with the Gilman virtual-photon flux, K = |q|_lab:
-        # data = Gamma_G * SF_fit.  Our machinery is Hand-convention
-        # throughout (K_H = (W2-M^2)/2M), so the response it must be handed
-        # is SF_fit * (K_G/K_H).  Verified against DVMPX itself: the ratio
-        # born_ours/DVMPX equalled K_H/K_G to 4 digits at both ends of the
-        # Q2 range, identically for pi0 and eta (0.9225@Q2=0.35,
-        # 0.4029@Q2=7, W2=6.25).  Without this the high-Q2 population is
+        # FLUX-CONVENTION CONVERSION (found 2026-08-15; attribution corrected
+        # same day).  The pi0/eta fits are HAND-convention -- the PRC paper
+        # states it (Eq. 4, 'The Hand convention was adopted') and DVMPX's
+        # FLUXW numerically equals Gamma(K_H=(W2-M2)/2M) to 5 digits.  OUR
+        # core, however, normalises the hadronic tensor covariantly:
+        # kap*pref ~ (W2-M2)^2/sqrt(lam_q), i.e. an effective K = |q| flux
+        # (hadronic.py) -- correct for the diffrad_vm VM family, which is
+        # defined in that convention and validated as-is.  Hand-defined SFs
+        # must therefore be handed to the core multiplied by K_G/K_H
+        # = sqrt(lam_q)/(W2-M2)*... = 2M|q|/(W2-M2).  Verified: born/DVMPX
+        # was K_H/K_G to 4 digits before (0.9225@Q2=0.35, 0.4029@Q2=7) and
+        # 1.0000 +/- 0.05% after.  Effect: high-Q2 population was
         # underweighted -- invisible for pi0 (0.2% of events above Q2=4),
-        # a factor ~3 for eta (4% there).  eta(v_cut) ratios are untouched:
-        # the observed-point flux cancels between sigma_obs and sigma_born.
+        # a factor ~3 for eta (4% there).  eta(v_cut) ratios: untouched at
+        # the observed point (flux cancels in the ratio).
         nu = (W2 + Q2 - M_P * M_P) / (2.0 * M_P)
         kf = 2.0 * M_P * np.sqrt(np.maximum(nu * nu + Q2, 0.0)) \
             / np.maximum(W2 - M_P * M_P, 1e-12)

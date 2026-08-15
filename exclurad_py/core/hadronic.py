@@ -108,6 +108,12 @@ def hadronic_tensor(qt, p, pv, W2t, sf, M=M_P):
     W2t : (N,) shifted W^2 entering the Hand flux factor of the SF definition.
     """
     X, Y, L = photon_basis(qt, p, pv)
+    # NOTE on flux convention: kap*(the 1/sqrt(lam_q) in born_tensors' pref)
+    # normalises H with an effective covariant K = |q| photon flux.  That is
+    # the diffrad_vm convention (VM models validated against it as-is).
+    # HAND-defined SFs (CLAS pi0/eta fits, PRC Eq. 4) are converted at the
+    # model boundary -- see models.base.ProtonDetectedModel._sfs.  Do not
+    # "fix" the convention here without re-validating every VM channel.
     kap = 8.0 * (W2t - M * M) ** 2 / ALPHA
 
     def op(a, b):
