@@ -209,8 +209,24 @@ class ProtonDetectedModel(StructureFunctions):
         # model's t-dependence entirely and the sampled |t| spectrum
         # collapses to phase space -- mean |t| 2.27 vs exclugen's 0.386.
         sT, sL, sTT, sLT = self._sfs_tn(self.t_nucl, xBs, Q2s)
+
+        # FLUX-CONVENTION CONVERSION (found 2026-08-15).  The dvmpx-family
+        # fits are DEFINED with the Gilman virtual-photon flux, K = |q|_lab:
+        # data = Gamma_G * SF_fit.  Our machinery is Hand-convention
+        # throughout (K_H = (W2-M^2)/2M), so the response it must be handed
+        # is SF_fit * (K_G/K_H).  Verified against DVMPX itself: the ratio
+        # born_ours/DVMPX equalled K_H/K_G to 4 digits at both ends of the
+        # Q2 range, identically for pi0 and eta (0.9225@Q2=0.35,
+        # 0.4029@Q2=7, W2=6.25).  Without this the high-Q2 population is
+        # underweighted -- invisible for pi0 (0.2% of events above Q2=4),
+        # a factor ~3 for eta (4% there).  eta(v_cut) ratios are untouched:
+        # the observed-point flux cancels between sigma_obs and sigma_born.
+        nu = (W2 + Q2 - M_P * M_P) / (2.0 * M_P)
+        kf = 2.0 * M_P * np.sqrt(np.maximum(nu * nu + Q2, 0.0)) \
+            / np.maximum(W2 - M_P * M_P, 1e-12)
+
         z = np.zeros_like(np.asarray(sT, dtype=float))
-        g = lambda a: np.where(ok, a, 0.0)   # noqa: E731
+        g = lambda a: np.where(ok, a * kf, 0.0)   # noqa: E731
         return {"sT": g(sT), "sL": g(sL), "sTT": g(sTT),
                 "sLT": g(sLT), "sLTp": z}
 
