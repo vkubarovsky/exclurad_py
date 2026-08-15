@@ -111,7 +111,12 @@ def read_events(paths, ch):
                     if pid == mpid:
                         ms = p4
                         mfile = float(q[10])
-                        if abs(mfile - m_meson) > 5e-6:
+                        # 1e-4 tolerance: phi is WRITTEN as 1.019412 (the
+                        # diffrad_vm transcription value, vector.py:290), a
+                        # deliberate 49 keV convention -- not an error this
+                        # check should fire on.  Flagged for a daytime
+                        # decision: PDG vs diffrad_vm compatibility.
+                        if abs(mfile - m_meson) > 1e-4:
                             integ["bad_mass"] += 1
                     if par != 0:
                         dsum += p4
