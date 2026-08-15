@@ -51,6 +51,10 @@ from .frames import assemble_event
 from .tables import RCTable
 
 
+class _SoftOnly(Exception):
+    """Internal: event's radiative tail is below resolution -- emit soft."""
+
+
 class Box:
     """Sampling box in the observed variables."""
 
@@ -135,6 +139,20 @@ class Generator:
         self.eta_proposal_cap = _cap if _cap > 0 else None
         # exact per-event soft/hard split and photon density (see generate())
         self.exact_per_event = os.environ.get("EXACT_PER_EVENT", "") == "1"
+        # stage-2 exact accept: unweighted output follows sigma_obs_exact even
+        # with a capped proposal.  Implies exact_per_event (needs rc_e anyway).
+        self.exact_accept = os.environ.get("EXACT_ACCEPT", "") == "1"
+        if self.exact_accept:
+            self.exact_per_event = True
+        # VPK 2026-08-15: production scheme is EXPONENTIATED (variant A)
+        self.expo_tail = os.environ.get("EXPO_TAIL", "") == "1"
+        if self.expo_tail:
+            self.exact_per_event = True
+        self._B = None            # per-majorant-cell bound for stage 2
+        self._B_global = 3.0
+        self.n_accept2 = 0
+        self.n_b_viol = 0
+        self.max_b_viol = 1.0
         self.n_hard_chosen = 0     # rng said "hard"
         self.n_drop_no_tail = 0    # no tail sampler for the cell at all
         self.n_drop_v_ge_vmax = 0  # drawn v >= this event's v_max
@@ -395,6 +413,13 @@ class Generator:
             self._tail_cache[key] = None
         return self._tail_cache[key]
 
+    def _b_cell(self, cell):
+        """Stage-2 bound for this majorant cell (calibrated; global fallback)."""
+        if self._B is None:
+            return self._B_global
+        v = float(self._B[cell])
+        return v if v > 0 else self._B_global
+
     def _draw_photon(self, entry, block=4096):
         """One (v, nhat) from a cell's sampler, refilling in blocks.
 
@@ -443,6 +468,44 @@ class Generator:
             r = (b * eta) / M
             if r > worst[cell]:
                 worst[cell] = r
+        # stage-2 bound calibration: exact/proposal ratio per cell, from up to
+        # 300 probe points (rc_factor is ~0.1-1 s, the full prescan would be
+        # unaffordable).  Cells never probed fall back to the global max.
+        if self.exact_accept:
+            bmax = np.zeros(shape)
+            n_b = 0
+            for _ in range(n_probe):
+                if n_b >= 300:
+                    break
+                Q2, W2, t, phi, Mv, cell = self._propose()
+                if Mv <= 0 or not self._pass_yxb(Q2, W2):
+                    continue
+                b = self._born(Q2, W2, t, phi, h0)
+                if b is None or not np.isfinite(b) or b <= 0:
+                    continue
+                eta = float(self.table(Q2, W2, t, phi)[0])
+                if self.eta_proposal_cap and eta > self.eta_proposal_cap:
+                    eta = self.eta_proposal_cap
+                try:
+                    self._set_event_t(t)
+                    so = float(rc_factor(
+                        Ebeam=self.Ebeam, Q2=Q2, W2=W2, t=t, phi=phi,
+                        sfmodel=self.sf, h=h0, mx2_cut=self.mx2_cut,
+                        t_kind=self._t_kind)["sigma_obs"])
+                except (ValueError, ZeroDivisionError, FloatingPointError):
+                    continue
+                if not np.isfinite(so) or so <= 0:
+                    continue
+                n_b += 1
+                r = so / (b * eta)
+                if r > bmax[cell]:
+                    bmax[cell] = r
+            self._B_global = float(max(bmax.max() * 1.3, 1.05))
+            self._B = np.where(bmax > 0, bmax * 1.3, 0.0)
+            if verbose:
+                print(f" stage-2 bounds: {n_b} probes, global B = "
+                      f"{self._B_global:.2f}")
+
         n_bad = int((worst > 1.0).sum())
         s["M"] = s["M"] * np.where(worst > 1.0, worst * margin, 1.0)
         tot = s["M"].sum()
@@ -511,17 +574,86 @@ class Generator:
                                      mx2_cut=self.mx2_cut,
                                      t_kind=self._t_kind)
                     so_e = float(rc_e["sigma_obs"])
+
+                    # STAGE 2 (optional, EXACT_ACCEPT=1): re-accept on
+                    # sigma_obs_exact / (proposal * B_cell).  Removes the
+                    # capped-proposal bias from the UNWEIGHTED sample itself;
+                    # B_cell is calibrated in calibrate(), violations counted.
+                    if self.exact_accept:
+                        prop = float(s_obs)
+                        B = self._b_cell(cell)
+                        r = so_e / (prop * B) if prop > 0 else 0.0
+                        if r > 1.0:
+                            self.n_b_viol += 1
+                            self.max_b_viol = max(self.max_b_viol, r)
+                        if self.rng.random() > min(r, 1.0):
+                            continue          # rejected by the exact stage
+                        self.n_accept2 += 1
+
                     vmn = min(self.v_min_fixed or 1.0e-4, 0.5 * v_max)
-                    ts_e = TailSampler(kin, self.sf, h, v_max, v_min=vmn)
-                    _, _, hf = ts_e.split(so_e)
-                    if np.isfinite(hf) and self.rng.random() < max(hf, 0.0):
-                        self.n_hard_chosen += 1
-                        s = ts_e.sample(self.rng, 1)
-                        got2 = photon_at(kin, float(s["v"][0]), s["nhat"][0])
-                        if got2 is not None:
-                            photon4, meson4 = got2
-                        else:
-                            self.n_drop_photon_at += 1
+                    # degenerate tail: photons with v < ~10*vmn are below any
+                    # missing-mass resolution; treating the event as soft is
+                    # physically free and avoids the near-threshold sampler
+                    # stall that cost 9 h on the J/psi box (vmax ~ 1e-3).
+                    if v_max < 10.0 * vmn:
+                        raise _SoftOnly
+
+                    if self.expo_tail:
+                        # EXPONENTIATED scheme (VPK decision 2026-08-15):
+                        # the observable frac(v > x) must equal
+                        # [sigma_obs(vmax)-sigma_obs(x)]/sigma_obs(vmax) with
+                        # the YFS-exponentiated soft factor -- what the
+                        # published eta(v_cut) tables mean.  Hard fraction and
+                        # the v-draw both come from the sigma_obs ladder; the
+                        # bare tail supplies only the photon ANGLES.
+                        mU2 = self.sf.mU ** 2
+
+                        def sobs(x):
+                            return float(rc_factor(
+                                Ebeam=self.Ebeam, Q2=Q2, W2=W2, t=t, phi=phi,
+                                sfmodel=self.sf, h=h, mx2_cut=x + mU2,
+                                t_kind=self._t_kind)["sigma_obs"])
+
+                        N0 = max(so_e - sobs(vmn), 0.0)
+                        if self.rng.random() < N0 / so_e:
+                            self.n_hard_chosen += 1
+                            nodes = np.geomspace(vmn, v_max, 8)
+                            N = [N0] + [max(so_e - sobs(x), 0.0)
+                                        for x in nodes[1:-1]] + [0.0]
+                            u = self.rng.random() * N0
+                            j = next(k for k in range(7) if N[k + 1] <= u)
+                            lo, hi = nodes[j], nodes[j + 1]
+                            nl, nh = N[j], max(N[j + 1], 1e-300)
+                            # log-log interpolation: N(v) ~ power law
+                            if nl > nh > 0 and u > 0:
+                                fr = np.log(u / nl) / np.log(nh / nl)
+                            else:
+                                fr = 0.5
+                            v_star = float(
+                                lo * (hi / lo) ** np.clip(fr, 0.0, 1.0))
+                            ts_e = TailSampler(kin, self.sf, h, v_max,
+                                               v_min=vmn)
+                            s = ts_e.sample(self.rng, 1)
+                            got2 = photon_at(kin, v_star, s["nhat"][0])
+                            if got2 is not None:
+                                photon4, meson4 = got2
+                            else:
+                                self.n_drop_photon_at += 1
+                    else:
+                        ts_e = TailSampler(kin, self.sf, h, v_max, v_min=vmn)
+                        _, _, hf = ts_e.split(so_e)
+                        if np.isfinite(hf) and \
+                                self.rng.random() < max(hf, 0.0):
+                            self.n_hard_chosen += 1
+                            s = ts_e.sample(self.rng, 1)
+                            got2 = photon_at(kin, float(s["v"][0]),
+                                             s["nhat"][0])
+                            if got2 is not None:
+                                photon4, meson4 = got2
+                            else:
+                                self.n_drop_photon_at += 1
+                except _SoftOnly:
+                    photon4 = meson4 = None
                 except (ValueError, ZeroDivisionError, FloatingPointError):
                     photon4 = meson4 = None
                     self.n_drop_except += 1
@@ -601,6 +733,8 @@ class Generator:
                     vmin_fallback=self.n_vmin_fallback,
                     tail_cells_built=len(self._tail_cache),
                     hard_chosen=self.n_hard_chosen,
+                    accept2=self.n_accept2, b_viol=self.n_b_viol,
+                    max_b_viol=self.max_b_viol,
                     drop_no_tail=self.n_drop_no_tail,
                     drop_v_ge_vmax=self.n_drop_v_ge_vmax,
                     drop_photon_at=self.n_drop_photon_at,
