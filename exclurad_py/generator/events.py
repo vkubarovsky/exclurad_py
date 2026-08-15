@@ -125,6 +125,14 @@ class Generator:
         # and "photon written".  The tail sampler is built at the tail-CELL
         # CENTRE but its draw is tested against THIS event's v_max, and every
         # failure silently falls through to the soft branch.
+        # ETA_PROPOSAL_CAP caps the TABLE eta used in the accept weight.  The
+        # unclipped table is honest but its 1e3-1e5 corners crater the
+        # unweighting efficiency (~100x).  With a cap the PROPOSAL is biased,
+        # so an unweighted sample is only valid after reweighting each event
+        # by eta_exact/min(eta_table, cap) -- production/weighted_val.py.
+        # Interim measure until the two-stage exact-eta accept is built in.
+        _cap = float(os.environ.get("ETA_PROPOSAL_CAP", "0"))
+        self.eta_proposal_cap = _cap if _cap > 0 else None
         self.n_hard_chosen = 0     # rng said "hard"
         self.n_drop_no_tail = 0    # no tail sampler for the cell at all
         self.n_drop_v_ge_vmax = 0  # drawn v >= this event's v_max
@@ -205,6 +213,10 @@ class Generator:
                 self.table.save(self.cache)
 
         eta_hi = 1.0 if self.born_only else float(np.nanmax(self.table.eta))
+        # the majorant bound must match the (possibly capped) proposal weight,
+        # or the acceptance ratio min(eta,cap)/eta_max craters to ~1e-5
+        if not self.born_only and self.eta_proposal_cap:
+            eta_hi = min(eta_hi, self.eta_proposal_cap)
 
         if self.maj_cache and os.path.exists(self.maj_cache):
             d = np.load(self.maj_cache, allow_pickle=True)
@@ -424,6 +436,8 @@ class Generator:
             if b is None or not np.isfinite(b) or b <= 0:
                 continue
             eta = 1.0 if self.born_only else float(self.table(Q2, W2, t, phi)[0])
+            if self.eta_proposal_cap and eta > self.eta_proposal_cap:
+                eta = self.eta_proposal_cap
             r = (b * eta) / M
             if r > worst[cell]:
                 worst[cell] = r
@@ -461,6 +475,8 @@ class Generator:
             if b is None or not np.isfinite(b) or b <= 0:
                 continue
             eta = 1.0 if self.born_only else float(self.table(Q2, W2, t, phi)[0])
+            if self.eta_proposal_cap and eta > self.eta_proposal_cap:
+                eta = self.eta_proposal_cap
             s_obs = b * eta
             if s_obs <= 0:
                 continue
