@@ -218,8 +218,18 @@ def main(ch):
     above = np.sum([p[1] for p in parts], axis=0)
     n_ok = sum(p[2] for p in parts)
     theory = {x: 100.0 * a / tot for x, a in zip(THR, above)}
-    print(f"[{ch}] theory: {n_ok}/{n_th} physical points", flush=True)
+    # jackknife over worker chunks: the sigma_obs weights are heavy-tailed,
+    # so the theory column carries real MC error that must enter the verdict
+    th_err = {}
+    good = [p for p in parts if p[0] > 0]
+    for j, x in enumerate(THR):
+        jk = np.array([100.0 * (above[j] - p[1][j]) / (tot - p[0])
+                       for p in good])
+        th_err[x] = float(np.sqrt(max(len(jk) - 1, 1) * jk.var()))
+    print(f"[{ch}] theory: {n_ok}/{n_th} physical points; "
+          f"MC err " + " ".join(f"{th_err[x]:.2f}" for x in THR), flush=True)
     res["theory"] = theory
+    res["theory_err"] = {str(k): v for k, v in th_err.items()}
     res["theory_npoints"] = n_ok
 
     # ---- 2. sample, raw + weighted ----
@@ -275,7 +285,8 @@ def main(ch):
         # binomial-with-weights error
         err = 100.0 * np.sqrt(np.sum(w[sel] ** 2)) / w.sum()
         th = theory[x]
-        ok_x = abs(wt - th) < max(3 * err, 1.5)
+        tot_err = np.hypot(err, th_err[x])
+        ok_x = abs(wt - th) < max(3 * tot_err, 1.5)
         verdicts[x] = dict(raw=raw, weighted=wt, err=err, theory=th,
                            ok=bool(ok_x))
         print(f"[{ch}]  {x:8.3f} {raw:7.2f}% {wt:8.2f}% {err:5.2f}% "

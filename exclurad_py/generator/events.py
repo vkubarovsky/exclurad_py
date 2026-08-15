@@ -133,6 +133,8 @@ class Generator:
         # Interim measure until the two-stage exact-eta accept is built in.
         _cap = float(os.environ.get("ETA_PROPOSAL_CAP", "0"))
         self.eta_proposal_cap = _cap if _cap > 0 else None
+        # exact per-event soft/hard split and photon density (see generate())
+        self.exact_per_event = os.environ.get("EXACT_PER_EVENT", "") == "1"
         self.n_hard_chosen = 0     # rng said "hard"
         self.n_drop_no_tail = 0    # no tail sampler for the cell at all
         self.n_drop_v_ge_vmax = 0  # drawn v >= this event's v_max
@@ -494,9 +496,42 @@ class Generator:
             kin = self._kin(Q2, W2, t, phi)
 
             photon4 = meson4 = None
-            got = None if self.born_only else self._tail_for_cell(cell, h, s_obs)
+            if self.exact_per_event and not self.born_only:
+                # EXACT PER-EVENT RADIATION (env EXACT_PER_EVENT=1).
+                # The cell-based path holds the soft/hard split and the photon
+                # density constant across a tail cell (16 cells over the whole
+                # box), which biased frac(v > 0.3) by ~2x against the exact
+                # quadrature even after the population reweighting.  Here both
+                # come from THIS event's kinematics: one rc_factor (~0.1 s)
+                # and one TailSampler (~0.4 s) per ACCEPTED event -- affordable
+                # because accepted events are ~1e4, not the 1e7 trials.
+                try:
+                    rc_e = rc_factor(Ebeam=self.Ebeam, Q2=Q2, W2=W2, t=t,
+                                     phi=phi, sfmodel=self.sf, h=h,
+                                     mx2_cut=self.mx2_cut,
+                                     t_kind=self._t_kind)
+                    so_e = float(rc_e["sigma_obs"])
+                    vmn = min(self.v_min_fixed or 1.0e-4, 0.5 * v_max)
+                    ts_e = TailSampler(kin, self.sf, h, v_max, v_min=vmn)
+                    _, _, hf = ts_e.split(so_e)
+                    if np.isfinite(hf) and self.rng.random() < max(hf, 0.0):
+                        self.n_hard_chosen += 1
+                        s = ts_e.sample(self.rng, 1)
+                        got2 = photon_at(kin, float(s["v"][0]), s["nhat"][0])
+                        if got2 is not None:
+                            photon4, meson4 = got2
+                        else:
+                            self.n_drop_photon_at += 1
+                except (ValueError, ZeroDivisionError, FloatingPointError):
+                    photon4 = meson4 = None
+                    self.n_drop_except += 1
+                got = None
+            elif self.born_only:
+                got = None
+            else:
+                got = self._tail_for_cell(cell, h, s_obs)
             if got is None:
-                if not self.born_only:
+                if not self.born_only and not self.exact_per_event:
                     self.n_drop_no_tail += 1
             else:
                 if self.rng.random() > got["soft_frac"]:
