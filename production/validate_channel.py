@@ -165,14 +165,16 @@ def _theory_chunk(args):
         if hasattr(sf, "t_nucl"):
             sf.t_nucl = float(t)
         try:
+            expo = os.environ.get("THEORY_EXPO", "1") == "1"
             s_tot = rc_factor(Ebeam=card["ebeam"], Q2=Q2, W2=W2, t=t, phi=ph,
                               sfmodel=sf, h=+1, mx2_cut=mx2_tot,
-                              t_kind=tk)["sigma_obs"]
+                              t_kind=tk, exponentiate=expo)["sigma_obs"]
             if not np.isfinite(s_tot) or s_tot <= 0:
                 continue
             s_x = [rc_factor(Ebeam=card["ebeam"], Q2=Q2, W2=W2, t=t, phi=ph,
                              sfmodel=sf, h=+1, mx2_cut=x + mU2,
-                             t_kind=tk)["sigma_obs"] for x in THR]
+                             t_kind=tk, exponentiate=expo)["sigma_obs"]
+                   for x in THR]
         except Exception:
             continue
         if not all(np.isfinite(s) for s in s_x):
