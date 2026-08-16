@@ -88,6 +88,11 @@ class RCTable:
         """
         if jobs is None:
             jobs = max(1, (os.cpu_count() or 2) - 1)
+        # TABLE_SERIAL=1: bypass the executor entirely.  Night of 08-16:
+        # builds completed and SAVED, then hung in pool shutdown
+        # (QueueFeederThread + parent in lock_acquire; Python 3.14.5).
+        if os.environ.get("TABLE_SERIAL", "") == "1":
+            jobs = 1
         if jobs > 1:
             try:
                 return self._build_parallel(jobs, verbose)
