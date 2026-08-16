@@ -47,6 +47,11 @@ class RCTable:
         self.mx2_cut = mx2_cut
         self.helicity = helicity
         self.shape = tuple(shape)
+        # key must carry the CONSTRUCTION t_nucl: the builder mutates
+        # sf.t_nucl per grid node (last node = t axis edge), and saving the
+        # mutated value poisoned the cache key -- every fresh loader came
+        # with the card's t_nucl and was refused (night of 08-15/16).
+        self._t_nucl0 = getattr(sfmodel, "t_nucl", None)
 
         self.axes = [
             np.linspace(*box.Q2, shape[0]),
@@ -63,7 +68,7 @@ class RCTable:
                     Ebeam=self.Ebeam, mx2_cut=self.mx2_cut,
                     helicity=self.helicity, shape=list(self.shape),
                     box=self.box.as_dict(),
-                    t_nucl=getattr(self.sf, "t_nucl", None),
+                    t_nucl=self._t_nucl0,
                     # bump when the build filter or interpolation changes,
                     # so stale cached tables are not silently reused
                     interp="log-v2",
