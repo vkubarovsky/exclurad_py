@@ -272,7 +272,7 @@ class Phi_DiffradVM(StructureFunctions):
     name = "phi.diffrad_vm"
     channel = "phi"
     version = "vm2026"
-    topology = meson_detected(1.019412, meson="phi")
+    topology = meson_detected(1.019461, meson="phi")  # PDG (VPK 15.08: PDG everywhere)
     validity = dict(W2=(3.85, 400.0), Q2=(0.05, 30.0), mt=(0.0, 12.0))
     provenance = (
         "Transcribed from `sigma_T_phi` / `sigma_L_phi` of "
@@ -287,7 +287,7 @@ class Phi_DiffradVM(StructureFunctions):
 
     alf1, alf2, alf3 = 400.0, 2.000, 0.200
     nuT, bt, cR = 2.253, 1.326, 1.000
-    M_PHI_VM = 1.019412
+    M_PHI_VM = 1.019461  # PDG; was 1.019412 (diffrad_vm transcription) until 2026-08-15
     WTH = 1.96
 
     def _sfs(self, W2, Q2, t):
