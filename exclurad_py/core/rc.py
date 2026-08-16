@@ -27,6 +27,8 @@ def rc_factor(Ebeam, Q2, W2, t, phi, sfmodel, h=+1,
     Returns dict with sigma_born, sigma_obs (nb/GeV^6), eta, delta and the
     individual pieces.
     """
+    if hasattr(sfmodel, 'kf_W2Q2'):
+        sfmodel.kf_W2Q2 = (float(W2), float(Q2))
     mU = getattr(sfmodel, 'mU', None)
     if t_kind is None:
         topo = getattr(sfmodel, 'topology', None)

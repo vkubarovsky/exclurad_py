@@ -184,6 +184,14 @@ class ProtonDetectedModel(StructureFunctions):
             raise ValueError("t_nucl must be negative (spacelike)")
         self.t_nucl = float(t_nucl)
         self.Ebeam = float(Ebeam)
+        # VPK 2026-08-15: the generator must reproduce ORIGINAL EXCLURAD's
+        # corrections.  The Gilman/Hand conversion kf is therefore FROZEN at
+        # the OBSERVED (W2, Q2) of the current point -- set by rc_factor,
+        # born_xsec and TailSampler alongside t_nucl -- not evaluated at the
+        # shifted tail kinematics.  Frozen kf cancels in eta(v_cut), which is
+        # exactly why the pre-kf code matched the published 2013 tables to
+        # 0.88% max; the shifted variant drifted to 1.77%.
+        self.kf_W2Q2 = None
         if self.topology.sf_t != FIXED_NUCLEON:
             raise TypeError("ProtonDetectedModel requires a FIXED_NUCLEON topology")
 
@@ -225,9 +233,13 @@ class ProtonDetectedModel(StructureFunctions):
         # underweighted -- invisible for pi0 (0.2% of events above Q2=4),
         # a factor ~3 for eta (4% there).  eta(v_cut) ratios: untouched at
         # the observed point (flux cancels in the ratio).
-        nu = (W2 + Q2 - M_P * M_P) / (2.0 * M_P)
-        kf = 2.0 * M_P * np.sqrt(np.maximum(nu * nu + Q2, 0.0)) \
-            / np.maximum(W2 - M_P * M_P, 1e-12)
+        if self.kf_W2Q2 is not None:
+            W2k, Q2k = self.kf_W2Q2          # frozen at the observed point
+        else:
+            W2k, Q2k = W2, Q2                # standalone call: args ARE observed
+        nu = (W2k + Q2k - M_P * M_P) / (2.0 * M_P)
+        kf = 2.0 * M_P * np.sqrt(np.maximum(nu * nu + Q2k, 0.0)) \
+            / np.maximum(W2k - M_P * M_P, 1e-12)
 
         z = np.zeros_like(np.asarray(sT, dtype=float))
         g = lambda a: np.where(ok, a * kf, 0.0)   # noqa: E731

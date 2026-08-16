@@ -81,6 +81,8 @@ class TailSampler:
     def __init__(self, kin0, sfmodel, h, v_max, v_min=None,
                  n_v=20, n_x=32, n_phi=12, safety=3.0, n_sub=12, seed=12345):
         self.kin0, self.sf, self.h = kin0, sfmodel, h
+        if hasattr(sfmodel, 'kf_W2Q2'):
+            sfmodel.kf_W2Q2 = (float(kin0.W2), float(kin0.Q2))
         self.v_max = float(v_max)
         self.v_min = float(v_min) if v_min is not None \
             else DEFAULT_VMIN_FRAC * self.v_max

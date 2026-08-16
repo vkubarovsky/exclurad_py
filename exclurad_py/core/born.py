@@ -40,6 +40,8 @@ def born_H(kin, sfmodel):
 
 def born_xsec(kin, sfmodel, h):
     """d sigma_Born/(dQ2 dW2 dt dphi) in nb/GeV^6."""
+    if hasattr(sfmodel, 'kf_W2Q2'):
+        sfmodel.kf_W2Q2 = (float(kin.W2), float(kin.Q2))
     L0, pref = born_tensors(kin, h)
     H0 = born_H(kin, sfmodel)[0]
     val = pref * np.real(contractLH(L0, H0))
