@@ -138,7 +138,12 @@ def excl_to_mesonrc(Q2, xB, t_nucl, phi_meson, m_meson, M=0.93827208816):
     azimuth.  mesonrc's EventKin, in the `baryon_detected` topology, is
     built from the DETECTED PROTON, so it needs
 
-        t_kin = (q - p')^2   and   phi_kin = phi_meson + pi.
+        t_kin = (q - p')^2 ,   and phi passes through UNCHANGED.
+
+    The phi_meson + pi that used to sit here was right while the core
+    sampled the detected proton's azimuth; since 2026-08-17 the core is in
+    Trento (topology.phi_offset), which is the published convention, so the
+    shift would now mirror the profile.
 
     For the 2->2 Born process gamma*(-Q2) p(M^2) -> h(m^2) p'(M^2),
 
@@ -155,7 +160,7 @@ def excl_to_mesonrc(Q2, xB, t_nucl, phi_meson, m_meson, M=0.93827208816):
     t_nucl = _np.asarray(t_nucl, dtype=float)
     W2 = Q2 * (1.0 / xB - 1.0) + M * M
     t_kin = -Q2 + 2.0 * M * M + m_meson ** 2 - W2 - t_nucl
-    phi_kin = _np.asarray(phi_meson, dtype=float) + _np.pi
+    phi_kin = _np.asarray(phi_meson, dtype=float)
     return W2, t_kin, phi_kin
 
 

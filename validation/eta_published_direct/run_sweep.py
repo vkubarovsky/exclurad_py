@@ -33,7 +33,7 @@ Q2, xb, tabs, phid, dpub = (d["q2"][phys][:NBINS], d["xb"][phys][:NBINS],
                             d["delta"][phys][:NBINS])
 tN = -tabs
 W2 = Q2 * (1 / xb - 1) + M * M
-phik = np.radians(phid) + np.pi
+phik = np.radians(phid)   # Trento, same as the core since 2026-08-17
 
 rows, eta = [], []
 for i in range(len(Q2)):

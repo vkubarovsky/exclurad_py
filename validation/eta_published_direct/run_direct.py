@@ -28,7 +28,7 @@ N = 20                                     # first (Q2,xB,t) bin: 20 phi points
 Q2, xb, tN = d["q2"][:N], d["xb"][:N], -d["t"][:N]
 phid, dpub = d["phi"][:N], d["delta"][:N]
 W2 = Q2 * (1 / xb - 1) + M * M
-phik = np.radians(phid) + np.pi            # detected proton azimuth
+phik = np.radians(phid)   # Trento, same as the core since 2026-08-17
 
 rows = []
 for i in range(N):
