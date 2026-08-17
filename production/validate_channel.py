@@ -160,21 +160,42 @@ def read_events(paths, ch):
                 # (n_l x n_h).q -- that mirrored the profile (max at 180
                 # instead of at 0/360, as VPK remembered from the earlier
                 # exclugen/exclurad comparisons).
+                # TWO azimuths, because the generator and the literature do
+                # not use the same hadron.  Column 3 (`phi`) is built from
+                # the DETECTED particle -- for pi0/eta that is the proton --
+                # and is the variable the core samples in, so it is the one
+                # rc_factor must be called with.  Column 5 (`phi_meson`) is
+                # built from the produced meson, the Trento phi_h of the
+                # publications; the two differ by pi exactly when nothing
+                # else is radiated.  Checked 2026-08-17 against exclugen's
+                # own G1 events at v<0.094: delta is CONCAVE in phi_meson
+                # (ours +11.8%, exclugen +11.5%) and convex in phi_proton.
+                # Plot the meson one, feed rc_factor the detected one.
                 beam = np.array([0.0, 0.0, E0, E0])
                 q4 = beam - el
                 qh = q4[:3] / max(np.linalg.norm(q4[:3]), 1e-12)
                 a = np.cross(qh, beam[:3])
-                b = np.cross(qh, det[:3])
-                na, nb = np.linalg.norm(a), np.linalg.norm(b)
-                if na <= 0 or nb <= 0:
+                na = np.linalg.norm(a)
+                if na <= 0:
                     continue
-                cos_p = float(np.dot(a, b) / (na * nb))
-                sin_p = float(np.dot(np.cross(beam[:3], det[:3]), qh)
-                              / (na * nb))
-                phi = float(np.arctan2(sin_p, cos_p)) % (2 * np.pi)
+
+                def _trento(h, a=a, na=na, qh=qh, beam=beam):
+                    b = np.cross(qh, h[:3])
+                    nb = np.linalg.norm(b)
+                    if nb <= 0:
+                        return np.nan
+                    cos_p = float(np.dot(a, b) / (na * nb))
+                    sin_p = float(np.dot(np.cross(beam[:3], h[:3]), qh)
+                                  / (na * nb))
+                    return float(np.arctan2(sin_p, cos_p)) % (2 * np.pi)
+
+                phi = _trento(det)
+                if not np.isfinite(phi):
+                    continue
+                phi_m = _trento(ms) if ms is not None else (phi + np.pi) % (2 * np.pi)
                 X = np.array([0, 0, E0, E0 + M_P]) - el - det
                 v = X[3] ** 2 - X[:3] @ X[:3] - mU2
-                rows.append((Q2, W2, t, phi, v))
+                rows.append((Q2, W2, t, phi, v, phi_m))
     return np.array(rows), integ
 
 
