@@ -178,6 +178,8 @@ class Generator:
 
     def _kin(self, Q2, W2, t, phi):
         return EventKin(self.Ebeam, Q2, W2, t, phi, self.sf.mV,
+                        phi_offset=float(getattr(getattr(self.sf, 'topology', None),
+                                                 'phi_offset', 0.0)),
                         v=0.0, mU=self.sf.mU, t_kind=self._t_kind)
 
     def _vmax(self, Q2, W2, t):

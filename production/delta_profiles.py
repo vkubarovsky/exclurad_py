@@ -46,16 +46,22 @@ OUT_DIR = os.path.expanduser("~/Library/CloudStorage/OneDrive-JeffersonLab/"
 def observables(ev, ch):
     """(Q2, W, -t, phi_deg) per event -- the four profile axes.
 
-    phi is column 5, the Trento azimuth of the PRODUCED MESON -- the
-    variable the literature plots.  Column 3 is the azimuth of the
-    DETECTED particle (the proton for pi0/eta), which is what the core
-    samples in and what rc_factor must be called with; the two differ by
-    pi, so plotting column 3 turned the concave delta(phi) upside down.
+    phi is column 3: the core's phi, which since 2026-08-17 is the TRENTO
+    azimuth of the produced meson in every channel (topology.phi_offset
+    absorbs the pi that pi0/eta pick up from detecting the proton).
+    read_events recovers it by undoing that offset on the detected
+    particle, which is exact for radiative events too.
+
+    Do NOT swap in column 5 (the measured meson azimuth).  It equals
+    column 3 only when nothing is radiated; for rad events the photon
+    pushes the meson off the plane, so the reference -- which merely
+    mirrors -- and the generator stop describing the same quantity.
+    Tried on 2026-08-17: max pull went 3.4 -> 15.4.
     """
     Q2 = ev[:, 0]
     W = np.sqrt(np.maximum(ev[:, 1], 0.0))
     mt = -ev[:, 2]
-    phi = np.degrees(ev[:, 5] if ev.shape[1] > 5 else ev[:, 3]) % 360.0
+    phi = np.degrees(ev[:, 3]) % 360.0
     return dict(Q2=Q2, W=W, mt=mt, phi=phi)
 
 
@@ -149,7 +155,7 @@ def main(ch):
                                           np.sqrt(card["W2"][1]), 13)),
           ("mt", r"$-t$ [GeV$^2$]", np.linspace(0.0,
                                                 min(-card["t"][0], 3.0), 13)),
-          ("phi", r"$\phi_h$ мезона, Тренто [deg]", np.linspace(0, 360, 13))]
+          ("phi", r"$\phi_h$ (Тренто, мезон) [deg]", np.linspace(0, 360, 13))]
 
     rng = np.random.default_rng(20260816)
     nq = int(os.environ.get("NQUAD", "6000"))

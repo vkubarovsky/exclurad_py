@@ -33,7 +33,10 @@ def rc_factor(Ebeam, Q2, W2, t, phi, sfmodel, h=+1,
     if t_kind is None:
         topo = getattr(sfmodel, 'topology', None)
         t_kind = getattr(topo, 't_kind', 'photon') if topo else 'photon'
+    _topo = getattr(sfmodel, "topology", None)
+    _off = float(getattr(_topo, "phi_offset", 0.0))
     kin = EventKin(Ebeam, Q2, W2, t, phi, sfmodel.mV, v=0.0, M=M, m=m, mU=mU,
+                   phi_offset=_off,
                    t_kind=t_kind)
 
     v_kin = EventKin.vmax_kin(Ebeam, Q2, W2, t, sfmodel.mV, M=M, m=m, mU=mU,

@@ -43,6 +43,7 @@ recorded on the Topology object and stamped into every output file.
 """
 
 from dataclasses import dataclass, field
+from math import pi
 
 from .core.constants import M_P, M_N
 
@@ -73,6 +74,7 @@ class Topology:
     m_missing: float
     sf_t: str = KINEMATIC_T
     lt_sign: float = +1.0
+    phi_offset: float = 0.0
     detected: str = ""
     missing: str = ""
     t_kind: str = "photon"     # which invariant the t bin holds fixed
@@ -94,7 +96,8 @@ class Topology:
         return dict(topology=self.name, detected=self.detected,
                     missing=self.missing, m_detected=self.m_detected,
                     m_missing=self.m_missing, sf_t=self.sf_t,
-                    lt_sign=self.lt_sign, t_kind=self.t_kind)
+                    lt_sign=self.lt_sign, phi_offset=self.phi_offset,
+                    t_kind=self.t_kind)
 
     def __str__(self):
         return (f"{self.name}(detected={self.detected} m={self.m_detected:.6f}, "
@@ -109,7 +112,7 @@ def meson_detected(m_meson, meson="meson", m_recoil=M_P, recoil="p"):
     """DVMP convention: meson detected, recoil baryon missing."""
     return Topology(name="meson_detected",
                     m_detected=m_meson, m_missing=m_recoil,
-                    sf_t=KINEMATIC_T, lt_sign=+1.0,
+                    sf_t=KINEMATIC_T, lt_sign=+1.0, phi_offset=0.0,
                     detected=meson, missing=recoil,
                     note="t of the core kinematics is the meson transfer; "
                          "hadron plane defined by the meson.")
@@ -124,7 +127,7 @@ def baryon_detected(m_meson, meson="meson", m_recoil=M_P, recoil="p"):
     """
     return Topology(name="baryon_detected",
                     m_detected=m_recoil, m_missing=m_meson,
-                    sf_t=FIXED_NUCLEON, lt_sign=-1.0,
+                    sf_t=FIXED_NUCLEON, lt_sign=-1.0, phi_offset=pi,
                     detected=recoil, missing=meson,
                     # DEFAULT = the physical bin definition.
                     #

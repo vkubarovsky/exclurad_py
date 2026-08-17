@@ -40,7 +40,18 @@ class EventKin:
     T_CMANGLE = "cm_angle"  # cos(theta_CM) frozen at its Born value <-- EXCLURAD
 
     def __init__(self, Ebeam, Q2, W2, t, phi, mV, v=0.0, M=M_P, m=M_E, mU=None,
-                 t_kind="photon"):
+                 t_kind="photon", phi_offset=0.0):
+        # phi is ALWAYS the Trento azimuth of the PRODUCED MESON (Bacchetta et
+        # al., PRD 70 (2004) 117504, Eq. 16).  phi_offset is the angle from
+        # that meson to the DETECTED hadron, which is what sits at self.pv:
+        # 0 when the meson itself is detected (rho/phi/J/psi), pi when the
+        # recoil proton is (pi0/eta).  It works WITH topology.lt_sign, not
+        # instead of it: the tensor reads the azimuth of self.pv, so
+        # cos(phi + pi) = -cos(phi) has to be undone by lt_sign = -1 for the
+        # LT term to come out as +sigma_LT cos(phi_Trento).  Setting
+        # lt_sign = +1 here cancels the offset exactly and changes nothing --
+        # tried it on 2026-08-17, sigma_Born did not move by one bit.
+        self.phi_offset = phi_offset
         self.Ebeam, self.Q2, self.W2, self.t, self.phi = Ebeam, Q2, W2, t, phi
         self.mV, self.M, self.m, self.v = mV, M, m, v
         self.mU = M if mU is None else mU        # undetected recoil baryon
@@ -117,9 +128,10 @@ class EventKin:
             raise ValueError("unphysical (t,v): |cos theta_V| > 1")
         cv = np.clip(cv, -1.0, 1.0)
         sv = np.sqrt(1.0 - cv * cv)
+        phi_det = phi + phi_offset
         self.pv = np.array([Ev,
-                            pv * sv * np.cos(phi),
-                            pv * sv * np.sin(phi),
+                            pv * sv * np.cos(phi_det),
+                            pv * sv * np.sin(phi_det),
                             pv * cv])
         self.Lam = self.p + self.q - self.pv     # undetected system (+ photon)
         # consistency

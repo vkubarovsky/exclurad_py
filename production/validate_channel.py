@@ -75,6 +75,7 @@ def read_events(paths, ch):
     m_meson = MESON_M[ch]
     ps = ch in ("pi0", "eta")
     mU2 = m_meson ** 2 if ps else M_P ** 2
+    phi_off = np.pi if ps else 0.0          # topology.phi_offset, see below
     rows = []
     integ = dict(events=0, malformed=0, bad_mass=0, decay_open=0,
                  with_rad_photon=0)
@@ -189,10 +190,17 @@ def read_events(paths, ch):
                                   / (na * nb))
                     return float(np.arctan2(sin_p, cos_p)) % (2 * np.pi)
 
-                phi = _trento(det)
-                if not np.isfinite(phi):
+                phi_det = _trento(det)
+                if not np.isfinite(phi_det):
                     continue
-                phi_m = _trento(ms) if ms is not None else (phi + np.pi) % (2 * np.pi)
+                # The core samples the TRENTO azimuth of the produced meson
+                # and places the DETECTED hadron at phi + topology.phi_offset
+                # (pi for pi0/eta, 0 for the vector mesons).  So the core phi
+                # is recovered EXACTLY, for radiative events too, by undoing
+                # that offset on the detected particle -- not by measuring the
+                # meson, which the radiated photon pushes off the plane.
+                phi = (phi_det - phi_off) % (2 * np.pi)
+                phi_m = _trento(ms) if ms is not None else phi
                 X = np.array([0, 0, E0, E0 + M_P]) - el - det
                 v = X[3] ** 2 - X[:3] @ X[:3] - mU2
                 rows.append((Q2, W2, t, phi, v, phi_m))

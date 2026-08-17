@@ -122,6 +122,7 @@ def sigma_F(kin0, sfmodel, h, v_m,
     n_bad = 0
     for v, wv_i in zip(vs, wvs):
         kinv = EventKin(kin0.Ebeam, Q2, W2, t, kin0.phi, mV, v=v, M=M, m=m,
+                        phi_offset=getattr(kin0, 'phi_offset', 0.0),
                         mU=kin0.mU, t_kind=getattr(kin0, "t_kind", "photon"))
         pv, Lam = kinv.pv, kinv.Lam
         for chd in channels:
