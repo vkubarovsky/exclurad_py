@@ -473,7 +473,14 @@ class Generator:
         # stage-2 bound calibration: exact/proposal ratio per cell, from up to
         # 300 probe points (rc_factor is ~0.1-1 s, the full prescan would be
         # unaffordable).  Cells never probed fall back to the global max.
-        if self.exact_accept:
+        # born_only has no eta table (there is no radiative proposal to
+        # correct), so stage 2 is both meaningless and a crash: self.table
+        # is None.  The two other table reads, lines ~467 and ~544, already
+        # guard with `1.0 if self.born_only else ...`; this one did not.
+        # Never hit before because run_production_100k.sh only ever exports
+        # EXACT_ACCEPT=1 for the rad cards -- iborn=1 with the production
+        # environment first happened on 2026-08-17.
+        if self.exact_accept and not self.born_only:
             bmax = np.zeros(shape)
             n_b = 0
             for _ in range(n_probe):
