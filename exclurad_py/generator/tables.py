@@ -72,7 +72,17 @@ class RCTable:
                     # bump when the build filter or interpolation changes,
                     # so stale cached tables are not silently reused
                     interp="log-v2",
-                    flux="gilman-v3")
+                    flux="gilman-v3",
+                    # The table is indexed by phi, so it is only valid in the
+                    # phi convention it was built in.  Nothing else in this
+                    # key notices a convention change: model, box, cut and
+                    # shape all stay identical, and a table built with phi =
+                    # proton azimuth would load silently against a core that
+                    # now means the meson's -- giving eta MIRRORED in phi.
+                    # Measured on a stale G1 table: exact cos harmonic
+                    # +57.15%, table -53.35%; same magnitude, opposite sign.
+                    phi_conv=float(getattr(getattr(self.sf, "topology", None),
+                                           "phi_offset", 0.0)))
 
     def build(self, verbose=False, jobs=None):
         """Evaluate eta at every grid node. This is the expensive step.
