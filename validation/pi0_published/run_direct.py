@@ -43,7 +43,13 @@ Q2, xb, tabs, phid, dpub = (d["q2"][phys][:NBINS], d["xb"][phys][:NBINS],
                             d["delta"][phys][:NBINS])
 tN = -tabs
 W2 = Q2 * (1 / xb - 1) + M * M
-phik = np.radians(phid) + np.pi
+# The published phi IS the Trento azimuth of the pi0, and since 2026-08-17
+# so is the core's -- see topology.phi_offset.  The old `+ np.pi` adapter
+# existed only because the core used to sample the PROTON's azimuth; it is
+# now double counting and would mirror the profile.  That this adapter was
+# needed before, and is not needed now, is independent confirmation that
+# the new convention is the published one.
+phik = np.radians(phid)
 
 rows, eta = [], []
 for i in range(len(Q2)):
