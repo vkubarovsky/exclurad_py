@@ -735,10 +735,29 @@ class Generator:
         return out
 
     # ------------------------------------------------------------------ #
+    def sigma_total(self):
+        """Absolute cross section of THIS run, nb (accept-reject estimator).
+
+        sigma = (n_accept / n_trials) * integral of the majorant over the box.
+        The generator was printing none of this, so a delta = sigma_obs/sigma_born
+        test had no normalisation and could only check the SHAPE (2026-08-17).
+        """
+        if self.maj is None or self.n_trials == 0:
+            return float("nan")
+        e = self.maj["edges"]
+        dQ2 = np.diff(e["Q2"])[:, None, None, None]
+        dW2 = np.diff(e["W2"])[None, :, None, None]
+        dt = np.diff(e["t"])[None, None, :, None]
+        dph = np.diff(e["phi"])[None, None, None, :]
+        vol = dQ2 * dW2 * dt * dph
+        return float((self.n_accept / self.n_trials)
+                     * float((self.maj["M"] * vol).sum()))
+
     def report(self):
         eff = self.n_accept / self.n_trials if self.n_trials else float("nan")
         n = self.n_hard + self.n_soft
         return dict(trials=self.n_trials, accepted=self.n_accept,
+                    sigma_nb=self.sigma_total(),
                     efficiency=eff, hard=self.n_hard, soft=self.n_soft,
                     radiative_fraction=self.n_hard / n if n else float("nan"),
                     closure_failures=self.n_closure_fail,

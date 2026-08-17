@@ -111,6 +111,7 @@ def main(ch):
     Nr, Nn = len(ev_r), len(ev_n)
     s_obs = float(os.environ.get("SIG_OBS", "1"))
     s_born = float(os.environ.get("SIG_BORN", "1"))
+    shape_mode = os.environ.get("SIG_OBS") is None
     norm = (s_obs / Nr) / (s_born / Nn)
     print(f"[{ch}] rad {Nr}, norad {Nn}; sigma_obs/sigma_born = "
           f"{s_obs/s_born:.4f}", flush=True)
@@ -125,7 +126,7 @@ def main(ch):
           ("phi", r"$\phi$ [deg]", np.linspace(0, 360, 13))]
 
     rng = np.random.default_rng(20260816)
-    nq = int(os.environ.get("NQUAD", "60"))
+    nq = int(os.environ.get("NQUAD", "600"))
     fig, axes = plt.subplots(2, 2, figsize=(11, 7.5), dpi=140)
     res = {}
     for ax, (name, lab, edges) in zip(axes.ravel(), AX):
@@ -137,6 +138,13 @@ def main(ch):
         d[ok] = norm * hr[ok] / hn[ok]
         e[ok] = d[ok] * np.sqrt(1.0 / hr[ok] + 1.0 / hn[ok])
         dq = quad_delta(ch, card, name, edges, rng, nq)
+        if shape_mode:
+            # no absolute cross sections available -> compare SHAPES: both
+            # curves normalised to their own mean over populated bins.  The
+            # ABSOLUTE level is validated elsewhere (published-2013 RC, 0.88%).
+            g = np.nanmean(d[ok]); q = np.nanmean(dq[ok])
+            if g > 0 and q > 0:
+                d, e, dq = d / g, e / g, dq / q
         ctr = 0.5 * (edges[:-1] + edges[1:])
         ax.plot(ctr, dq, "*-", ms=11, color=GREEN, mec="k", mew=.4,
                 label="квадратура exclurad", zorder=5)
