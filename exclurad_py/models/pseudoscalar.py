@@ -91,13 +91,17 @@ class Pi0_VPK2021(ProtonDetectedModel):
     provenance = (
         "Port of the March-2021 GT/transversity fit (dvmpx.F XSINIT P(12,2) "
         "column 1) as built into exclurad-2026 / ~/exclugen/stock_run. "
-        "EXCLURAD's dvmpw wrapper DOUBLES sigma_LT; that factor is applied "
-        "here so the model matches the Fortran as run. sigma_L = 0 in this fit.")
+        "EXCLURAD's dvmpw wrapper doubles sigma_LT (dvmpw.F:55), but its "
+        "tensor absorbs a compensating 1/2 on the LT term (exclurad_core.F:"
+        "618-619), so the physical LT strength is the bare XSIGMA_LT. Our "
+        "tensor is canonical (NU_LT=-1, == born_reference), so NO factor 2 "
+        "here -- applying it doubled the cos(phi) harmonic of sigma_Born "
+        "(11.41% vs exclugen's 5.71% at G1). sigma_L = 0 in this fit.")
     reference = "dvmpx.F March 2021; ~/exclurad-2026/"
 
     def _sfs_tn(self, t_nucl, xB, Q2):
         sT, sL, sTT, sLT = F.vpk2021_form(t_nucl, xB, Q2, F.P2021_PI0, M_PI0_FIT)
-        return sT, sL, sTT, 2.0 * sLT      # dvmpw wrapper factor 2
+        return sT, sL, sTT, sLT
 
 
 # --------------------------------------------------------------------------- #
@@ -151,13 +155,14 @@ class Eta_VPK2021(ProtonDetectedModel):
     validity = _PS_VALIDITY
     provenance = (
         "Port of the March-2021 GT/transversity fit (dvmpx.F XSINIT P(12,2) "
-        "column 2, eta). EXCLURAD's dvmpw wrapper factor 2 on sigma_LT is "
-        "applied. sigma_L = 0 in this fit.")
+        "column 2, eta). EXCLURAD's dvmpw factor 2 on sigma_LT is NOT applied "
+        "-- it is cancelled inside EXCLURAD's own tensor, and ours is "
+        "canonical. See Pi0_VPK2021. sigma_L = 0 in this fit.")
     reference = "dvmpx.F March 2021; ~/eta-rc-2026/model2021/"
 
     def _sfs_tn(self, t_nucl, xB, Q2):
         sT, sL, sTT, sLT = F.vpk2021_form(t_nucl, xB, Q2, F.P2021_ETA, M_ETA_FIT)
-        return sT, sL, sTT, 2.0 * sLT
+        return sT, sL, sTT, sLT
 
 
 # Deprecated alias: this model is labelled "2014" in several older

@@ -76,28 +76,47 @@ def _quad_chunk(args):
     return so, sb
 
 
-def quad_delta(ch, card, axis, edges, rng, nq):
-    """delta from the quadrature, per bin of `axis`, others integrated."""
+def quad_at_points(ch, card, pts):
+    """Exact delta at GIVEN kinematic points, parallelised.
+
+    The points are the generator's own NORAD events, i.e. already distributed
+    proportional to sigma_Born -- the exact measure the bin-averaged delta is
+    defined with.  So a bin's reference value is the PLAIN MEAN of delta over
+    its points, whose error is driven by the spread of delta itself (~10%),
+    not by the heavy tail of sigma_obs.  Sampling uniformly and weighting by
+    sigma_obs (the first version) let a single outlier dominate a bin: the
+    phi profile came out scattering 0.7-1.85 where delta must be nearly flat.
+    """
+    jobs = max(1, (os.cpu_count() or 2) - 1)
+    chunks = [pts[i::jobs] for i in range(jobs)]
+    with ProcessPoolExecutor(max_workers=jobs) as ex:
+        res = list(ex.map(_delta_chunk, [(ch, card, c) for c in chunks]))
+    out = np.full(len(pts), np.nan)
+    for j, r in enumerate(res):
+        out[j::jobs] = r
+    return out
+
+
+def _delta_chunk(args):
+    ch, card, pts = args
+    from exclurad_py.core.rc import rc_factor
+    sf = get_model(card, ch)
+    tk = getattr(sf.topology, "t_kind", "photon")
+    mU2 = MESON_M[ch] ** 2 if ch in ("pi0", "eta") else M_P ** 2
+    mx2 = (card["vcut"] + mU2) if card["vcut"] > 0 else None
     out = []
-    for lo, hi in zip(edges[:-1], edges[1:]):
-        pts = []
-        while len(pts) < nq:
-            Q2 = rng.uniform(*card["Q2"])
-            W2 = rng.uniform(*card["W2"])
-            t = rng.uniform(*card["t"])
-            ph = rng.uniform(0.0, 2 * np.pi)
-            val = {"Q2": Q2, "W": np.sqrt(max(W2, 0.0)), "mt": -t,
-                   "phi": np.degrees(ph)}[axis]
-            if lo <= val < hi:
-                pts.append((Q2, W2, t, ph))
-        jobs = max(1, (os.cpu_count() or 2) - 1)
-        chunks = [pts[i::jobs] for i in range(jobs)]
-        with ProcessPoolExecutor(max_workers=jobs) as ex:
-            res = list(ex.map(_quad_chunk, [(ch, card, c) for c in chunks]))
-        so = sum(r[0] for r in res)
-        sb = sum(r[1] for r in res)
-        out.append(so / sb if sb > 0 else np.nan)
-    return np.array(out)
+    for Q2, W2, t, ph in pts:
+        if hasattr(sf, "t_nucl"):
+            sf.t_nucl = float(t)
+        try:
+            r = rc_factor(Ebeam=card["ebeam"], Q2=Q2, W2=W2, t=t, phi=ph,
+                          sfmodel=sf, h=+1, mx2_cut=mx2, t_kind=tk)
+            o, b = r["sigma_obs"], r["sigma_born"]
+            out.append(o / b if (np.isfinite(o) and np.isfinite(b) and b > 0)
+                       else np.nan)
+        except Exception:
+            out.append(np.nan)
+    return out
 
 
 def main(ch):
@@ -126,7 +145,12 @@ def main(ch):
           ("phi", r"$\phi$ [deg]", np.linspace(0, 360, 13))]
 
     rng = np.random.default_rng(20260816)
-    nq = int(os.environ.get("NQUAD", "600"))
+    nq = int(os.environ.get("NQUAD", "6000"))
+    sub = rng.choice(len(ev_n), size=min(nq, len(ev_n)), replace=False)
+    pts = ev_n[sub, :4]
+    print(f"[{ch}] опорные точки: {len(pts)} norad-событий", flush=True)
+    dref = quad_at_points(ch, card, pts.tolist())
+    obs_ref = observables(ev_n[sub], ch)
     fig, axes = plt.subplots(2, 2, figsize=(11, 7.5), dpi=140)
     res = {}
     for ax, (name, lab, edges) in zip(axes.ravel(), AX):
@@ -137,7 +161,14 @@ def main(ch):
         e = np.full(len(hr), np.nan)
         d[ok] = norm * hr[ok] / hn[ok]
         e[ok] = d[ok] * np.sqrt(1.0 / hr[ok] + 1.0 / hn[ok])
-        dq = quad_delta(ch, card, name, edges, rng, nq)
+        dq = np.full(len(hr), np.nan)
+        dqe = np.full(len(hr), np.nan)
+        idx = np.digitize(obs_ref[name], edges) - 1
+        for j in range(len(hr)):
+            sel = (idx == j) & np.isfinite(dref)
+            if sel.sum() > 10:
+                dq[j] = dref[sel].mean()
+                dqe[j] = dref[sel].std() / np.sqrt(sel.sum())
         if shape_mode:
             # no absolute cross sections available -> compare SHAPES: both
             # curves normalised to their own mean over populated bins.  The
@@ -146,8 +177,9 @@ def main(ch):
             if g > 0 and q > 0:
                 d, e, dq = d / g, e / g, dq / q
         ctr = 0.5 * (edges[:-1] + edges[1:])
-        ax.plot(ctr, dq, "*-", ms=11, color=GREEN, mec="k", mew=.4,
-                label="квадратура exclurad", zorder=5)
+        ax.errorbar(ctr, dq, yerr=dqe, fmt="*-", ms=11, color=GREEN,
+                    mec="k", mew=.4, capsize=2,
+                    label="квадратура exclurad", zorder=5)
         ax.errorbar(ctr[ok], d[ok], yerr=e[ok], fmt="o", ms=5, color=BLUE,
                     capsize=2, label="генератор rad/norad")
         ax.set_xlabel(lab, fontsize=9)
@@ -157,7 +189,7 @@ def main(ch):
         res[name] = dict(centres=ctr.tolist(), gen=d.tolist(),
                          err=e.tolist(), quad=dq.tolist())
         with np.errstate(invalid="ignore"):
-            pull = (d - dq) / e
+            pull = (d - dq) / np.sqrt(e**2 + np.nan_to_num(dqe)**2)
         good = np.isfinite(pull)
         if good.any():
             print(f"[{ch}] {name}: max |pull| = {np.abs(pull[good]).max():.1f}"

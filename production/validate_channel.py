@@ -143,7 +143,35 @@ def read_events(paths, ch):
                     q4 = np.array([0, 0, E0, E0]) - el
                     d4 = q4 - det
                     t = d4[3] ** 2 - d4[:3] @ d4[:3]         # photon transfer
-                phi = np.arctan2(det[1], det[0])
+                # phi = angle between the LEPTON plane (beam, e') and the
+                # HADRON plane (q, detected hadron), Trento-style.  NOT the
+                # lab azimuth of the hadron: assemble_event rotates every
+                # event by a random azimuth about the beam (events.py:710),
+                # so arctan2(p_y, p_x) is a uniformly random number.  Binning
+                # delta in it gave a dead-flat profile and a meaningless
+                # reference curve (2026-08-17).
+                # TRENTO convention, Bacchetta-D'Alesio-Diehl-Miller,
+                # PRD 70 (2004) 117504, Eq. (16):
+                #   cos phi_h = (qhat x l).(qhat x Ph) / |..||..|
+                #   sin phi_h = (l x Ph).qhat        / |..||..|
+                # with l the INCOMING lepton.  My first version used
+                # (beam x e') for the lepton normal, which is -(qhat x l)
+                # up to normalisation, and took the sign from
+                # (n_l x n_h).q -- that mirrored the profile (max at 180
+                # instead of at 0/360, as VPK remembered from the earlier
+                # exclugen/exclurad comparisons).
+                beam = np.array([0.0, 0.0, E0, E0])
+                q4 = beam - el
+                qh = q4[:3] / max(np.linalg.norm(q4[:3]), 1e-12)
+                a = np.cross(qh, beam[:3])
+                b = np.cross(qh, det[:3])
+                na, nb = np.linalg.norm(a), np.linalg.norm(b)
+                if na <= 0 or nb <= 0:
+                    continue
+                cos_p = float(np.dot(a, b) / (na * nb))
+                sin_p = float(np.dot(np.cross(beam[:3], det[:3]), qh)
+                              / (na * nb))
+                phi = float(np.arctan2(sin_p, cos_p)) % (2 * np.pi)
                 X = np.array([0, 0, E0, E0 + M_P]) - el - det
                 v = X[3] ** 2 - X[:3] @ X[:3] - mU2
                 rows.append((Q2, W2, t, phi, v))
