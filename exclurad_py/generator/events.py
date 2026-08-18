@@ -489,7 +489,20 @@ class Generator:
                 Q2, W2, t, phi, Mv, cell = self._propose()
                 if Mv <= 0 or not self._pass_yxb(Q2, W2):
                     continue
-                b = self._born(Q2, W2, t, phi, h0)
+                # Draw the helicity the way generate() does, not h0.  The
+                # bound this loop calibrates is r = sigma_obs(h) / (born(h) *
+                # eta_table), and eta_table is built at h0, so r = eta(h) /
+                # eta(h0) -- identically 1 at h0 and NOT 1 at the other sign
+                # once sigma_LT' is nonzero.  Probing only h0 would calibrate
+                # the bound on the one helicity where it is trivially tight.
+                # Today this is a no-op: sigma_LT' = 0 in every fit we carry,
+                # so nothing depends on h at all.  With a 5% asymmetry the
+                # miss would be ~0.06% (eta 0.88255 vs 0.88305 at v_cut 0.1)
+                # against a 1.3 safety factor -- small, but there is no
+                # reason to leave it wrong.
+                h_p = h0 if self.helicity != 0 else \
+                    (+1 if self.rng.random() < 0.5 else -1)
+                b = self._born(Q2, W2, t, phi, h_p)
                 if b is None or not np.isfinite(b) or b <= 0:
                     continue
                 eta = float(self.table(Q2, W2, t, phi)[0])
@@ -499,7 +512,7 @@ class Generator:
                     self._set_event_t(t)
                     so = float(rc_factor(
                         Ebeam=self.Ebeam, Q2=Q2, W2=W2, t=t, phi=phi,
-                        sfmodel=self.sf, h=h0, mx2_cut=self.mx2_cut,
+                        sfmodel=self.sf, h=h_p, mx2_cut=self.mx2_cut,
                         t_kind=self._t_kind)["sigma_obs"])
                 except (ValueError, ZeroDivisionError, FloatingPointError):
                     continue
