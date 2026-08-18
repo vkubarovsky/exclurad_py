@@ -75,7 +75,12 @@ def read_events(paths, ch):
     m_meson = MESON_M[ch]
     ps = ch in ("pi0", "eta")
     mU2 = m_meson ** 2 if ps else M_P ** 2
-    phi_off = np.pi if ps else 0.0          # topology.phi_offset, see below
+    # Read the offset from the topology factories rather than writing pi
+    # here: they are the single source of truth, and a hardcoded number
+    # would drift silently the day a third topology appears.
+    from exclurad_py.topology import baryon_detected, meson_detected
+    phi_off = (baryon_detected(m_meson) if ps
+               else meson_detected(m_meson)).phi_offset
     rows = []
     integ = dict(events=0, malformed=0, bad_mass=0, decay_open=0,
                  with_rad_photon=0)
