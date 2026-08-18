@@ -832,4 +832,17 @@ class Generator:
         if r["efficiency"] < 0.01:
             msgs.append(f"unweighting efficiency {r['efficiency']:.4f} is low "
                         f"-- refine majorant_shape")
+        # Stage-2 bound violations were NOT reported here, and that is the one
+        # number that says whether the exact accept actually held.  A run that
+        # broke the bound 491 times out of 24678 accepts, by up to a factor
+        # 45, still printed "health: clean" (2026-08-18).  Those events are
+        # accepted with probability 1 where they deserved more, so they are
+        # UNDER-represented: the pi0 delta profile came out 17-29% low at high
+        # W, which normalisation then mirrored into a 20% "excess" at low W --
+        # 9 sigma, and the only axis still failing after the phi fix.
+        nb, tot = r.get("b_viol", 0), max(r.get("accepted", 0), 1)
+        if nb > 1e-3 * tot:
+            msgs.append(f"stage-2 bound exceeded in {nb}/{tot} accepts (max "
+                        f"x{r.get('max_b_viol', 0):.2f}) -- the sample is NOT "
+                        f"exactly unweighted; refine table_shape")
         return msgs
