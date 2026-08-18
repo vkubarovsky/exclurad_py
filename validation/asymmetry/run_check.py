@@ -37,6 +37,13 @@ the sign conventions are hardest, and checks four things:
      not trivially satisfied -- eta itself runs 0.46 to 1.04 across the
      same range while the ratio stays at 1.
 
+  6. LUND PLUMBING.  The per-event helicity must reach the file, in header
+     column 5 (beam polarisation).  Until 8a1d2c4 the generator drew it and
+     then dropped it, so a beam-spin asymmetry could not be measured from a
+     single sample at all.  Checked on a synthetic event rather than a
+     generated one: 3000 events with EXACT_ACCEPT take over an hour, and
+     this tests a format, not physics.
+
     python3 validation/asymmetry/run_check.py [sLTp_fraction]
 
 The fraction (default 0.15) is sigma_LT' expressed as a fraction of
@@ -173,9 +180,29 @@ def main(frac=0.15):
     print(f"   A_obs/A_Born при v_cut=1e-5: {soft:.6f} "
           f"-> {'PASS' if ok5 else 'FAIL'}")
 
-    n_ok = sum((ok1, ok2, ok3, ok4, ok5))
-    print(f"\nVERDICT: {n_ok}/5 PASS")
-    return 0 if n_ok == 5 else 1
+    # ---- 6. helicity reaches the LUND file ------------------------------ #
+    from exclurad_py.generator.lund import event_lines
+    ev = dict(ok=True, weight=1.0,
+              scattered=np.array([9.11, -0.44, -0.11, 9.10]),
+              meson=np.array([0.97, -0.19, 0.10, 0.09]),
+              recoil=np.array([1.46, 0.20, 0.32, 1.41]))
+    got = {}
+    for h in (+1, -1, 0):
+        got[h] = event_lines(dict(ev, helicity=h), "pi0",
+                             topology=sf.topology, beam_energy=EB)[0].split()[4]
+    override = event_lines(dict(ev, helicity=+1), "pi0", topology=sf.topology,
+                           beam_energy=EB, pol_beam=0.85)[0].split()[4]
+    absent = event_lines(ev, "pi0", topology=sf.topology,
+                         beam_energy=EB)[0].split()[4]
+    ok6 = (got[+1] == "1.000" and got[-1] == "-1.000" and got[0] == "0.000"
+           and override == "0.850" and absent == "0.000")
+    print(f"\n6. спиральность в шапке LUND (колонка 5): "
+          f"+1 -> {got[+1]}, -1 -> {got[-1]}, 0 -> {got[0]}; "
+          f"явное {override}; без ключа {absent} -> {'PASS' if ok6 else 'FAIL'}")
+
+    n_ok = sum((ok1, ok2, ok3, ok4, ok5, ok6))
+    print(f"\nVERDICT: {n_ok}/6 PASS")
+    return 0 if n_ok == 6 else 1
 
 
 if __name__ == "__main__":
