@@ -176,9 +176,19 @@ class TailSampler:
             raise ValueError(f"unknown t_kind {tk!r}")
         cv = np.clip(cv, -1.0, 1.0)
         sv = np.sqrt(np.maximum(1.0 - cv * cv, 0.0))
+        # SAME TRAP AS t_kind ABOVE, one convention later: phi is the Trento
+        # azimuth of the produced MESON, and the vector built here is the
+        # DETECTED hadron, which sits at phi + topology.phi_offset (pi for
+        # pi0/eta).  EventKin applies it; this sampler builds its own
+        # four-vector and did not, so HARD events came out mirrored against
+        # the SOFT ones inside the very same sample.  Symptom: delta(phi)
+        # from the generator peaked at 180 where the quadrature peaks at
+        # 0/360, max pull 13 (pi0) and 15 (eta), while Q2, W and t all sat
+        # at 3 -- found 2026-08-18 on the first pass in the narrowed box.
+        phi_det = k0.phi + getattr(k0, "phi_offset", 0.0)
         pv = np.stack([Ev,
-                       pvm * sv * np.cos(k0.phi),
-                       pvm * sv * np.sin(k0.phi),
+                       pvm * sv * np.cos(phi_det),
+                       pvm * sv * np.sin(phi_det),
                        pvm * cv], axis=1)                      # (N,4)
         Lam = (k0.p + k0.q)[None, :] - pv
         return pv, Lam
