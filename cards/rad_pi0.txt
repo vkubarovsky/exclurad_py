@@ -5,9 +5,9 @@ pi0.vpk2021                        ! model  <channel>.<vintage>   (--models to l
 100000                             ! nev
 0                                  ! iborn   1 = Born only, 0 = full RC
 3.24 16.00                         ! W2 range (GeV^2)
-0.20 5.00                          ! Q2 range (GeV^2)
+0.50 5.00                          ! Q2 range (GeV^2)
 -3.00 -0.001                       ! t range (GeV^2, both negative)
-0.50                               ! vcut    MX^2 - m_miss^2 (GeV^2);  0 = no cut (kinematic limit)
+0.20                               ! vcut    MX^2 - m_miss^2 (GeV^2);  0 = no cut (kinematic limit)
 -0.30                              ! t_nucl  (GeV^2) for pi0/eta models; ignored for vector mesons
 0                                  ! ihel    +1, -1, or 0 = helicity-averaged
 20260813                           ! seed
