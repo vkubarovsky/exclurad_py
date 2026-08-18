@@ -53,10 +53,27 @@ class RCTable:
         # with the card's t_nucl and was refused (night of 08-15/16).
         self._t_nucl0 = getattr(sfmodel, "t_nucl", None)
 
+        # t is spaced LOGARITHMICALLY in |t|, the other three linearly.
+        #
+        # The correction is not a slowly varying function of t: at
+        # Q2 = 0.27, W = 3.78 it runs 1.17 at |t| = 0.001, peaks near 21 at
+        # |t| = 0.1, and is back to 1.08 by |t| = 3.  All of that structure
+        # lives below |t| = 0.4, which is also where the events are -- 94% of
+        # the sample sits below 1.  A linear axis over [-3, -0.001] puts four
+        # of five nodes where nothing happens and the fifth at the kinematic
+        # edge, where the correction is atypically small; interpolating
+        # between them returns ~1.5 for a true 17.5.
+        #
+        # Measured cost of getting this wrong (2026-08-18): interpolation rms
+        # 3.13 with max |error| 18.4, unmoved by going from 1000 to 5120
+        # nodes -- refining a uniform grid cannot help when the structure sits
+        # in one interval.  Downstream, the stage-2 bound was broken in 491 of
+        # 24678 accepts by up to x45, and the pi0 delta profile came out 17-29%
+        # low at high W (9 sigma).
         self.axes = [
             np.linspace(*box.Q2, shape[0]),
             np.linspace(*box.W2, shape[1]),
-            np.linspace(*box.t, shape[2]),
+            -np.geomspace(max(abs(box.t[1]), 1e-4), abs(box.t[0]), shape[2])[::-1],
             np.linspace(*box.phi, shape[3]),
         ]
         self.eta = None
@@ -71,7 +88,7 @@ class RCTable:
                     t_nucl=self._t_nucl0,
                     # bump when the build filter or interpolation changes,
                     # so stale cached tables are not silently reused
-                    interp="log-v2",
+                    interp="log-v3-tgeom",
                     flux="gilman-v3",
                     # The table is indexed by phi, so it is only valid in the
                     # phi convention it was built in.  Nothing else in this
