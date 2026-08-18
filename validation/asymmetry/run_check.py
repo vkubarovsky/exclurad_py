@@ -19,9 +19,15 @@ the sign conventions are hardest, and checks four things:
   3. AMPLITUDE.  The Born A_LU must equal the analytic ratio built from
      the model's own structure functions.
 
-  4. RADIATIVE CORRECTION.  A_LU(observed) / A_LU(Born) must be finite,
-     smooth in phi, and below 1 -- the unpolarised radiative tail dilutes
-     the asymmetry, it cannot enhance it.
+  4. RADIATIVE CORRECTION.  A_LU(observed) / A_LU(Born) must be finite and
+     smooth in phi, and the ABSOLUTE shift |A_obs - A_Born| must stay small.
+     Deliberately not "the ratio is below 1": that looked true at the point
+     this script was first calibrated on, but it is not general.  At
+     t_N = -0.80, v_cut = 0.17 the ratio reaches 1.097 at phi = 7.5 deg --
+     an enhancement -- simply because A_LU itself is near its node there
+     (0.0091), so a 0.0009 absolute shift is 10% in relative terms.  Near
+     the nodes the ratio is the wrong figure of merit; the absolute shift
+     is the one that means anything.
 
   5. SOFT LIMIT.  As the cut tightens, A_obs / A_Born -> 1, because soft
      emission is blind to the beam helicity and so cancels in the ratio.
@@ -138,10 +144,11 @@ def main(frac=0.15):
     with np.errstate(invalid="ignore", divide="ignore"):
         corr = np.where(np.abs(ab) > 1e-12, ao / ab, np.nan)
     good = np.isfinite(corr)
-    ok4 = good.all() and (corr[good] > 0).all() and (corr[good] < 1.0).all()
+    shift = np.abs(ao - ab).max()
+    ok4 = good.all() and (corr[good] > 0).all() and shift < 0.05
     print(f"4. поправка на асимметрию A_obs/A_Born: "
-          f"{np.nanmin(corr):.4f} .. {np.nanmax(corr):.4f} "
-          f"-> {'PASS' if ok4 else 'FAIL'}")
+          f"{np.nanmin(corr):.4f} .. {np.nanmax(corr):.4f}; "
+          f"max |A_obs - A_Born| = {shift:.4f} -> {'PASS' if ok4 else 'FAIL'}")
     print(f"\n{'phi':>6} {'A_Born':>10} {'A_obs':>10} {'поправка':>10}")
     for pd, x, y, c in zip(PHID, ab, ao, corr):
         print(f"{pd:6.1f} {x:10.5f} {y:10.5f} {c:10.4f}")
