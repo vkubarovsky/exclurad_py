@@ -58,8 +58,18 @@ def born_reference(kin, sfmodel, h):
     conventions are consistent."""
     eps = kin.epsilon()
     sf = sfmodel(kin.W2, kin.Q2, kin.t)
+    # The harmonics are in the azimuth of the DETECTED hadron, because that
+    # is the plane the tensor's X and Y basis vectors are built on (see
+    # hadronic.photon_basis, which takes pv).  Since 2026-08-17 kin.phi is
+    # the Trento azimuth of the produced MESON, so the detected hadron sits
+    # at kin.phi + kin.phi_offset -- pi for pi0/eta, 0 for the vector
+    # mesons.  Leaving the offset out here does not change born_xsec, which
+    # goes through the tensor, but it silently breaks THIS function, whose
+    # only job is to be the independent check on it: the closure came apart
+    # at the 18% level the first time sigma_LT' was switched on.
+    phi_det = kin.phi + getattr(kin, 'phi_offset', 0.0)
     comb = (sf['sT'] + eps * sf['sL']
-            + eps * np.cos(2 * kin.phi) * sf['sTT']
-            + np.sqrt(2 * eps * (1 + eps)) * np.cos(kin.phi) * sf['sLT']
-            + h * np.sqrt(2 * eps * (1 - eps)) * np.sin(kin.phi) * sf['sLTp'])
+            + eps * np.cos(2 * phi_det) * sf['sTT']
+            + np.sqrt(2 * eps * (1 + eps)) * np.cos(phi_det) * sf['sLT']
+            + h * np.sqrt(2 * eps * (1 - eps)) * np.sin(phi_det) * sf['sLTp'])
     return comb, eps

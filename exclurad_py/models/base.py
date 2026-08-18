@@ -173,7 +173,9 @@ class ProtonDetectedModel(StructureFunctions):
     supplied at construction; the shifted kinematics of the radiative tail
     enter only through (W2~, Q2~), exactly as EXCLURAD does it.
 
-    Subclasses implement `_sfs_tn(t_N, xB, Q2) -> (sT, sL, sTT, sLT)`.
+    Subclasses implement `_sfs_tn(t_N, xB, Q2) -> (sT, sL, sTT, sLT)`, or
+    `-> (sT, sL, sTT, sLT, sLTp)` when the fit carries a fifth structure
+    function.  Both arities are accepted; a 4-tuple means sigma_LT' = 0.
     The sigma_LT sign flip of the detected-proton frame is applied by the
     base class via topology.lt_sign -- do NOT apply it in `_sfs_tn`.
     """
@@ -216,7 +218,16 @@ class ProtonDetectedModel(StructureFunctions):
         # Evaluating at one frozen t_nucl for a whole run removes the
         # model's t-dependence entirely and the sampled |t| spectrum
         # collapses to phase space -- mean |t| 2.27 vs exclugen's 0.386.
-        sT, sL, sTT, sLT = self._sfs_tn(self.t_nucl, xBs, Q2s)
+        _sfs = self._sfs_tn(self.t_nucl, xBs, Q2s)
+        if len(_sfs) == 5:
+            sT, sL, sTT, sLT, sLTp = _sfs
+        elif len(_sfs) == 4:
+            sT, sL, sTT, sLT = _sfs
+            sLTp = None                      # fit has no fifth SF
+        else:
+            raise ValueError(
+                f"{type(self).__name__}._sfs_tn returned {len(_sfs)} values; "
+                f"expected 4 (sT, sL, sTT, sLT) or 5 (+ sLTp)")
 
         # FLUX-CONVENTION CONVERSION (found 2026-08-15; attribution corrected
         # same day).  The pi0/eta fits are HAND-convention -- the PRC paper
@@ -243,18 +254,26 @@ class ProtonDetectedModel(StructureFunctions):
 
         z = np.zeros_like(np.asarray(sT, dtype=float))
         g = lambda a: np.where(ok, a * kf, 0.0)   # noqa: E731
-        # sigma_LT' is zero in every pi0/eta fit we carry, exactly as in the
-        # Fortran (dvmpw.F:158 sets SIGMA_LTP = 0.).  If a real one ever
-        # arrives: do NOT copy the factor 2 that dvmpw.F:57 puts on it.  It
-        # is the same convention adapter as the one on sigma_LT -- dvmpw
-        # doubles both OFF-DIAGONAL structure functions, sigma_LT on the
-        # symmetric (LX + XL) combination and sigma_LT' on the antisymmetric
-        # i(LX - XL), because EXCLURAD's tensor absorbs a compensating 1/2
-        # there.  Ours is canonical, so it takes them bare; copying the 2
-        # doubled the cos(phi) harmonic of sigma_Born until b1d64d0.
-        # The trap is invisible today: twice zero is still zero.
+        # sigma_LT' rides the SAME Hand -> covariant flux conversion as the
+        # other four: it comes out of the same fit, in the same convention.
+        #
+        # It also takes topology.lt_sign, applied for both sLT and sLTp in
+        # StructureFunctions.__call__ -- correct under the Trento convention
+        # because sin(phi + pi) = -sin(phi) flips exactly like cos does.
+        #
+        # And it must NOT get the factor 2 that dvmpw.F:57 puts on it, for
+        # the same reason sigma_LT must not (see b1d64d0): dvmpw doubles
+        # both OFF-DIAGONAL structure functions -- sigma_LT on the symmetric
+        # (LX + XL) combination, sigma_LT' on the antisymmetric i(LX - XL) --
+        # because EXCLURAD's tensor absorbs a compensating 1/2 on each.  Ours
+        # is canonical and takes them bare.
+        #
+        # NOTE for whoever supplies the first real sigma_LT': exclugen's own
+        # assembly is WRONG for this term.  dvmpw.F:62 multiplies S_LTP by
+        # SIN(2*PHI_G) where the canonical fifth term is sin(phi).  Dormant
+        # only because dvmpw.F:158 sets SIGMA_LTP = 0.
         return {"sT": g(sT), "sL": g(sL), "sTT": g(sTT),
-                "sLT": g(sLT), "sLTp": z}
+                "sLT": g(sLT), "sLTp": z if sLTp is None else g(sLTp)}
 
     def stamp(self):
         d = super().stamp()
