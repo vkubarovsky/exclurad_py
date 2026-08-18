@@ -219,6 +219,29 @@ class Generator:
         else:
             eta_hi = None
         self.table = None
+        # A polarised run needs stage 2.  The eta table is built at ONE
+        # helicity, so the proposal it feeds is helicity-blind; with
+        # sigma_LT' nonzero the true eta differs between the two signs and
+        # an unweighted sample drawn against that proposal is biased in the
+        # beam-spin asymmetry -- silently, since every other distribution
+        # looks right.  EXACT_ACCEPT=1 removes the bias, because stage 2
+        # re-accepts against sigma_obs evaluated at the EVENT's helicity.
+        # Probe the model rather than trusting a flag: fits gain a fifth
+        # structure function without anyone editing this file.
+        if not self.born_only and not self.exact_accept:
+            try:
+                _p = self.sf(np.array([sum(self.box.W2) / 2.0]),
+                             np.array([sum(self.box.Q2) / 2.0]),
+                             np.array([sum(self.box.t) / 2.0]))
+                if np.any(np.abs(_p["sLTp"]) > 0.0):
+                    print(" *** WARNING: sigma_LT' is nonzero and "
+                          "EXACT_ACCEPT is off.  The eta table is built at a "
+                          "single helicity, so the beam-spin asymmetry of "
+                          "this sample will be biased.  Set EXACT_ACCEPT=1. "
+                          "***", flush=True)
+            except Exception:
+                pass
+
         if self.born_only:
             pass
         elif self.cache:
