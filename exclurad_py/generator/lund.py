@@ -51,7 +51,7 @@ DECAY_PID = {"rho":  (211, -211, 0.13957039),
 
 
 def event_lines(ev, channel, topology=None, target_pid=PID["p"],
-                beam_energy=10.6, pol_beam=0.0, pol_target=0.0, weight=1.0,
+                beam_energy=10.6, pol_beam=None, pol_target=0.0, weight=1.0,
                 process_id=0, vertex=(0.0, 0.0, 0.0)):
     """LUND lines for one assembled event (see frames.assemble_event).
 
@@ -100,6 +100,16 @@ def event_lines(ev, channel, topology=None, target_pid=PID["p"],
             parts[mi][5] = len(parts) + 1        # first daughter (1-based)
             for pid_d, p4_d in ((pid_a, d[0]), (pid_b, d[1])):
                 parts.append([pid_d, m_d, p4_d, 1, mi + 1, 0])
+
+    # Beam polarisation is LUND header column 5, and it is where the event's
+    # own helicity belongs.  The generator already draws h per event when the
+    # card says ihel = 0 (events.py:463), but until now that number died
+    # inside the generator: the file said 0.000 for every event, so a
+    # beam-spin asymmetry could not be measured from one sample at all --
+    # you had to run twice with ihel = +1 and -1 and hope the two samples
+    # matched.  Pass pol_beam explicitly to override.
+    if pol_beam is None:
+        pol_beam = float(ev.get("helicity", 0.0) or 0.0)
 
     head = (f"{len(parts):4d} {1:4d} {1:4d} {pol_target:6.3f} {pol_beam:6.3f} "
             f"{PID['e-']:5d} {beam_energy:8.4f} {target_pid:6d} "

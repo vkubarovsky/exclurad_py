@@ -23,6 +23,14 @@ the sign conventions are hardest, and checks four things:
      smooth in phi, and below 1 -- the unpolarised radiative tail dilutes
      the asymmetry, it cannot enhance it.
 
+  5. SOFT LIMIT.  As the cut tightens, A_obs / A_Born -> 1, because soft
+     emission is blind to the beam helicity and so cancels in the ratio.
+     This is the one test here that does NOT lean on the canonical formula
+     of check 1: if the tensor and the reference were wrong in the same
+     way, checks 1-3 would still pass, but this one would not.  It is also
+     not trivially satisfied -- eta itself runs 0.46 to 1.04 across the
+     same range while the ratio stays at 1.
+
     python3 validation/asymmetry/run_check.py [sLTp_fraction]
 
 The fraction (default 0.15) is sigma_LT' expressed as a fraction of
@@ -138,9 +146,29 @@ def main(frac=0.15):
     for pd, x, y, c in zip(PHID, ab, ao, corr):
         print(f"{pd:6.1f} {x:10.5f} {y:10.5f} {c:10.4f}")
 
-    n_ok = sum((ok1, ok2, ok3, ok4))
-    print(f"\nVERDICT: {n_ok}/4 PASS")
-    return 0 if n_ok == 4 else 1
+    # ---- 5. soft limit -------------------------------------------------- #
+    mU2 = sf.mU ** 2
+    print(f"\n5. мягкий предел (phi = 75 град):")
+    print(f"{'v_cut':>9} {'eta(h=+1)':>11} {'eta(h=-1)':>11} {'A_obs/A_Born':>13}")
+    soft = None
+    for vc in (1e-5, 1e-3, 1e-1, 0.5):
+        v = {}
+        for h in (+1, -1):
+            rr = rc_factor(Ebeam=EB, Q2=Q2, W2=W2, t=TN, phi=np.radians(75.0),
+                           sfmodel=sf, h=h, mx2_cut=vc + mU2)
+            v[h] = (rr["sigma_born"], rr["sigma_obs"], rr["eta"])
+        x = (v[1][0] - v[-1][0]) / (v[1][0] + v[-1][0])
+        y = (v[1][1] - v[-1][1]) / (v[1][1] + v[-1][1])
+        if soft is None:
+            soft = y / x
+        print(f"{vc:9.0e} {v[1][2]:11.5f} {v[-1][2]:11.5f} {y/x:13.6f}")
+    ok5 = abs(soft - 1.0) < 1e-4
+    print(f"   A_obs/A_Born при v_cut=1e-5: {soft:.6f} "
+          f"-> {'PASS' if ok5 else 'FAIL'}")
+
+    n_ok = sum((ok1, ok2, ok3, ok4, ok5))
+    print(f"\nVERDICT: {n_ok}/5 PASS")
+    return 0 if n_ok == 5 else 1
 
 
 if __name__ == "__main__":
