@@ -243,6 +243,16 @@ class ProtonDetectedModel(StructureFunctions):
 
         z = np.zeros_like(np.asarray(sT, dtype=float))
         g = lambda a: np.where(ok, a * kf, 0.0)   # noqa: E731
+        # sigma_LT' is zero in every pi0/eta fit we carry, exactly as in the
+        # Fortran (dvmpw.F:158 sets SIGMA_LTP = 0.).  If a real one ever
+        # arrives: do NOT copy the factor 2 that dvmpw.F:57 puts on it.  It
+        # is the same convention adapter as the one on sigma_LT -- dvmpw
+        # doubles both OFF-DIAGONAL structure functions, sigma_LT on the
+        # symmetric (LX + XL) combination and sigma_LT' on the antisymmetric
+        # i(LX - XL), because EXCLURAD's tensor absorbs a compensating 1/2
+        # there.  Ours is canonical, so it takes them bare; copying the 2
+        # doubled the cos(phi) harmonic of sigma_Born until b1d64d0.
+        # The trap is invisible today: twice zero is still zero.
         return {"sT": g(sT), "sL": g(sL), "sTT": g(sTT),
                 "sLT": g(sLT), "sLTp": z}
 
