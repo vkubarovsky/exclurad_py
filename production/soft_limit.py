@@ -82,6 +82,43 @@ def kin(ev, E0, m_meson, ps):
     return v, np.degrees(np.arctan2(sp, cp)) % 360.0
 
 
+def all_harmonics(phi_deg, edges, kmax=4):
+    """cos(k phi) and sin(k phi) amplitudes in percent, plus the stat error.
+
+    Only cos(phi) and cos(2phi) may be nonzero in an unpolarised Born
+    sample: the cross section decomposition stops at 2phi, and the sin
+    terms carry the beam helicity, which every production card averages
+    over (ihel = 0).  Everything else is a null test.
+
+    Measured on the 2026-08-18 pi0 sample (100k Born): cos1 +14.04 +- 0.45,
+    cos2 -59.57 +- 0.45, and all six of sin1, sin2, cos3, sin3, cos4, sin4
+    within 2.5 sigma of zero.  For the phi channel all eight vanish, as
+    they must -- sigma_TT and sigma_LT are zero in diffrad_vm.
+
+    The radiative sample is where this earns its keep.  Splitting pi0's rad
+    events by inelasticity: at v < 0.002 the harmonics sit on the Born
+    values, by v = 0.05-0.20 cos(phi) has collapsed from +14 to +1 (3.3
+    sigma) and cos(2phi) has grown from -60 to -85 (6.4 sigma).  That is
+    the radiative correction to the azimuthal moments, and it is large.
+    cos(3phi) stays at zero throughout, which is not automatic: the
+    reconstructed phi of a radiative event is not the vertex phi, and that
+    mixing could have generated one.
+    """
+    ctr = 0.5 * (edges[:-1] + edges[1:])
+    p = np.radians(ctr)
+    h, _ = np.histogram(phi_deg, bins=edges)
+    n = h.sum()
+    if n < 200:
+        return {}
+    y = h / n
+    err = 2 * 100 / np.sqrt(2 * n)
+    out = {}
+    for k in range(1, kmax + 1):
+        for fn, nm in ((np.cos, "cos"), (np.sin, "sin")):
+            out[f"{nm}{k}"] = (2 * np.mean(y * fn(k * p)) / y.mean() * 100, err)
+    return out
+
+
 def harmonics(phi_deg, edges):
     ctr = 0.5 * (edges[:-1] + edges[1:])
     p = np.radians(ctr)
@@ -131,6 +168,26 @@ def main(ch):
             ok = (d1 < tol) and (d2 < tol)
             print(f"[{ch}] отклонение в мягком пределе: cos {d1:.2f} п.п., "
                   f"cos2 {d2:.2f} п.п.")
+    # full harmonic content: cos1/cos2 are physics, the other six are null
+    fine = np.linspace(0, 360, 25)
+    hb = all_harmonics(pn, fine)
+    hr = all_harmonics(pr_[vr < vsoft], fine)
+    if hb and hr:
+        print(f"[{ch}] {'гармоника':>10} {'norad':>16} {'rad мягкие':>16}")
+        nulls = []
+        for k in sorted(hb, key=lambda s: (s[3:], s[:3])):
+            a, ea = hb[k]
+            b, eb = hr[k]
+            mark = ""
+            if k not in ("cos1", "cos2"):
+                nulls.append(abs(a) / ea)
+                mark = "  нуль-тест" if abs(a) < 3 * ea else "  <-- НЕ НОЛЬ"
+            print(f"[{ch}] {k+'phi':>10} {a:+8.2f}±{ea:4.2f}% "
+                  f"{b:+8.2f}±{eb:4.2f}%{mark}")
+        bad = sum(1 for z in nulls if z >= 3)
+        print(f"[{ch}] нулевых гармоник вне 3 сигм: {bad}/{len(nulls)}")
+        ok = ok and bad == 0
+
     print(f"[{ch}] VERDICT: {'PASS' if ok else 'FAIL'} — мягкий предел "
           f"{'сходится к Борну' if ok else 'НЕ сходится к Борну'}")
     return 0 if ok else 1
