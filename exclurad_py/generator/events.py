@@ -93,10 +93,23 @@ class Generator:
         self.mx2_cut = mx2_cut
         self.helicity = helicity
         self.rng = np.random.default_rng(seed)
+        # MAJ_SHAPE / MAJ_SAFETY override the defaults, because one setting
+        # does not fit every channel.  J/psi sits against a kinematic
+        # boundary that moves fast with W2, so its majorant cells straddle
+        # the edge and the cell maximum found by probing misses the peak:
+        # with the defaults the Born run broke the majorant 40305 times in
+        # 6.6e6 trials, the worst by a factor 861.  Refining alone does not
+        # help (0.655% at shape 8 against 0.719% at 14 -- the structure is
+        # inside a cell), but shape 20 with safety 4.0 takes it to 1 in
+        # 158456 at a factor 1.1, for a 2.7x cost in Born-only wall time
+        # that the radiative mode does not even notice.  Measured 2026-08-18.
+        _ms = os.environ.get("MAJ_SHAPE", "")
+        if _ms:
+            majorant_shape = tuple(int(x) for x in _ms.split(","))
         self.majorant_shape = tuple(majorant_shape)
         self.table_shape = tuple(table_shape)
         self.tail_shape = tuple(tail_shape)
-        self.safety = float(safety)
+        self.safety = float(os.environ.get("MAJ_SAFETY", "") or safety)
         self.cache = cache
         # The majorant prescan (~19 s) is identical for every worker of a
         # parallel run.  Rebuilding it per worker is why --jobs made things
