@@ -29,13 +29,26 @@ devices fix this:
   * the majorant is built from sigma_Born alone (cheap, fine grid) times a
     scalar bound on eta taken from the table.
 
-The photon branch reuses one TailSampler per prescan cell rather than
-building one per event (~0.4 s each).  Within a cell the tail density
-varies smoothly; APPROXIMATION FLAGGED: the photon spectrum is therefore
-that of the cell centre, not of the exact event kinematics.  The soft/hard
-branching itself uses the event's own sigma_obs and is exact.  Making the
-photon exact needs a final accept/reject against the event's true density,
-batched over a block of events -- see REPORT.md.
+The photon branch has two implementations.  The CELL-BASED one reuses a
+TailSampler per prescan cell (~0.4 s each to build) and holds the photon
+density constant across it -- an approximation, and the reason for the
+warning that used to stand here.  The PER-EVENT one builds rc_factor and
+TailSampler at the event's own kinematics and inverts the exact sigma_obs
+ladder for v, with geometric bisection in the deep segment where the
+log-log form degenerates.
+
+Production runs the per-event path and has since scheme A was adopted:
+EXPO_TAIL and EXACT_ACCEPT each force exact_per_event (see __init__), and
+every production card sets both.  Measured on the 2026-08-19 pass, all five
+channels: tail_cells_built = 0 against 4000-5000 hard events per channel,
+i.e. the cell path was not entered once.  So the photon spectrum is exact
+per event, and the standing "APPROXIMATION FLAGGED" note here was stale --
+it described a path we stopped using on 2026-08-15 and misled a reader
+(me) into reporting it as the last open physics approximation.
+
+The cost of that exactness is the ~0.5 s rc_factor plus ~0.4 s TailSampler
+per ACCEPTED event, which is affordable only because accepted events number
+~1e4 against ~1e7 trials.
 """
 
 import json
