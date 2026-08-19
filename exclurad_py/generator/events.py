@@ -374,6 +374,17 @@ class Generator:
                     mx2_cut=self.mx2_cut, helicity=self.helicity,
                     shape=list(self.majorant_shape), safety=self.safety,
                     born_only=self.born_only, eta_hi=round(float(eta_hi), 9),
+                    # The cell EDGES are part of what a cached majorant is,
+                    # and nothing else in this key notices them: model, box,
+                    # shape and safety are all identical between a linear and
+                    # a geometric grid.  A stale linear majorant would load
+                    # silently against geometric sampling, and the cell
+                    # probabilities would be wrong -- the cdf is built from
+                    # M * cell volume, and the volumes would not match the
+                    # edges being sampled.  Same gap the eta table had twice
+                    # (phi convention, then the t axis); bump the tag with
+                    # any change to how edges are laid out.
+                    edges="geom-q2t-v1",
                     cuts={k: (list(v) if isinstance(v, tuple) else v)
                           for k, v in sorted(self.cuts.items())})
         # NOTE: t_nucl is deliberately NOT part of the key. Since the
