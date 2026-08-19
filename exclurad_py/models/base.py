@@ -73,6 +73,25 @@ class StructureFunctions:
     validity = {}                 # e.g. dict(W2=(1.2, 12.0), Q2=(0.1, 8.0))
     out_of_range = OutOfRange.REPORT
     topology: Topology = None
+    # Beam energy the model may need for epsilon.  Generator overwrites it
+    # from the card; the default only matters for a standalone call.
+    Ebeam = 10.6
+
+    # Azimuthal moments declared as a FRACTION OF sigma_U = sigma_T +
+    # eps sigma_L.  A class that sets one of these has the base class
+    # OVERWRITE whatever its own _sfs returned for that structure function.
+    #
+    # This is how measured ratios get into a model that does not fit them:
+    # sigma_LT'/sigma_0 = +0.10 for pi0 (CLAS, forward bins +0.05..+0.18,
+    # flat in -t) and sigma_LT/sigma_0 = -0.30 for rho (-0.2..-0.4).  eta
+    # borrows pi0's until it has its own measurement.
+    #
+    # As a fraction of sigma_U, never of sigma_T: they coincide only while
+    # sigma_L is zero, and that is a property of today's fits, not of the
+    # statement being made.  The values are in the MODEL's convention;
+    # topology.lt_sign then carries them into the core's frame.
+    SLT_OVER_SU = None
+    SLTP_OVER_SU = None
 
     def __init__(self):
         self.n_calls = 0
@@ -91,6 +110,36 @@ class StructureFunctions:
         return self.topology.m_missing
 
     # -- implemented by subclasses ----------------------------------------- #
+    def _epsilon(self, xB, Q2):
+        """Virtual-photon polarisation at this (xB, Q2) and self.Ebeam.
+
+        Needed by any model stating a structure function as a fraction of
+        sigma_U.  Same expression EventKin uses, written in the variables a
+        structure-function model is handed; checked against
+        EventKin.epsilon() to machine precision from eps 0.96 down to 0.25.
+        """
+        xB = np.asarray(xB, dtype=float)
+        Q2 = np.asarray(Q2, dtype=float)
+        nu = Q2 / np.maximum(2.0 * M_P * xB, 1e-12)
+        y = nu / self.Ebeam
+        g2 = (2.0 * M_P * xB) ** 2 / np.maximum(Q2, 1e-12)
+        num = 1.0 - y - 0.25 * g2 * y * y
+        den = 1.0 - y + 0.5 * y * y + 0.25 * g2 * y * y
+        return np.clip(num / np.maximum(den, 1e-12), 0.0, 1.0)
+
+    def _apply_su_fractions(self, sf, W2, Q2):
+        """Overwrite sigma_LT / sigma_LT' if the class declared a fraction."""
+        if self.SLT_OVER_SU is None and self.SLTP_OVER_SU is None:
+            return sf
+        xB = Q2 / np.maximum(W2 - M_P * M_P + Q2, 1e-12)
+        sU = sf["sT"] + self._epsilon(xB, Q2) * sf["sL"]
+        sf = dict(sf)
+        if self.SLT_OVER_SU is not None:
+            sf["sLT"] = self.SLT_OVER_SU * sU
+        if self.SLTP_OVER_SU is not None:
+            sf["sLTp"] = self.SLTP_OVER_SU * sU
+        return sf
+
     def _sfs(self, W2, Q2, t):
         raise NotImplementedError
 
@@ -103,7 +152,7 @@ class StructureFunctions:
 
         W2c, Q2c, tc, inrange = self._apply_validity(W2, Q2, t)
 
-        sf = self._sfs(W2c, Q2c, tc)
+        sf = self._apply_su_fractions(self._sfs(W2c, Q2c, tc), W2c, Q2c)
         missing = set(SF_KEYS) - set(sf)
         if missing:
             raise KeyError(f"{type(self).__name__}._sfs omitted {sorted(missing)}")
@@ -197,27 +246,6 @@ class ProtonDetectedModel(StructureFunctions):
         self.kf_W2Q2 = None
         if self.topology.sf_t != FIXED_NUCLEON:
             raise TypeError("ProtonDetectedModel requires a FIXED_NUCLEON topology")
-
-    def _epsilon(self, xB, Q2):
-        """Virtual-photon polarisation at this (xB, Q2) and the model's beam.
-
-        Needed by any model that states a structure function as a fraction
-        of sigma_U = sigma_T + eps sigma_L.  Same expression EventKin uses,
-        written in (xB, Q2, Ebeam) because that is what a structure-function
-        model is given:
-
-            y = nu / E,  nu = Q2 / (2 M xB),  gamma = 2 M xB / sqrt(Q2)
-            eps = (1 - y - gamma^2 y^2 / 4)
-                  / (1 - y + y^2 / 2 + gamma^2 y^2 / 4)
-        """
-        xB = np.asarray(xB, dtype=float)
-        Q2 = np.asarray(Q2, dtype=float)
-        nu = Q2 / np.maximum(2.0 * M_P * xB, 1e-12)
-        y = nu / self.Ebeam
-        g2 = (2.0 * M_P * xB) ** 2 / np.maximum(Q2, 1e-12)
-        num = 1.0 - y - 0.25 * g2 * y * y
-        den = 1.0 - y + 0.5 * y * y + 0.25 * g2 * y * y
-        return np.clip(num / np.maximum(den, 1e-12), 0.0, 1.0)
 
     def _sfs_tn(self, t_nucl, xB, Q2):
         raise NotImplementedError

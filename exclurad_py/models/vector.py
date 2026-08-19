@@ -314,6 +314,7 @@ class Rho_DiffradVM(StructureFunctions):
 
     name = "rho.diffrad_vm"
     channel = "rho"
+    SLT_OVER_SU = -0.30       # CLAS sigma_LT/sigma_0, forward bins -0.2..-0.4
     version = "vm2026"
     topology = meson_detected(M_RHO, meson="rho0")
     validity = dict(W2=(4.0, 400.0), Q2=(0.3, 30.0), mt=(0.0, 12.0))

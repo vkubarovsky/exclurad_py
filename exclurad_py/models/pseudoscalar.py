@@ -116,8 +116,7 @@ class Pi0_VPK2021(ProtonDetectedModel):
 
     def _sfs_tn(self, t_nucl, xB, Q2):
         sT, sL, sTT, sLT = F.vpk2021_form(t_nucl, xB, Q2, F.P2021_PI0, M_PI0_FIT)
-        sU = sT + self._epsilon(xB, Q2) * sL
-        return sT, sL, sTT, sLT, self.SLTP_OVER_SU * sU
+        return sT, sL, sTT, sLT
 
 
 # --------------------------------------------------------------------------- #
@@ -180,8 +179,7 @@ class Eta_VPK2021(ProtonDetectedModel):
 
     def _sfs_tn(self, t_nucl, xB, Q2):
         sT, sL, sTT, sLT = F.vpk2021_form(t_nucl, xB, Q2, F.P2021_ETA, M_ETA_FIT)
-        sU = sT + self._epsilon(xB, Q2) * sL
-        return sT, sL, sTT, sLT, self.SLTP_OVER_SU * sU
+        return sT, sL, sTT, sLT
 
 
 # Deprecated alias: this model is labelled "2014" in several older
