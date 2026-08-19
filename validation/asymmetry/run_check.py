@@ -70,8 +70,13 @@ def make_model(frac):
         name = "pi0.vpk2021+ltp"
 
         def _sfs_tn(self, t_nucl, xB, Q2_):
-            sT, sL, sTT, sLT = super()._sfs_tn(t_nucl, xB, Q2_)
-            return sT, sL, sTT, sLT, frac * sT
+            # the parent now carries its own sigma_LT' (SLTP_OVER_SU); take
+            # the first four and substitute this script's own fraction, so
+            # the check still scans an amplitude of its choosing
+            out = super()._sfs_tn(t_nucl, xB, Q2_)
+            sT, sL, sTT, sLT = out[:4]
+            sU = sT + self._epsilon(xB, Q2_) * sL
+            return sT, sL, sTT, sLT, frac * sU
 
     return Pi0WithLTp(t_nucl=TN)
 

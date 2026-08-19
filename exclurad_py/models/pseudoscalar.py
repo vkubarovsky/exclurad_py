@@ -99,9 +99,25 @@ class Pi0_VPK2021(ProtonDetectedModel):
         "(11.41% vs exclugen's 5.71% at G1). sigma_L = 0 in this fit.")
     reference = "dvmpx.F March 2021; ~/exclurad-2026/"
 
+    # sigma_LT' as a fixed fraction of the UNPOLARISED cross section
+    # (VPK, 2026-08-19).  The CLAS measurement of sigma_LT'/sigma_0 for pi0
+    # sits around +0.05..+0.18 across the forward bins and is roughly flat in
+    # -t, so one number is a fair first model; +0.10 is the middle of it.
+    # No eta measurement exists yet, so eta carries the same value until one
+    # does -- change SLTP_OVER_SU in one place when it arrives.
+    #
+    # sigma_U = sigma_T + eps sigma_L, and it is written that way on purpose.
+    # The March-2021 fits have sigma_L identically zero, so today this equals
+    # 0.10 * sigma_T and the shortcut would give the same number -- but the
+    # shortcut would stop being the stated physics the moment a fit grows a
+    # longitudinal piece, and would do so silently.  epsilon is available
+    # here because the model is constructed with the beam energy.
+    SLTP_OVER_SU = 0.10
+
     def _sfs_tn(self, t_nucl, xB, Q2):
         sT, sL, sTT, sLT = F.vpk2021_form(t_nucl, xB, Q2, F.P2021_PI0, M_PI0_FIT)
-        return sT, sL, sTT, sLT
+        sU = sT + self._epsilon(xB, Q2) * sL
+        return sT, sL, sTT, sLT, self.SLTP_OVER_SU * sU
 
 
 # --------------------------------------------------------------------------- #
@@ -160,9 +176,12 @@ class Eta_VPK2021(ProtonDetectedModel):
         "canonical. See Pi0_VPK2021. sigma_L = 0 in this fit.")
     reference = "dvmpx.F March 2021; ~/eta-rc-2026/model2021/"
 
+    SLTP_OVER_SU = 0.10       # no eta measurement yet; see Pi0_VPK2021
+
     def _sfs_tn(self, t_nucl, xB, Q2):
         sT, sL, sTT, sLT = F.vpk2021_form(t_nucl, xB, Q2, F.P2021_ETA, M_ETA_FIT)
-        return sT, sL, sTT, sLT
+        sU = sT + self._epsilon(xB, Q2) * sL
+        return sT, sL, sTT, sLT, self.SLTP_OVER_SU * sU
 
 
 # Deprecated alias: this model is labelled "2014" in several older

@@ -25,6 +25,7 @@ of out-of-range calls is counted and reported.
 import numpy as np
 
 from ..topology import Topology, FIXED_NUCLEON
+from ..core.constants import M_P
 
 SF_KEYS = ("sT", "sL", "sTT", "sLT", "sLTp")
 
@@ -196,6 +197,27 @@ class ProtonDetectedModel(StructureFunctions):
         self.kf_W2Q2 = None
         if self.topology.sf_t != FIXED_NUCLEON:
             raise TypeError("ProtonDetectedModel requires a FIXED_NUCLEON topology")
+
+    def _epsilon(self, xB, Q2):
+        """Virtual-photon polarisation at this (xB, Q2) and the model's beam.
+
+        Needed by any model that states a structure function as a fraction
+        of sigma_U = sigma_T + eps sigma_L.  Same expression EventKin uses,
+        written in (xB, Q2, Ebeam) because that is what a structure-function
+        model is given:
+
+            y = nu / E,  nu = Q2 / (2 M xB),  gamma = 2 M xB / sqrt(Q2)
+            eps = (1 - y - gamma^2 y^2 / 4)
+                  / (1 - y + y^2 / 2 + gamma^2 y^2 / 4)
+        """
+        xB = np.asarray(xB, dtype=float)
+        Q2 = np.asarray(Q2, dtype=float)
+        nu = Q2 / np.maximum(2.0 * M_P * xB, 1e-12)
+        y = nu / self.Ebeam
+        g2 = (2.0 * M_P * xB) ** 2 / np.maximum(Q2, 1e-12)
+        num = 1.0 - y - 0.25 * g2 * y * y
+        den = 1.0 - y + 0.5 * y * y + 0.25 * g2 * y * y
+        return np.clip(num / np.maximum(den, 1e-12), 0.0, 1.0)
 
     def _sfs_tn(self, t_nucl, xB, Q2):
         raise NotImplementedError
