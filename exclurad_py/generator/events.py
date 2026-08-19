@@ -51,6 +51,24 @@ from .frames import assemble_event
 from .tables import RCTable
 
 
+def _cell_cdf(M, edges):
+    """Cumulative cell probability, weighted by CELL VOLUME.
+
+    With linear edges every cell has the same volume and cumsum(M) is
+    equivalent, which is why the original code could omit it.  Geometric
+    edges break that: the narrow low-Q2 cells would be chosen far too
+    often, biasing the sample.  The volume belongs here for the same reason
+    it already appears in sigma_total().
+    """
+    vol = 1.0
+    for k, ax in (("Q2", 0), ("W2", 1), ("t", 2), ("phi", 3)):
+        d = np.abs(np.diff(edges[k]))
+        vol = vol * d.reshape([-1 if i == ax else 1 for i in range(4)])
+    w = (M * vol).ravel()
+    tot = w.sum()
+    return np.cumsum(w) / tot if tot > 0 else None
+
+
 class _SoftOnly(Exception):
     """Internal: event's radiative tail is below resolution -- emit soft."""
 
@@ -288,9 +306,24 @@ class Generator:
                 return self
 
         nQ, nW, nt, nph = self.majorant_shape
-        edges = dict(Q2=np.linspace(*self.box.Q2, nQ + 1),
+        # Q2 and t get GEOMETRIC edges, W2 and phi stay linear.  The Born
+        # cross section is a power law in both: measured d ln sigma / d ln Q2
+        # is -1.54 (pi0), -1.15 (eta), -3.72 (rho), -2.65 (phi), -2.56
+        # (J/psi), and the t dependence is exponential-into-power-law.  On a
+        # linear grid the first cell then has to cover most of the dynamic
+        # range on its own -- across J/psi's Q2 box that is a factor 1.4e6,
+        # and its majorant duly broke, 40305 violations in 6.6e6 trials with
+        # the worst at x861.  Geometric edges make the cells equal in
+        # log-space, which is where the function is straight.
+        def _geo(lo, hi, n):
+            a, b = abs(lo), abs(hi)
+            sgn = -1.0 if (lo < 0 or hi < 0) else 1.0
+            e = np.geomspace(max(min(a, b), 1e-9), max(a, b), n + 1)
+            return sgn * (e[::-1] if lo < hi and sgn < 0 else e)
+
+        edges = dict(Q2=_geo(*self.box.Q2, nQ),
                      W2=np.linspace(*self.box.W2, nW + 1),
-                     t=np.linspace(*self.box.t, nt + 1),
+                     t=_geo(*self.box.t, nt),
                      phi=np.linspace(*self.box.phi, nph + 1))
         M = np.zeros(self.majorant_shape)
         # Stratified random sub-sampling inside each cell. A full 3^4 corner
@@ -321,7 +354,7 @@ class Generator:
         M *= eta_hi * self.safety
         tot = M.sum()
         self.maj = dict(edges=edges, M=M, shape=self.majorant_shape,
-                        cdf=np.cumsum(M.ravel()) / tot if tot > 0 else None,
+                        cdf=_cell_cdf(M, edges),
                         eta_hi=eta_hi)
         return self
 
@@ -567,7 +600,7 @@ class Generator:
         n_bad = int((worst > 1.0).sum())
         s["M"] = s["M"] * np.where(worst > 1.0, worst * margin, 1.0)
         tot = s["M"].sum()
-        s["cdf"] = np.cumsum(s["M"].ravel()) / tot if tot > 0 else None
+        s["cdf"] = _cell_cdf(s["M"], s["edges"])
         self.n_trials = self.n_accept = 0
         self.n_overweight = 0
         self.max_overweight = 1.0
