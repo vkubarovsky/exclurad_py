@@ -144,6 +144,17 @@ class Generator:
         # FRACTION is set by this number, so two generators cannot be
         # compared on it unless both are told the same value.
         self.v_min_fixed = v_min
+        from ..core.constants import M_P as _MP
+        globals().setdefault("M_P_", _MP)
+        globals().setdefault("M_P_SQ", _MP * _MP)
+        _iacc = (cuts or {}).get("iacc")
+        self._acc_electron = None
+        if _iacc:
+            from .decay import ACCEPTANCE
+            _w = ACCEPTANCE.get(_iacc)
+            if _w and "electron" in _w:
+                self._acc_electron = _w["electron"]
+        self.n_cut_eacc = 0
         self.n_cut_yxb = 0
         self.n_cut_acc = 0
         self.n_vmin_fallback = 0
@@ -380,6 +391,39 @@ class Generator:
                             key=json.dumps(self._maj_key(s["eta_hi"])),
                             **{"e_" + k: v for k, v in s["edges"].items()})
         return path
+
+    def _pass_electron_acc(self, Q2, W2):
+        """Scattered-electron acceptance, testable BEFORE any expensive work.
+
+        The generator samples OBSERVED kinematics, so |p| and theta of the
+        scattered electron follow from (Q2, W2) and the beam alone -- the
+        radiated photon does not move them, and neither do t or phi.  So
+        this is the identical cut the assembled event would face later, only
+        applied for free.
+
+        It is worth applying: of J/psi events generated without it, 6% pass
+        the electron window, so 94% of the rc_factor calls in that channel
+        were being spent on events destined to be thrown away.  Measured
+        cost with the card's cuts, 1942 -> 36957 ms per written event; this
+        is where the factor of 19 came from.
+
+        NOTE this moves the acceptance in front of the n_accept counter, so
+        sigma_total() now reports the cross section WITHIN the electron
+        acceptance rather than over the whole box.  For a card that declares
+        iacc that is the more useful number, but it is a change of meaning.
+        """
+        acc = self._acc_electron
+        if acc is None:
+            return True
+        nu = (W2 + Q2 - self.sf.mV * 0.0 - M_P_SQ) / (2.0 * M_P_)
+        Ep = self.Ebeam - nu
+        if Ep <= 0.0:
+            return False
+        c = 1.0 - Q2 / (2.0 * self.Ebeam * Ep)
+        if abs(c) > 1.0:
+            return False
+        th = np.degrees(np.arccos(c))
+        return (acc[0] <= Ep <= acc[1]) and (acc[2] <= th <= acc[3])
 
     def _pass_yxb(self, Q2, W2):
         ylo, yhi = self.cuts.get("y", (0.0, 1.0))
@@ -625,6 +669,9 @@ class Generator:
             # (much more expensive) Born evaluation.
             if not self._pass_yxb(Q2, W2):
                 self.n_cut_yxb += 1
+                continue
+            if not self._pass_electron_acc(Q2, W2):
+                self.n_cut_eacc += 1
                 continue
 
             b = self._born(Q2, W2, t, phi, h)
