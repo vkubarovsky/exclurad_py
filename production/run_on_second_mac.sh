@@ -26,8 +26,12 @@ else
 fi
 echo "=== версия: $(git -C $REPO log --oneline -1)"
 
-JOBS=$(sysctl -n hw.ncpu)
-echo "=== ядер: $JOBS"
+# Производительные ядра, а не все.  На Apple Silicon hw.ncpu считает и
+# энергоэффективные, которые для этой задачи втрое медленнее; блок
+# заканчивается по последнему воркеру, так что четыре медленных растягивают
+# весь блок.  На M4 Pro это 10 из 14, на базовом M3 -- 4 из 8.
+JOBS=$(sysctl -n hw.perflevel0.physicalcpu 2>/dev/null || sysctl -n hw.ncpu)
+echo "=== $(sysctl -n machdep.cpu.brand_string): ядер всего $(sysctl -n hw.ncpu), беру производительные: $JOBS"
 
 cd $REPO
 export PYTHONPATH=$REPO
