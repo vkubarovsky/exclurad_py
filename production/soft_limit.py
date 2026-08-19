@@ -20,7 +20,20 @@ rad below 0.002 +31.99%.
 
     RAD_GLOB=... NORAD_GLOB=... python3 production/soft_limit.py <channel>
 Env: EBEAM (default 10.6), VSOFT (default 0.002), TOL (default 8, in
-percentage points on each harmonic).
+percentage points on each harmonic), NPRED (default 1500; 0 disables the
+weighted prediction).
+
+SHARPENED 2026-08-18 on VPK's point.  "rad(v -> 0) == norad" is not what
+the physics says: a soft radiative event still carries the virtual and
+soft correction, and that correction is itself phi-dependent -- its own
+cos(phi) harmonic runs around +12%.  So the honest statement is
+
+    rad(v < vsoft)  ==  norad weighted by eta(v < vsoft)
+
+evaluated at each Born event's own kinematics.  Comparing against the bare
+Born forced a tolerance of 8 percentage points just to absorb the
+correction we were supposed to be testing; against the weighted prediction
+the residual is the generator's error alone.
 """
 import glob
 import os
@@ -82,7 +95,24 @@ def kin(ev, E0, m_meson, ps):
     return v, np.degrees(np.arctan2(sp, cp)) % 360.0
 
 
-def all_harmonics(phi_deg, edges, kmax=4):
+def kin_full(ev, E0, m_meson, ps):
+    """(Q2, W2, t) per event -- what the quadrature needs to predict eta."""
+    el, pr, ms = ev[:, 0:4], ev[:, 4:8], ev[:, 8:12]
+    det = pr if ps else ms
+    nu = E0 - el[:, 3]
+    pmag = np.linalg.norm(el[:, :3], axis=1)
+    Q2 = 2.0 * E0 * el[:, 3] * (1.0 - el[:, 2] / np.maximum(pmag, 1e-12))
+    W2 = M_P ** 2 + 2.0 * M_P * nu - Q2
+    if ps:
+        t = 2.0 * M_P * (M_P - det[:, 3])
+    else:
+        q4 = np.array([0.0, 0.0, E0, E0])[None, :] - el
+        d4 = q4 - det
+        t = d4[:, 3] ** 2 - np.einsum("ij,ij->i", d4[:, :3], d4[:, :3])
+    return np.stack([Q2, W2, t], axis=1)
+
+
+def all_harmonics(phi_deg, edges, kmax=4, weights=None):
     """cos(k phi) and sin(k phi) amplitudes in percent, plus the stat error.
 
     Only cos(phi) and cos(2phi) may be nonzero in an unpolarised Born
@@ -106,12 +136,13 @@ def all_harmonics(phi_deg, edges, kmax=4):
     """
     ctr = 0.5 * (edges[:-1] + edges[1:])
     p = np.radians(ctr)
-    h, _ = np.histogram(phi_deg, bins=edges)
-    n = h.sum()
-    if n < 200:
+    h, _ = np.histogram(phi_deg, bins=edges, weights=weights)
+    n_eff = len(phi_deg) if weights is None else \
+        weights.sum() ** 2 / np.maximum((weights ** 2).sum(), 1e-30)
+    if h.sum() <= 0 or n_eff < 200:
         return {}
-    y = h / n
-    err = 2 * 100 / np.sqrt(2 * n)
+    y = h / h.sum()
+    err = 2 * 100 / np.sqrt(2 * n_eff)
     out = {}
     for k in range(1, kmax + 1):
         for fn, nm in ((np.cos, "cos"), (np.sin, "sin")):
@@ -168,6 +199,84 @@ def main(ch):
             ok = (d1 < tol) and (d2 < tol)
             print(f"[{ch}] отклонение в мягком пределе: cos {d1:.2f} п.п., "
                   f"cos2 {d2:.2f} п.п.")
+    # ---- weighted prediction: norad * eta(v < vsoft), per-event ---------- #
+    npred = int(os.environ.get("NPRED", "1500"))
+    if npred > 0:
+        from exclurad_py.core.rc import rc_factor
+        from validate_channel import parse_card, get_model
+        card = parse_card(ch)
+        sf = get_model(card, ch)
+        tk = getattr(sf.topology, "t_kind", "photon")
+        mU2 = m_meson ** 2 if ps else M_P ** 2
+        rng = np.random.default_rng(20260818)
+        sub = rng.choice(len(pn), size=min(npred, len(pn)), replace=False)
+        w = np.zeros(len(sub))
+        kq = kin_full(read(nor, mpid), E0, m_meson, ps)
+        for j, i in enumerate(sub):
+            Q2, W2, t = kq[i]
+            if hasattr(sf, "t_nucl"):
+                sf.t_nucl = float(t)
+            try:
+                w[j] = rc_factor(Ebeam=E0, Q2=Q2, W2=W2, t=t,
+                                 phi=np.radians(pn[i]), sfmodel=sf, h=+1,
+                                 mx2_cut=vsoft + mU2)["eta"]
+            except Exception:
+                w[j] = np.nan
+        good = np.isfinite(w) & (w > 0)
+        if good.sum() > 200:
+            hp = all_harmonics(pn[sub][good], np.linspace(0, 360, 25),
+                               weights=w[good])
+            hs = all_harmonics(pr_[vr < vsoft], np.linspace(0, 360, 25))
+            print(f"[{ch}] предсказание norad x eta(v<{vsoft}) на "
+                  f"{good.sum()} точках, <eta> = {w[good].mean():.4f}")
+            print(f"[{ch}] {'гармоника':>10} {'предсказано':>16} "
+                  f"{'rad мягкие':>16} {'разница':>14}")
+            for k in ("cos1", "cos2"):
+                a, ea = hp[k]
+                b, eb = hs[k]
+                d, sd = abs(b - a), np.hypot(ea, eb)
+                print(f"[{ch}] {k+'phi':>10} {a:+8.2f}±{ea:4.2f}% "
+                      f"{b:+8.2f}±{eb:4.2f}% {d:7.2f} п.п. ({d/sd:.1f}s)")
+
+    # ---- absolute scale ------------------------------------------------- #
+    # The harmonics above are relative amplitudes; multiplied by the total
+    # cross section they become the actual azimuthal moments in nb.  With
+    # dsigma/dphi = (sigma_tot / 2pi) (1 + a1 cos phi + a2 cos 2phi), the
+    # cos(k phi) moment is sigma_tot * a_k / 2.
+    sig = {}
+    for tag, pat in (("norad", os.environ["NORAD_GLOB"]),
+                     ("rad", os.environ["RAD_GLOB"])):
+        vals = []
+        for f in glob.glob(os.path.join(
+                os.path.dirname(os.path.dirname(pat)), "inputs",
+                "config_*.json")):
+            try:
+                import json
+                r = json.load(open(f)).get("report", {})
+                if r.get("sigma_nb"):
+                    vals.append(float(r["sigma_nb"]))
+            except Exception:
+                pass
+        if vals:
+            sig[tag] = float(np.mean(vals))
+    if sig:
+        hB = all_harmonics(pn, np.linspace(0, 360, 25))
+        print(f"[{ch}] абсолютная нормировка (sigma по отчёту генератора):")
+        for tag in ("norad", "rad"):
+            if tag in sig:
+                print(f"[{ch}]   sigma_{tag:<5} = {sig[tag]:.6g} нб "
+                      f"(по коробке карточки)")
+        if "norad" in sig and hB:
+            st = sig["norad"]
+            print(f"[{ch}]   sigma_U (phi-усреднённое) = {st:.6g} нб")
+            for k, nm in (("cos1", "LT-момент"), ("cos2", "TT-момент")):
+                a, ea = hB[k]
+                print(f"[{ch}]   {nm:<12} = {st*a/200:+.6g} ± "
+                      f"{st*ea/200:.2g} нб   ({a:+.2f}% от sigma_U)")
+        if "rad" in sig and "norad" in sig:
+            print(f"[{ch}]   sigma_rad / sigma_born = "
+                  f"{sig['rad']/sig['norad']:.4f}  <- поправка по коробке")
+
     # full harmonic content: cos1/cos2 are physics, the other six are null
     fine = np.linspace(0, 360, 25)
     hb = all_harmonics(pn, fine)
