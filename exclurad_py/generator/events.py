@@ -902,6 +902,7 @@ class Generator:
                     overweight=self.n_overweight,
                     max_overweight=self.max_overweight,
                     cut_yxb=self.n_cut_yxb, cut_acceptance=self.n_cut_acc,
+                    cut_eacceptance=self.n_cut_eacc,
                     vmin_fallback=self.n_vmin_fallback,
                     tail_cells_built=len(self._tail_cache),
                     hard_chosen=self.n_hard_chosen,
