@@ -69,10 +69,24 @@ for ch in $CH; do
     for i in $(seq 1 $JOBS); do
       python3 -u $ROOT/part_runner.py $ROOT/card_${mode}_${ch}.txt $i $JOBS $((20260901+off*i)) \
         > $ROOT/logs/${mode}_${ch}_$i.log 2>&1 &
-      # первая часть строит таблицу и мажоранту; ждём именно её, а не таймер
-      if [ $i -eq 1 ]; then
-        while kill -0 $! 2>/dev/null && ! ls $ROOT/out/$mode/$ch/*/majorant.npz >/dev/null 2>&1; do sleep 3; done
-        sleep 3
+      # Первая часть строит и кэширует таблицу eta; ждём ИМЕННО её файл.
+      #
+      # Ждать majorant.npz нельзя: его сохраняет run_parallel, а воркеры
+      # зовут run(_part=...), который кэш только читает.  Файл не появляется
+      # никогда, условие выхода вырождается в "пока жив воркер 1", и части
+      # 2..N стартуют лишь после того, как первая досчитает свою долю
+      # целиком.  20.08 так ушло 33 минуты счёта в один поток на 14-ядерной
+      # машине -- при том, что та же ошибка уже была найдена и исправлена
+      # днём раньше в этом же файле.
+      #
+      # У born-прогона (iborn=1) таблицы нет вообще -- ждать нечего.
+      if [ $i -eq 1 ] && [ "$mode" = rad ]; then
+        for _ in $(seq 1 600); do
+          ls $ROOT/out/$mode/$ch/*/etatable.npz >/dev/null 2>&1 && break
+          kill -0 $! 2>/dev/null || break
+          sleep 3
+        done
+        sleep 5
       fi
     done
     wait
