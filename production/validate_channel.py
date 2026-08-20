@@ -41,10 +41,27 @@ DAUGHTERS = {"pi0": (22, 22), "eta": (22, 22), "rho": (211, -211),
              "phi": (321, -321), "jpsi": (-11, 11)}
 
 
+def card_path(ch):
+    """cards/rad_<ch>.txt, found next to this checkout.
+
+    The path used to be hard-wired to ~/exclurad_py/cards.  That is true on
+    the mac mini and false on the second laptop, where the checkout lives in
+    ~/exclurad_run/exclurad_py -- every analysis script died there on a
+    missing file.  Look beside the source first, then fall back to the old
+    location and to CARDS_DIR.
+    """
+    here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    for root in (os.environ.get("CARDS_DIR"), os.path.join(here, "cards"),
+                 os.path.expanduser("~/exclurad_py/cards")):
+        if root and os.path.exists(os.path.join(root, f"rad_{ch}.txt")):
+            return os.path.join(root, f"rad_{ch}.txt")
+    raise FileNotFoundError(f"cards/rad_{ch}.txt not found near {here}")
+
+
 def parse_card(ch):
     """Positional run card -- single source of truth for box/vcut/model."""
     vals = []
-    with open(os.path.expanduser(f"~/exclurad_py/cards/rad_{ch}.txt")) as fh:
+    with open(card_path(ch)) as fh:
         for line in fh:
             body = line.split("!")[0].strip()
             if body:
