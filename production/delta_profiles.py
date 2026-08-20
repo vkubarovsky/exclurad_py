@@ -186,7 +186,18 @@ def main(ch):
             # no absolute cross sections available -> compare SHAPES: both
             # curves normalised to their own mean over populated bins.  The
             # ABSOLUTE level is validated elsewhere (published-2013 RC, 0.88%).
-            g = np.nanmean(d[ok]); q = np.nanmean(dq[ok])
+            #
+            # Both means MUST be taken over the same bins.  The generator
+            # populates the sparse tail of the box; the 3000 reference points
+            # do not reach it, so `ok` and `isfinite(dq)` are different sets --
+            # for J/psi, six of eleven Q2 bins had events but no reference.
+            # Normalising each curve over its own set slid them against each
+            # other and charged the difference to the most populated bin: on
+            # 2026-08-20 that produced max |pull| of 8.0 (J/psi), 6.8 (phi)
+            # and 12.0 (rho) in Q2, all of which fell to 1.1, 2.5 and 7.9 the
+            # moment the two means were taken over the common bins.
+            both = ok & np.isfinite(dq)
+            g = np.nanmean(d[both]); q = np.nanmean(dq[both])
             if g > 0 and q > 0:
                 d, e, dq = d / g, e / g, dq / q
         ctr = 0.5 * (edges[:-1] + edges[1:])
@@ -205,8 +216,10 @@ def main(ch):
             pull = (d - dq) / np.sqrt(e**2 + np.nan_to_num(dqe)**2)
         good = np.isfinite(pull)
         if good.any():
+            nref = int((ok & ~np.isfinite(dq)).sum())
             print(f"[{ch}] {name}: max |pull| = {np.abs(pull[good]).max():.1f}"
-                  f"   mean gen/quad = {np.nanmean(d/dq):.4f}", flush=True)
+                  f"   mean gen/quad = {np.nanmean(d/dq):.4f}"
+                  + (f"   ({nref} бинов без опоры)" if nref else ""), flush=True)
     axes[0][0].legend(frameon=False, fontsize=8)
     fig.suptitle(f"{ch}: радиационная поправка из генератора против квадратуры "
                  f"(rad {Nr}, norad {Nn})", fontsize=11, fontweight="bold")
