@@ -42,7 +42,7 @@ import sys
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from validate_channel import MESON_PID, MESON_M  # noqa: E402
+from validate_channel import expand_glob, MESON_PID, MESON_M  # noqa: E402
 
 M_P = 0.93827208816
 
@@ -172,8 +172,8 @@ def main(ch):
     tol = float(os.environ.get("TOL", "8"))
     ps = ch in ("pi0", "eta")
     mpid, m_meson = MESON_PID[ch], MESON_M[ch]
-    rad = sorted(glob.glob(os.environ["RAD_GLOB"]))
-    nor = sorted(glob.glob(os.environ["NORAD_GLOB"]))
+    rad = expand_glob(os.environ["RAD_GLOB"])
+    nor = expand_glob(os.environ["NORAD_GLOB"])
     if not rad or not nor:
         sys.exit("need RAD_GLOB and NORAD_GLOB")
     edges = np.linspace(0, 360, 13)
@@ -247,9 +247,14 @@ def main(ch):
     for tag, pat in (("norad", os.environ["NORAD_GLOB"]),
                      ("rad", os.environ["RAD_GLOB"])):
         vals = []
-        for f in glob.glob(os.path.join(
-                os.path.dirname(os.path.dirname(pat)), "inputs",
-                "config_*.json")):
+        # pat may hold several whitespace-separated patterns (the union of
+        # two machines' samples); each run has its own inputs/ directory.
+        cfg = []
+        for one in str(pat).split():
+            cfg += glob.glob(os.path.join(
+                os.path.dirname(os.path.dirname(os.path.expanduser(one))),
+                "inputs", "config_*.json"))
+        for f in sorted(set(cfg)):
             try:
                 import json
                 r = json.load(open(f)).get("report", {})

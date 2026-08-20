@@ -65,6 +65,21 @@ def get_model(card, ch, t_nucl=None):
     return models.get(card["model"])
 
 
+def expand_glob(spec):
+    """Filenames from one or more whitespace-separated glob patterns.
+
+    Two machines produce two independent samples of the same channel, and
+    the natural way to analyse their union is to hand both directories to
+    RAD_GLOB at once.  Plain glob.glob() treats the whole string as a single
+    pattern and silently returns nothing for that, so a union run would
+    report "need RAD_GLOB" while both samples sat on disk.
+    """
+    out = []
+    for pat in str(spec).split():
+        out.extend(glob.glob(os.path.expanduser(pat)))
+    return sorted(set(out))
+
+
 def read_events(paths, ch):
     """(Q2, W2, t, phi, v, integrity dict) from LUND, channel-aware.
 

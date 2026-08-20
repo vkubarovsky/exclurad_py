@@ -34,7 +34,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from validate_channel import parse_card, get_model, read_events, MESON_M  # noqa
+from validate_channel import expand_glob, parse_card, get_model, read_events, MESON_M  # noqa
 
 M_P = 0.93827208816
 E0 = 10.6
@@ -134,8 +134,8 @@ def _delta_chunk(args):
 
 def main(ch):
     card = parse_card(ch)
-    rad = sorted(glob.glob(os.environ["RAD_GLOB"]))
-    nor = sorted(glob.glob(os.environ["NORAD_GLOB"]))
+    rad = expand_glob(os.environ["RAD_GLOB"])
+    nor = expand_glob(os.environ["NORAD_GLOB"])
     if not rad or not nor:
         sys.exit("need RAD_GLOB and NORAD_GLOB")
     ev_r, _ = read_events(rad, ch)
