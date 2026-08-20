@@ -6,6 +6,11 @@ Runs the card through THE SAME code path as a real run -- exclurad_py.run
 with nev replaced by a small number -- and reports ms per written event and
 the projected wall time for the card's own nev.
 
+The projection comes from a PARALLEL probe: n_jobs workers at once, timed
+as a whole.  A single process on an idle machine divided by the core count
+is not the same number and is not close to it (see the comment at the call
+site: 1313 ms against 4540).
+
 Why it exists, and why it insists on the real path: on 2026-08-18 the J/psi
 rate was measured by building a Generator by hand, and the card's cuts (y,
 xB and the iacc acceptance preset) were left out of that construction.  The
@@ -102,14 +107,79 @@ def main(card, n_probe=25, n_jobs=14):
         for m in res["health"]:
             print(f"  ЗДОРОВЬЕ: {m}")
 
-    tot = setup + nev_real * per / n_jobs
+    # ---- and now the number that actually decides the wall clock -------- #
+    # The slope above is ONE process on an otherwise idle machine, and
+    # dividing it by n_jobs assumes n_jobs equal, independent cores.  Neither
+    # holds: Apple silicon mixes performance and efficiency cores, and the
+    # workers contend for memory bandwidth.  Measured on the mac mini for the
+    # pi0 G1 card on 2026-08-20 -- 1313 ms alone on an idle machine, 2613 ms
+    # for one process on a loaded one, 4540 ms each with fourteen running.
+    # The serial estimate said 15 hours for a pass that would have taken 60.
+    #
+    # So run n_jobs of them at once and time the aggregate.  The table and
+    # the majorant are already cached in tmp by the probes above, so this
+    # measures generation only.
+    #
+    # It measures the machine AS IT IS NOW: run it on an idle one, or the
+    # answer describes the competition rather than the card.  The ratio to
+    # the serial slope is printed for exactly that reason -- around x3.5 is
+    # the honest cost of fourteen-way parallelism, much more than that means
+    # something else is eating the machine.
+    par = _parallel_probe(probe, tmp, n_jobs, max(6, n_probe // 5))
+    shutil.rmtree(tmp, ignore_errors=True)
+    if par is None:
+        print("\n  параллельная проба не удалась, беру последовательную оценку")
+        tot = setup + nev_real * per / n_jobs
+    else:
+        thr, per_par = par
+        print(f"\n  под нагрузкой ({n_jobs} процессов): {1000*per_par:.0f} мс "
+              f"на событие в каждом, {thr:.2f} событий/с на машину")
+        print(f"  замедление против одиночного процесса: "
+              f"x{per_par/per:.1f}")
+        tot = setup + nev_real / thr
     h, m = divmod(int(tot // 60), 60)
     print(f"\n  прогноз на {nev_real} событий при {n_jobs} ядрах: "
           f"{h} ч {m:02d} мин")
     if tot > 4 * 3600:
         print("  *** дольше четырёх часов -- стоит пересмотреть до запуска ***")
-    shutil.rmtree(tmp, ignore_errors=True)
     return 0
+
+
+def _parallel_probe(card, tmp, n_jobs, n_each):
+    """Aggregate throughput with n_jobs workers running at once.
+
+    Uses the production entry point -- run(_part=(i, n, seed)) -- so the
+    workers divide the card's nev exactly as a real pass does.
+    """
+    import subprocess
+    body = 0
+    out = []
+    for line in open(card).read().splitlines():
+        if line.split("!")[0].strip():
+            body += 1
+            if body == 3:
+                line = re.sub(r"^\s*\S+", str(n_each * n_jobs), line, count=1)
+        out.append(line)
+    par_card = os.path.join(tmp, "parallel_" + os.path.basename(card))
+    open(par_card, "w").write("\n".join(out) + "\n")
+    code = ("import sys;from exclurad_py.run import run;"
+            "run(sys.argv[1],verbose=False,"
+            "_part=(int(sys.argv[2]),int(sys.argv[3]),int(sys.argv[4])))")
+    env = dict(os.environ, PYTHONPATH=os.path.dirname(
+        os.path.dirname(os.path.abspath(__file__))))
+    t = time.time()
+    procs = [subprocess.Popen([sys.executable, "-c", code, par_card,
+                               str(i), str(n_jobs), str(4200 + 97 * i)],
+                              stdout=subprocess.DEVNULL,
+                              stderr=subprocess.DEVNULL, env=env)
+             for i in range(1, n_jobs + 1)]
+    rc = [p.wait() for p in procs]
+    dt = time.time() - t
+    n_ok = sum(1 for r in rc if r == 0)
+    if n_ok == 0 or dt <= 0:
+        return None
+    n_tot = n_each * n_ok
+    return n_tot / dt, dt * n_ok / n_tot
 
 
 if __name__ == "__main__":
