@@ -210,8 +210,13 @@ def main(ch):
         ax.set_ylabel(r"$\delta = \sigma_{obs}/\sigma_{Born}$", fontsize=9)
         ax.grid(alpha=.3, lw=.5)
         ax.tick_params(labelsize=8)
+        # quad_err too: without it a plot rebuilt from the json can only
+        # form (gen-quad)/err, which overstates the pull -- the reference is
+        # a mean over a finite number of points and carries its own error.
         res[name] = dict(centres=ctr.tolist(), gen=d.tolist(),
-                         err=e.tolist(), quad=dq.tolist())
+                         err=e.tolist(), quad=dq.tolist(),
+                         quad_err=dqe.tolist(),
+                         n_rad=hr.tolist(), n_norad=hn.tolist())
         with np.errstate(invalid="ignore"):
             pull = (d - dq) / np.sqrt(e**2 + np.nan_to_num(dqe)**2)
         good = np.isfinite(pull)
