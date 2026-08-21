@@ -111,10 +111,19 @@ def main(card, n_probe=25, n_jobs=14):
     # The slope above is ONE process on an otherwise idle machine, and
     # dividing it by n_jobs assumes n_jobs equal, independent cores.  Neither
     # holds: Apple silicon mixes performance and efficiency cores, and the
-    # workers contend for memory bandwidth.  Measured on the mac mini for the
-    # pi0 G1 card on 2026-08-20 -- 1313 ms alone on an idle machine, 2613 ms
-    # for one process on a loaded one, 4540 ms each with fourteen running.
-    # The serial estimate said 15 hours for a pass that would have taken 60.
+    # workers contend for memory bandwidth.  Measured on the mac mini over
+    # the completed G1 pass of 2026-08-20/21 -- single-process slope against
+    # the per-worker cost with fourteen running:
+    #
+    #     pi0  1313 -> 2755 ms   x2.10        eta  1024 -> 2789 ms   x2.72
+    #     rho  1050 -> 2738 ms   x2.61        phi  1169 -> 2671 ms   x2.29
+    #
+    # so the machine sustains about 5 events/s where the serial arithmetic
+    # promised 10.7.  A 150k-per-channel pass was launched on that promise as
+    # a 15-hour job and was really a 40-hour one.
+    #
+    # Take the ratio from a QUIET machine.  Read off a loaded one it came out
+    # x3.5 and sent the plan the other way by a further 1.6.
     #
     # So run n_jobs of them at once and time the aggregate.  The table and
     # the majorant are already cached in tmp by the probes above, so this
