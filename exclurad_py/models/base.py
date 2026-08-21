@@ -22,6 +22,8 @@ hard zero puts a discontinuity inside the photon integral, but the number
 of out-of-range calls is counted and reported.
 """
 
+import os
+
 import numpy as np
 
 from ..topology import Topology, FIXED_NUCLEON
@@ -127,17 +129,46 @@ class StructureFunctions:
         den = 1.0 - y + 0.5 * y * y + 0.25 * g2 * y * y
         return np.clip(num / np.maximum(den, 1e-12), 0.0, 1.0)
 
+    def _frac(self, name):
+        """The declared sigma_LT / sigma_LT' fraction, or an env override.
+
+        The override exists for ONE purpose: the physical sigma_LT'/sigma_U
+        of 0.10 makes A_LU about 4%, and 100k radiative events measure the
+        radiative correction to it only to +-12% -- resolving a 10% shift
+        would take 1.2M events per channel, some seventy hours.  Raising the
+        fraction to 1.0 multiplies A_LU by ten, drops the error on the ratio
+        to about 0.014, and turns the same sample into a 7-sigma test of the
+        whole helicity path.  validation/asymmetry/run_check.py does exactly
+        this in quadrature; the override extends it to generated events.
+
+        It shouts, because a model silently different from the card's is the
+        failure mode that has cost the most this week.
+        """
+        v = os.environ.get(name)
+        if v is None:
+            return getattr(self, name)
+        v = float(v)
+        if not StructureFunctions._warned.get(name):
+            StructureFunctions._warned[name] = True
+            print(f" *** {name} ПЕРЕОПРЕДЕЛЕНО ИЗ ОКРУЖЕНИЯ: "
+                  f"{getattr(self, name)} -> {v}.  Это испытательный режим, "
+                  f"не физика модели. ***", flush=True)
+        return v
+
+    _warned = {}
+
     def _apply_su_fractions(self, sf, W2, Q2):
         """Overwrite sigma_LT / sigma_LT' if the class declared a fraction."""
-        if self.SLT_OVER_SU is None and self.SLTP_OVER_SU is None:
+        slt, sltp = self._frac("SLT_OVER_SU"), self._frac("SLTP_OVER_SU")
+        if slt is None and sltp is None:
             return sf
         xB = Q2 / np.maximum(W2 - M_P * M_P + Q2, 1e-12)
         sU = sf["sT"] + self._epsilon(xB, Q2) * sf["sL"]
         sf = dict(sf)
-        if self.SLT_OVER_SU is not None:
-            sf["sLT"] = self.SLT_OVER_SU * sU
-        if self.SLTP_OVER_SU is not None:
-            sf["sLTp"] = self.SLTP_OVER_SU * sU
+        if slt is not None:
+            sf["sLT"] = slt * sU
+        if sltp is not None:
+            sf["sLTp"] = sltp * sU
         return sf
 
     def _sfs(self, W2, Q2, t):
