@@ -203,7 +203,7 @@ def main(ch):
     npred = int(os.environ.get("NPRED", "1500"))
     if npred > 0:
         from exclurad_py.core.rc import rc_factor
-        from validate_channel import parse_card, get_model
+        from validate_channel import parse_card, get_model, card_path
         card = parse_card(ch)
         sf = get_model(card, ch)
         tk = getattr(sf.topology, "t_kind", "photon")

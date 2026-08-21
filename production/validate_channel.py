@@ -42,20 +42,36 @@ DAUGHTERS = {"pi0": (22, 22), "eta": (22, 22), "rho": (211, -211),
 
 
 def card_path(ch):
-    """cards/rad_<ch>.txt, found next to this checkout.
+    """cards/<prefix>_<ch>.txt, found next to this checkout.
 
     The path used to be hard-wired to ~/exclurad_py/cards.  That is true on
     the mac mini and false on the second laptop, where the checkout lives in
     ~/exclurad_run/exclurad_py -- every analysis script died there on a
     missing file.  Look beside the source first, then fall back to the old
     location and to CARDS_DIR.
+
+    The prefix used to be hard-wired to "rad" as well, and THAT was worse
+    than a missing file: on 2026-08-21 the G1 samples -- narrow box, vcut
+    0.20 for every channel -- were compared against a reference built from
+    cards/rad_*.txt, i.e. the wide box with vcut 0 for rho and phi.  The
+    events had an inelasticity cut and the quadrature they were measured
+    against did not.  rho's |t| profile came out at 32.8 sigma and phi's at
+    10.6, both pure artefact; pi0 looked clean only because its two cards
+    happen to share a vcut.  A missing card raises; a wrong card answers.
+
+    Set CARD to a full path, or CARD_PREFIX to swap rad -> g1.
     """
+    explicit = os.environ.get("CARD")
+    if explicit:
+        return os.path.expanduser(explicit)
+    pref = os.environ.get("CARD_PREFIX", "rad")
+    name = f"{pref}_{ch}.txt"
     here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     for root in (os.environ.get("CARDS_DIR"), os.path.join(here, "cards"),
                  os.path.expanduser("~/exclurad_py/cards")):
-        if root and os.path.exists(os.path.join(root, f"rad_{ch}.txt")):
-            return os.path.join(root, f"rad_{ch}.txt")
-    raise FileNotFoundError(f"cards/rad_{ch}.txt not found near {here}")
+        if root and os.path.exists(os.path.join(root, name)):
+            return os.path.join(root, name)
+    raise FileNotFoundError(f"cards/{name} not found near {here}")
 
 
 def parse_card(ch):

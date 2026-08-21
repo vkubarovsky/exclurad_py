@@ -100,7 +100,9 @@ def quad_at_points(ch, card, pts):
     sigma_obs (the first version) let a single outlier dominate a bin: the
     phi profile came out scattering 0.7-1.85 where delta must be nearly flat.
     """
-    jobs = max(1, (os.cpu_count() or 2) - 1)
+    # JOBS lets the reference share a machine that is still generating;
+    # the quadrature is embarrassingly parallel and does not care.
+    jobs = int(os.environ.get("JOBS", 0)) or max(1, (os.cpu_count() or 2) - 1)
     chunks = [pts[i::jobs] for i in range(jobs)]
     with ProcessPoolExecutor(max_workers=jobs) as ex:
         res = list(ex.map(_delta_chunk, [(ch, card, c) for c in chunks]))
@@ -133,7 +135,13 @@ def _delta_chunk(args):
 
 
 def main(ch):
+    from validate_channel import card_path
     card = parse_card(ch)
+    # print the card: the reference box, the vcut and the model all come from
+    # it, and a sample measured against the wrong one fails silently.
+    print(f"[{ch}] карточка {card_path(ch)}", flush=True)
+    print(f"[{ch}] коробка Q2 {card['Q2']}, W2 {card['W2']}, t {card['t']}, "
+          f"vcut {card['vcut']}, модель {card['model']}", flush=True)
     rad = expand_glob(os.environ["RAD_GLOB"])
     nor = expand_glob(os.environ["NORAD_GLOB"])
     if not rad or not nor:
