@@ -67,7 +67,15 @@ def run_parallel(card_path, jobs, date=None, verbose=True):
         d, _, _ = _outdir(cfg, date)
         ch = cfg["model"].split(".")[0]
         kw = dict(t_nucl=cfg["t_nucl"]) if ch in ("pi0", "eta") else {}
+        # The beam energy has to reach the MODEL, not only the generator.
+        # StructureFunctions.Ebeam is a class attribute defaulting to 10.6,
+        # and _epsilon uses it to turn SLT_OVER_SU / SLTP_OVER_SU into
+        # structure functions.  Nothing ever assigned it from the card, so a
+        # 6.6 GeV run would have built sigma_LT from epsilon(10.6): 0.910
+        # against the correct 0.728, a 25% error, silently.  Latent while
+        # every card says 10.6.
         sf = models.get(cfg["model"], **kw)
+        sf.Ebeam = float(cfg["ebeam"])
         mx2 = cfg["vcut"] + sf.mU ** 2 if cfg["vcut"] > 0 else None
         cache = os.path.join(d, "etatable.npz")
         if not os.path.exists(cache):
@@ -88,6 +96,7 @@ def run_parallel(card_path, jobs, date=None, verbose=True):
         ch = cfg["model"].split(".")[0]
         kw = dict(t_nucl=cfg["t_nucl"]) if ch in ("pi0", "eta") else {}
         sf0 = models.get(cfg["model"], **kw)
+        sf0.Ebeam = float(cfg["ebeam"])
         mx20 = cfg["vcut"] + sf0.mU ** 2 if cfg["vcut"] > 0 else None
         g0 = Generator(sf0, Ebeam=cfg["ebeam"],
                        box=Box(Q2=cfg["Q2"], W2=cfg["W2"], t=cfg["t"]),
@@ -140,6 +149,7 @@ def run(card_path, date=None, verbose=True, _part=None):
     if ch in ("pi0", "eta"):
         kw["t_nucl"] = cfg["t_nucl"]
     sf = models.get(cfg["model"], **kw)
+    sf.Ebeam = float(cfg["ebeam"])          # see the note above
 
     mx2 = None
     if cfg["vcut"] > 0:

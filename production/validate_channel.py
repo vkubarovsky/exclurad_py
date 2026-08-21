@@ -91,11 +91,22 @@ def parse_card(ch):
 
 
 def get_model(card, ch, t_nucl=None):
+    """The card's model, with the card's beam energy attached.
+
+    sf.Ebeam is not decoration: _epsilon reads it to turn SLT_OVER_SU and
+    SLTP_OVER_SU into structure functions.  It defaults to 10.6 at class
+    level, so a reference built for another energy would have used the wrong
+    epsilon and the generator it was checking would have used the same wrong
+    one -- agreeing with each other and with nothing else.
+    """
     from exclurad_py import models
     if ch in ("pi0", "eta"):
-        return models.get(card["model"],
-                          t_nucl=card["t_nucl"] if t_nucl is None else t_nucl)
-    return models.get(card["model"])
+        sf = models.get(card["model"],
+                        t_nucl=card["t_nucl"] if t_nucl is None else t_nucl)
+    else:
+        sf = models.get(card["model"])
+    sf.Ebeam = float(card["ebeam"])
+    return sf
 
 
 def expand_glob(spec):
