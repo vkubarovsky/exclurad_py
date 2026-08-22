@@ -29,3 +29,5 @@ jpsi.diffrad_vm                    ! model  <channel>.<vintage>   (--models to l
 0.00001 0.016                      ! xB range          -- match the reference generator's cut
 jpsi                               ! iacc    acceptance preset: none | jpsi  (|p|,theta on e',p',daughters)
 1.0d-4                             ! vmin    soft/hard split (GeV^2); 0 = auto.  exclugen uses 1.0d-4
+1                                  ! itarg   1 = pre-vertex external radiator (target straggling)
+-7.5 -2.5                          ! vertex z range, cm -- the 5 cm LH2 cell
