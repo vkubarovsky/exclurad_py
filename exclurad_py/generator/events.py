@@ -108,7 +108,7 @@ class Generator:
                  seed=1234, majorant_shape=(8, 8, 8, 12),
                  table_shape=(5, 5, 5, 8), tail_shape=(2, 2, 2, 2),
                  safety=1.6, cache=None, born_only=False, cuts=None,
-                 v_min=None, maj_cache=None):
+                 v_min=None, maj_cache=None, itarg=0, vz=(0.0, 0.0)):
         """born_only=True: no radiative corrections at all.
 
         sigma_obs == sigma_Born, eta == 1, no photon is ever emitted, and
@@ -120,6 +120,26 @@ class Generator:
         """
         self.sf = sfmodel
         self.Ebeam = float(Ebeam)
+        # Энергия ТЕКУЩЕГО события.  Равна номинальной всегда, кроме случая
+        # включённого до-вершинного радиатора: там электрон теряет часть
+        # энергии в мишени ДО взаимодействия, и вся кинематика события, его
+        # сечение и его радиационный хвост считаются при пониженной энергии.
+        # Таблица eta при этом остаётся построенной при номинальной -- она
+        # только форма предложения, а вторая ступень пересчитывает точно.
+        self._E = float(Ebeam)
+        # --- до-вершинный внешний радиатор (страгглинг в мишени) ---------
+        # Электрон проходит часть мишени ДО взаимодействия и успевает
+        # излучить.  GEMC этого дать не может: он стартует с вершины, а
+        # энергию пучка задаёт генератор, поэтому входную ногу может
+        # обеспечить только он.  Выходную ногу здесь считать НЕЛЬЗЯ -- её
+        # посчитает Geant4, и получится двойной счёт (exclugen ставит на
+        # этот счёт запретительный комментарий, exclugen.f90:28).
+        self.itarg = int(itarg)
+        self.vzmin, self.vzmax = float(vz[0]), float(vz[1])
+        self.X0_LH2 = 890.4      # радиационная длина жидкого водорода, см
+        self.BRAD = 4.0 / 3.0
+        self._vz = 0.0           # вершина текущего события
+        self.n_targ_retry = 0    # катастрофические потери, перерозыгрыш
         self.box = box
         self.mx2_cut = mx2_cut
         self.helicity = helicity
@@ -232,13 +252,13 @@ class Generator:
         return getattr(self.sf.topology, "t_kind", "photon")
 
     def _kin(self, Q2, W2, t, phi):
-        return EventKin(self.Ebeam, Q2, W2, t, phi, self.sf.mV,
+        return EventKin(self._E, Q2, W2, t, phi, self.sf.mV,
                         phi_offset=float(getattr(getattr(self.sf, 'topology', None),
                                                  'phi_offset', 0.0)),
                         v=0.0, mU=self.sf.mU, t_kind=self._t_kind)
 
     def _vmax(self, Q2, W2, t):
-        vk = EventKin.vmax_kin(self.Ebeam, Q2, W2, t, self.sf.mV,
+        vk = EventKin.vmax_kin(self._E, Q2, W2, t, self.sf.mV,
                                mU=self.sf.mU, t_kind=self._t_kind)
         if self.mx2_cut is None:
             return vk
@@ -440,10 +460,10 @@ class Generator:
         if acc is None:
             return True
         nu = (W2 + Q2 - self.sf.mV * 0.0 - M_P_SQ) / (2.0 * M_P_)
-        Ep = self.Ebeam - nu
+        Ep = self._E - nu
         if Ep <= 0.0:
             return False
-        c = 1.0 - Q2 / (2.0 * self.Ebeam * Ep)
+        c = 1.0 - Q2 / (2.0 * self._E * Ep)
         if abs(c) > 1.0:
             return False
         th = np.degrees(np.arccos(c))
@@ -458,11 +478,41 @@ class Generator:
         nu = (W2 + Q2 - M * M) / (2.0 * M)
         if nu <= 0:
             return False
-        y = nu / self.Ebeam
+        y = nu / self._E
         xB = Q2 / (W2 + Q2 - M * M)
         return (ylo <= y <= yhi) and (xlo <= xB <= xhi)
 
     # ------------------------------------------------------------------ #
+    def _draw_vertex(self):
+        """Вершина по длине мишени и потеря энергии до неё.
+
+        Разыгрывается на КАЖДОЙ пробе, а не на принятом событии: энергия
+        входит в сечение, поэтому она должна быть известна до того, как
+        событие взвешивается.
+
+        Закон страгглинга: доля уцелевшей энергии распределена как
+        P(loss < y) = y^(bt), откуда loss = u^(1/bt) при равномерном u.
+        Тот же вид, что в exclugen (exclugen.f90:247) и в aao_rad
+        (aao_rad.F:675).  Потеря больше 0.9 -- перерозыгрыш: там страгглинг
+        уже не описывает процесс, а событие всё равно не выживет.
+        """
+        if not self.itarg or self.vzmax <= self.vzmin:
+            self._vz = 0.0
+            self._E = self.Ebeam
+            return True
+        self._vz = self.vzmin + (self.vzmax - self.vzmin) * self.rng.random()
+        bt = self.BRAD * (self._vz - self.vzmin) / self.X0_LH2
+        if bt <= 1e-12:
+            self._E = self.Ebeam
+            return True
+        u = max(self.rng.random(), 1e-30)
+        vloss = np.exp(np.log(u) / bt)
+        if vloss > 0.9:
+            self.n_targ_retry += 1
+            return False
+        self._E = self.Ebeam * (1.0 - vloss)
+        return True
+
     def _propose(self):
         s = self.maj
         flat = int(np.searchsorted(s["cdf"], self.rng.random()))
@@ -522,7 +572,7 @@ class Generator:
             # prod(tail_shape) of them) puts numerator and denominator back at
             # the same kinematics and takes the eta table out of the split.
             self._set_event_t(ct)
-            rc_c = rc_factor(Ebeam=self.Ebeam, Q2=cQ2, W2=cW2, t=ct, phi=cph,
+            rc_c = rc_factor(Ebeam=self._E, Q2=cQ2, W2=cW2, t=ct, phi=cph,
                              sfmodel=self.sf, h=h, mx2_cut=self.mx2_cut,
                              t_kind=self._t_kind)
             sigma_obs_c = float(rc_c["sigma_obs"])
@@ -594,6 +644,8 @@ class Generator:
         worst = np.ones(shape)
         h0 = self.helicity if self.helicity != 0 else +1
         for _ in range(n_probe):
+            if not self._draw_vertex():
+                continue
             Q2, W2, t, phi, M, cell = self._propose()
             if M <= 0 or not self._pass_yxb(Q2, W2):
                 continue
@@ -623,6 +675,8 @@ class Generator:
             for _ in range(n_probe):
                 if n_b >= 300:
                     break
+                if not self._draw_vertex():
+                    continue
                 Q2, W2, t, phi, Mv, cell = self._propose()
                 if Mv <= 0 or not self._pass_yxb(Q2, W2):
                     continue
@@ -648,7 +702,7 @@ class Generator:
                 try:
                     self._set_event_t(t)
                     so = float(rc_factor(
-                        Ebeam=self.Ebeam, Q2=Q2, W2=W2, t=t, phi=phi,
+                        Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
                         sfmodel=self.sf, h=h_p, mx2_cut=self.mx2_cut,
                         t_kind=self._t_kind)["sigma_obs"])
                 except (ValueError, ZeroDivisionError, FloatingPointError):
@@ -684,6 +738,10 @@ class Generator:
             self.setup()
         out = []
         while len(out) < n_events:
+            # энергия события -- до всего остального: от неё зависят и каты,
+            # и сечение, и хвост
+            if not self._draw_vertex():
+                continue
             Q2, W2, t, phi, M, cell = self._propose()
             h = self.helicity if self.helicity != 0 else \
                 (+1 if self.rng.random() < 0.5 else -1)
@@ -731,7 +789,7 @@ class Generator:
                 # and one TailSampler (~0.4 s) per ACCEPTED event -- affordable
                 # because accepted events are ~1e4, not the 1e7 trials.
                 try:
-                    rc_e = rc_factor(Ebeam=self.Ebeam, Q2=Q2, W2=W2, t=t,
+                    rc_e = rc_factor(Ebeam=self._E, Q2=Q2, W2=W2, t=t,
                                      phi=phi, sfmodel=self.sf, h=h,
                                      mx2_cut=self.mx2_cut,
                                      t_kind=self._t_kind)
@@ -772,7 +830,7 @@ class Generator:
 
                         def sobs(x):
                             return float(rc_factor(
-                                Ebeam=self.Ebeam, Q2=Q2, W2=W2, t=t, phi=phi,
+                                Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
                                 sfmodel=self.sf, h=h, mx2_cut=x + mU2,
                                 t_kind=self._t_kind)["sigma_obs"])
 
@@ -874,7 +932,11 @@ class Generator:
                 self.n_closure_fail += 1
                 continue
             ev.update(weight=1.0, Q2=Q2, W2=W2, t=t, phi=phi, helicity=h,
-                      eta=eta, radiative=photon4 is not None)
+                      eta=eta, radiative=photon4 is not None,
+                      # вершина события: при выключенном радиаторе ноль, как
+                      # и было; при включённом -- точка внутри мишени, где
+                      # электрон провзаимодействовал.  GEMC ждёт её здесь.
+                      vz=self._vz, Ebeam_eff=self._E)
 
             acc = self.cuts.get("iacc", "none")
             if acc != "none":

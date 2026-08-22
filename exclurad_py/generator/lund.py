@@ -147,8 +147,14 @@ def write_lund(path, events, channel, topology=None, stamp=None,
                     "unweighted, or pass allow_weighted=True knowingly.")
             if not ev.get("ok", True):
                 continue
+            # Вершина -- СВОЯ у каждого события.  До появления
+            # до-вершинного радиатора здесь стоял общий (0,0,0) на весь
+            # файл: мишень в выводе не была представлена никак.
+            kw_ev = dict(kw)
+            if "vz" in ev and "vertex" not in kw_ev:
+                kw_ev["vertex"] = (0.0, 0.0, float(ev["vz"]))
             for line in event_lines(ev, channel, topology=topology,
-                                    weight=w, **kw):
+                                    weight=w, **kw_ev):
                 fh.write(line + "\n")
             n_written += 1
     return n_written

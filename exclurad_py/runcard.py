@@ -18,6 +18,12 @@ value line is ignored.  Fortran-style exponents (1.0d-4) are accepted.
     20260813           ! seed
     1                  ! idecay  1 = decay vector meson h+h-, 0 = leave it
     /Volumes/wd_14tb/mc/exclurad_py   ! output root
+    0.0 1.0            ! y range      (optional)
+    0.0 1.0            ! xB range     (optional)
+    none               ! iacc         (optional)
+    1.0d-4             ! vmin         (optional)
+    1                  ! itarg   1 = pre-vertex external radiator (optional)
+    -7.5 -2.5          ! vertex z range, cm -- the 5 cm LH2 cell (optional)
 
 The one departure from exclugen: line 1 is a MODEL NAME, not an `ivec`
 integer.  pi0 and eta each have several vintages that give visibly
@@ -49,9 +55,14 @@ FIELDS = [
     ("xB", "pair", "xB range"),
     ("iacc", str, "acceptance preset: none | jpsi"),
     ("vmin", float, "soft/hard split (GeV^2); 0 = choose automatically"),
+    ("itarg", int, "1 = pre-vertex external radiator (target straggling)"),
+    ("vz", "pair", "vertex z range (cm) -- the target cell"),
 ]
 N_REQUIRED = 13          # fields up to and including outroot
-DEFAULT_OPT = dict(y=(0.0, 1.0), xB=(0.0, 1.0), iacc="none", vmin=0.0)
+# itarg defaults OFF and vz to a point target: a card written before the
+# radiator existed keeps producing exactly what it produced before.
+DEFAULT_OPT = dict(y=(0.0, 1.0), xB=(0.0, 1.0), iacc="none", vmin=0.0,
+                   itarg=0, vz=(0.0, 0.0))
 
 
 def _num(tok):

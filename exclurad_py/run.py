@@ -103,6 +103,7 @@ def run_parallel(card_path, jobs, date=None, verbose=True):
                        mx2_cut=mx20, helicity=cfg["ihel"], seed=cfg["seed"],
                        born_only=bool(cfg["iborn"]),
                        cuts=dict(y=cfg["y"], xB=cfg["xB"], iacc=cfg["iacc"]),
+                       itarg=cfg["itarg"], vz=cfg["vz"],
                        v_min=cfg["vmin"] or None,
                        cache=None if cfg["iborn"] else os.path.join(d, "etatable.npz"))
         t0 = time.time()
@@ -162,6 +163,7 @@ def run(card_path, date=None, verbose=True, _part=None):
                   helicity=cfg["ihel"], seed=cfg["seed"],
                   born_only=bool(cfg["iborn"]),
                   cuts=dict(y=cfg["y"], xB=cfg["xB"], iacc=cfg["iacc"]),
+                  itarg=cfg["itarg"], vz=cfg["vz"],
                   v_min=cfg["vmin"] or None,
                   maj_cache=os.path.join(d, "majorant.npz"),
                   cache=None if cfg["iborn"] else os.path.join(d, "etatable.npz"))
