@@ -19,8 +19,9 @@ git -C "$SRC" diff --quiet || COMMIT="$COMMIT-dirty"
 BRANCH=$(git -C "$SRC" rev-parse --abbrev-ref HEAD)
 
 TMP=$(mktemp -d)
-printf 'commit=%s\nbranch=%s\ndeployed=%s\nfrom=%s\n' \
-    "$COMMIT" "$BRANCH" "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$(hostname)" \
+TAG=$(git -C "$SRC" describe --tags --always --dirty 2>/dev/null || echo unknown)
+printf 'commit=%s\nbranch=%s\ntag=%s\ndeployed=%s\nfrom=%s\n' \
+    "$COMMIT" "$BRANCH" "$TAG" "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$(hostname)" \
     > "$TMP/DEPLOYED_VERSION"
 
 rsync -a --delete --exclude '.git' --exclude '__pycache__' \
@@ -30,7 +31,7 @@ rsync -a "$TMP/DEPLOYED_VERSION" "$H:$DIR/exclurad_py/"
 rm -rf "$TMP"
 
 echo "развёрнуто на $H:$DIR"
-echo "  версия: $COMMIT ($BRANCH)"
+echo "  версия: $COMMIT ($BRANCH), тег $TAG"
 ssh "$H" "cd $DIR && PYTHONPATH=\$PWD python3 -c \"
-from exclurad_py.provenance import git_hash, git_branch
-print('  провенанс на месте:', git_hash(), git_branch())\""
+from exclurad_py.provenance import git_hash, git_branch, git_tag
+print('  провенанс на месте:', git_hash(), git_branch(), git_tag())\""

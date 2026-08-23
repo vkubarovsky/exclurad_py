@@ -67,6 +67,23 @@ def git_hash(short=True):
         return _deployed_version("commit")
 
 
+def git_tag():
+    """Human-readable version: the nearest tag, e.g. prod-pi0-v1.
+
+    A commit hash identifies the code but says nothing about intent.  A run
+    that will be handed to an analysis needs a name a person can quote in a
+    talk, and it has to travel in the file itself.
+    """
+    try:
+        out = subprocess.run(["git", "-C", _HERE, "describe", "--tags",
+                              "--always", "--dirty"],
+                             capture_output=True, text=True, timeout=5)
+        return (out.stdout.strip() if out.returncode == 0
+                else _deployed_version("tag")) or _deployed_version("tag")
+    except Exception:
+        return _deployed_version("tag")
+
+
 def git_branch():
     try:
         out = subprocess.run(["git", "-C", _HERE, "rev-parse",
@@ -97,6 +114,7 @@ def stamp(sfmodel=None, extra=None, timestamp=None):
         "core_version": CORE_VERSION,
         "git_commit": git_hash(),
         "git_branch": git_branch(),
+        "version_tag": git_tag(),
         "python": sys.version.split()[0],
     }
     if timestamp is not None:
