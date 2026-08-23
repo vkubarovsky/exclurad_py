@@ -24,6 +24,29 @@ VERSION = "0.1.0"
 _HERE = os.path.dirname(os.path.abspath(__file__))
 
 
+def _deployed_version(key):
+    """Version written at deploy time, for trees shipped without .git.
+
+    A working copy sent to a remote machine by rsync --exclude .git has no
+    repository, so git_hash() returns "unknown" and the output cannot be
+    traced to the code that made it.  Both 100k production samples of
+    2026-08-22 are stamped that way -- the provenance header exists exactly
+    to prevent that, and it failed silently.
+
+    production/deploy.sh writes exclurad_py/DEPLOYED_VERSION next to the
+    package; this reads it as the fallback.
+    """
+    f = os.path.join(_HERE, "DEPLOYED_VERSION")
+    try:
+        for line in open(f):
+            k, _, v = line.partition("=")
+            if k.strip() == key:
+                return v.strip() or "unknown"
+    except Exception:
+        pass
+    return "unknown"
+
+
 def git_hash(short=True):
     """Current commit of the exclurad_py working tree, or 'unknown'."""
     try:
@@ -33,7 +56,7 @@ def git_hash(short=True):
         args.append("HEAD")
         out = subprocess.run(args, capture_output=True, text=True, timeout=5)
         if out.returncode != 0:
-            return "unknown"
+            return _deployed_version("commit")
         h = out.stdout.strip()
         dirty = subprocess.run(["git", "-C", _HERE, "status", "--porcelain"],
                                capture_output=True, text=True, timeout=5)
@@ -41,7 +64,7 @@ def git_hash(short=True):
             h += "-dirty"
         return h or "unknown"
     except Exception:
-        return "unknown"
+        return _deployed_version("commit")
 
 
 def git_branch():
@@ -49,9 +72,10 @@ def git_branch():
         out = subprocess.run(["git", "-C", _HERE, "rev-parse",
                               "--abbrev-ref", "HEAD"],
                              capture_output=True, text=True, timeout=5)
-        return out.stdout.strip() if out.returncode == 0 else "unknown"
+        return (out.stdout.strip() if out.returncode == 0
+                else _deployed_version("branch"))
     except Exception:
-        return "unknown"
+        return _deployed_version("branch")
 
 
 def stamp(sfmodel=None, extra=None, timestamp=None):
