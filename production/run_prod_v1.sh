@@ -1,16 +1,22 @@
 #!/bin/bash
 # Боевой прогон prod-pi0-v1: пи-ноль с до-вершинным внешним излучением.
 #
-#   run_prod_v1.sh <репозиторий> <корень> <база зерна> <ядер> <рубеж-epoch> <метка>
+#   run_prod_v1.sh <код> <каталог вывода> <база зерна> <ядер> <рубеж-epoch> <метка>
+#
+# Каталог вывода задаётся ПРЯМО и целиком: что написали, там и будет.  В
+# первой редакции скрипт приписывал к нему своё имя, и на ферме вышло
+# exclurad_py_work/prod_pi0_v1 внутри exclurad_py рядом с exclurad_py --
+# разобраться было нельзя.
 #
 # Один скрипт на три машины.  Каждый круг -- своё зерно и свой каталог,
 # поэтому образцы разных машин и разных кругов СКЛАДЫВАЮТСЯ.
 #
 # Устройство каталога (единое везде):
-#   <корень>/prod_pi0_v1/
+#   <каталог вывода>/
 #       README.md          что это, каким кодом, какой коробкой
 #       card_rad.txt       карточки, по одной на режим
 #       card_born.txt
+#       part_runner.py     пишется скриптом, снаружи ничего не нужно
 #       cyc01/ cyc02/ ...  круги: lund/ и logs/ внутри
 #       STOP               создать -- петля закончит круг и выйдет
 #
@@ -19,17 +25,25 @@
 # воркерами.  Так за неделю трижды пропал идущий счёт.  `touch STOP` --
 # петля доработает круг и выйдет сама.
 set -u
-REPO=$1; OUT_ROOT=$2; BASE=$3; J=$4; DEADLINE=$5; TAG=$6
+REPO=$1; OUT=$2; BASE=$3; J=$4; DEADLINE=$5; TAG=$6
 NEV_RAD=100000
 NEV_BORN=500000
 
-OUT=$OUT_ROOT/prod_pi0_v1
 STOP=$OUT/STOP
 mkdir -p "$OUT"
 rm -f "$STOP"
 
 cd "$REPO"; export PYTHONPATH=$REPO
 export TABLE_SERIAL=1 ETA_PROPOSAL_CAP=5 EXACT_ACCEPT=1 EXPO_TAIL=1 MAJ_SAFETY=4.0
+
+# Запускалка одной части -- пишем её сами.  Раньше она лежала снаружи, и
+# перенос каталога ломал прогон.
+cat > "$OUT/part_runner.py" <<'PYRUN'
+import sys
+from exclurad_py.run import run
+card, ipart, npart, seed = sys.argv[1], int(sys.argv[2]), int(sys.argv[3]), int(sys.argv[4])
+run(card, verbose=(ipart == 1), _part=(ipart, npart, seed))
+PYRUN
 
 VER=$(python3 -c "from exclurad_py.provenance import git_hash, git_tag; print(git_hash(), git_tag())" 2>/dev/null || echo "unknown unknown")
 
@@ -124,7 +138,7 @@ while [ "$(date +%s)" -lt "$DEADLINE" ]; do
     sed "s|PLACEHOLDER|$W|" "$OUT/card_$mode.txt" > "$W/card_$mode.txt"
     echo "@@@ $TAG круг $n $mode начато $(date '+%d.%m %H:%M')"
     for i in $(seq 1 $J); do
-      python3 -u "$OUT_ROOT/part_runner.py" "$W/card_$mode.txt" $i $J \
+      python3 -u "$OUT/part_runner.py" "$W/card_$mode.txt" $i $J \
               $((BASE + n*310000 + off*i)) > "$W/logs/${mode}_$i.log" 2>&1 &
       # Первая часть строит и кэширует таблицу eta; ждём ИМЕННО её файл.
       # majorant.npz не появится никогда -- его пишет run_parallel, а части
