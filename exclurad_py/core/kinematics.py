@@ -39,6 +39,40 @@ class EventKin:
     T_TARGET = "target"     # t = (p - p_detected)^2   <-- CLAS pi0/eta binning
     T_CMANGLE = "cm_angle"  # cos(theta_CM) frozen at its Born value <-- EXCLURAD
 
+    @staticmethod
+    def t_limits(Q2, W2, mV, mU, M=M_P, t_kind="photon"):
+        """Кинематические границы по t при v = 0: (t_min, t_max).
+
+        Это ровно условие |cos theta_V| <= 1 из конструктора, решённое
+        относительно t, и стоит функция здесь, а не у вызывающего, чтобы
+        формулы не разъехались с теми, по которым строится событие.
+        Соответствие проверяется тестом.
+
+        Нужны они там, где масса мезона разыгрывается по Брейту-Вигнеру:
+        границы зависят от массы, поэтому у широкого rho они гуляют от
+        события к событию, и пробу надо отбросить явно и сосчитать
+        (в diffrad_vm.f90 это tdmink/tdmaxk и счётчик nf_tkin).
+        Возвращает None, если состояние вообще недостижимо.
+        """
+        mU = M if mU is None else mU
+        if W2 <= (mV + mU) ** 2:
+            return None
+        W = np.sqrt(W2)
+        Sx = W2 + Q2 - M * M
+        qv = np.sqrt(Sx * Sx + 4.0 * M * M * Q2) / (2.0 * W)
+        Ev = (W2 + mV * mV - mU * mU) / (2.0 * W)
+        pv2 = Ev * Ev - mV * mV
+        if pv2 <= 0.0:
+            return None
+        pv = np.sqrt(pv2)
+        if t_kind == EventKin.T_PHOTON:
+            q0 = (W2 - Q2 - M * M) / (2.0 * W)
+            base = -Q2 + mV * mV - 2.0 * q0 * Ev
+        else:                                   # target / cm_angle при v = 0
+            Ep = (W2 + Q2 + M * M) / (2.0 * W)
+            base = M * M + mV * mV - 2.0 * Ep * Ev
+        return base - 2.0 * qv * pv, base + 2.0 * qv * pv
+
     def __init__(self, Ebeam, Q2, W2, t, phi, mV, v=0.0, M=M_P, m=M_E, mU=None,
                  t_kind="photon", phi_offset=0.0):
         # phi is ALWAYS the Trento azimuth of the PRODUCED MESON (Bacchetta et

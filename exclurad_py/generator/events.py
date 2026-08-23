@@ -59,6 +59,7 @@ import numpy as np
 from ..core.born import born_xsec
 from ..core.kinematics import EventKin
 from ..core.rc import rc_factor
+from .breit_wigner import DELTA_WIDTH as BW_DELTA, sample_mass, width as bw_width
 from .tail import TailSampler, choose_vmin, photon_at
 from .frames import assemble_event
 from .tables import RCTable
@@ -140,6 +141,30 @@ class Generator:
         self.BRAD = 4.0 / 3.0
         self._vz = 0.0           # вершина текущего события
         self.n_targ_retry = 0    # катастрофические потери, перерозыгрыш
+
+        # --- масса мезона как свойство события (Брейт-Вигнер) ------------
+        # У rho ширина 150 МэВ на массе 775: фиксированная масса кладёт все
+        # пи+пи- пары в одну точку там, где в эксперименте широкий резонанс.
+        # Масса входит не только в форму пика -- через неё идут порог по W,
+        # границы по t и все четыре-векторы, поэтому она разыгрывается ДО
+        # взвешивания события, как и энергия пучка.
+        #
+        # Только для топологии meson_detected: у pi0/eta регистрируется
+        # протон (mV = масса протона), а сам мезон узок.
+        # BW=0 выключает розыгрыш: тогда ни одного обращения к генератору
+        # случайных чисел не происходит и выборка побайтово совпадает с той,
+        # что давал код до Брейта-Вигнера.  Это и есть проверка, что правка
+        # ничего не сдвинула помимо самой массы.
+        self._mV = float(self.sf.mV)
+        self.bw_channel = None
+        if os.environ.get("BW", "1") != "0" and \
+                getattr(getattr(self.sf, "topology", None), "name", "") == \
+                "meson_detected":
+            ch = str(getattr(self.sf, "channel", "") or "")
+            if bw_width(ch) >= BW_DELTA:
+                self.bw_channel = ch
+        self.n_bw_thresh = 0     # sqrt(W2) < m_recoil + m: порог не пройден
+        self.n_bw_tkin = 0       # (t, m) вне кинематических границ
         self.box = box
         self.mx2_cut = mx2_cut
         self.helicity = helicity
@@ -252,13 +277,13 @@ class Generator:
         return getattr(self.sf.topology, "t_kind", "photon")
 
     def _kin(self, Q2, W2, t, phi):
-        return EventKin(self._E, Q2, W2, t, phi, self.sf.mV,
+        return EventKin(self._E, Q2, W2, t, phi, self._mV,
                         phi_offset=float(getattr(getattr(self.sf, 'topology', None),
                                                  'phi_offset', 0.0)),
                         v=0.0, mU=self.sf.mU, t_kind=self._t_kind)
 
     def _vmax(self, Q2, W2, t):
-        vk = EventKin.vmax_kin(self._E, Q2, W2, t, self.sf.mV,
+        vk = EventKin.vmax_kin(self._E, Q2, W2, t, self._mV,
                                mU=self.sf.mU, t_kind=self._t_kind)
         if self.mx2_cut is None:
             return vk
@@ -513,6 +538,43 @@ class Generator:
         self._E = self.Ebeam * (1.0 - vloss)
         return True
 
+    def _draw_mass(self, Q2, W2, t):
+        """Масса мезона для этой пробы, порог по W и границы по t.
+
+        Порядок как в diffrad_vm.f90:1447: сначала масса, потом проверка
+        sqrt(W2) >= m_recoil + m.  Потолок розыгрыша -- тот же
+        sqrt(W2) - m_recoil, поэтому порог срабатывает редко и только когда
+        места нет вовсе.
+
+        Возвращает False -- проба отбрасывается целиком, ровно как goto 100
+        в фортране.  Отбрасывание СОБЫТИЯ, а не перерозыгрыш одной массы:
+        иначе у порога вес события молча перестал бы соответствовать
+        разыгранной плотности.
+        """
+        if self.bw_channel is None:
+            return True
+        W = np.sqrt(max(W2, 0.0))
+        m_max = W - self.sf.mU
+        if m_max <= 0.0:
+            self.n_bw_thresh += 1
+            return False
+        self._mV = sample_mass(self.bw_channel, float(self.sf.mV), m_max,
+                               self.rng)
+        if W < self.sf.mU + self._mV:
+            self.n_bw_thresh += 1
+            return False
+        # Границы по t зависят от массы: у широкого rho они гуляют от
+        # события к событию, и уже разыгранное t может из них выпасть.
+        # Без явной проверки проба всё равно умерла бы -- born вернул бы
+        # None на |cos theta_V| > 1 -- но молча, вперемешку с настоящими
+        # аномалиями.  Здесь у неё своя причина и свой счётчик.
+        lim = EventKin.t_limits(Q2, W2, self._mV, self.sf.mU,
+                                t_kind=self._t_kind)
+        if lim is None or not (lim[0] <= t <= lim[1]):
+            self.n_bw_tkin += 1
+            return False
+        return True
+
     def _propose(self):
         s = self.maj
         flat = int(np.searchsorted(s["cdf"], self.rng.random()))
@@ -574,7 +636,7 @@ class Generator:
             self._set_event_t(ct)
             rc_c = rc_factor(Ebeam=self._E, Q2=cQ2, W2=cW2, t=ct, phi=cph,
                              sfmodel=self.sf, h=h, mx2_cut=self.mx2_cut,
-                             t_kind=self._t_kind)
+                             t_kind=self._t_kind, mV=self._mV)
             sigma_obs_c = float(rc_c["sigma_obs"])
             if not np.isfinite(sigma_obs_c) or sigma_obs_c <= 0:
                 self._tail_cache[key] = None
@@ -649,6 +711,8 @@ class Generator:
             Q2, W2, t, phi, M, cell = self._propose()
             if M <= 0 or not self._pass_yxb(Q2, W2):
                 continue
+            if not self._draw_mass(Q2, W2, t):
+                continue
             h = h0 if self.helicity != 0 else (+1 if self.rng.random() < 0.5 else -1)
             b = self._born(Q2, W2, t, phi, h)
             if b is None or not np.isfinite(b) or b <= 0:
@@ -680,6 +744,8 @@ class Generator:
                 Q2, W2, t, phi, Mv, cell = self._propose()
                 if Mv <= 0 or not self._pass_yxb(Q2, W2):
                     continue
+                if not self._draw_mass(Q2, W2, t):
+                    continue
                 # Draw the helicity the way generate() does, not h0.  The
                 # bound this loop calibrates is r = sigma_obs(h) / (born(h) *
                 # eta_table), and eta_table is built at h0, so r = eta(h) /
@@ -704,7 +770,7 @@ class Generator:
                     so = float(rc_factor(
                         Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
                         sfmodel=self.sf, h=h_p, mx2_cut=self.mx2_cut,
-                        t_kind=self._t_kind)["sigma_obs"])
+                        t_kind=self._t_kind, mV=self._mV)["sigma_obs"])
                 except (ValueError, ZeroDivisionError, FloatingPointError):
                     continue
                 if not np.isfinite(so) or so <= 0:
@@ -756,6 +822,15 @@ class Generator:
                 self.n_cut_eacc += 1
                 continue
 
+            # Масса -- ПОСЛЕ n_trials, вместе с катами, а не до счётчика.
+            # sigma_total считается как (accept/trials) * интеграл мажоранты,
+            # поэтому проба, у которой предложение из мажоранты уже взято, а
+            # масса выпала из границ по t, обязана войти в знаменатель с
+            # нулевым весом.  У rho такие пробы -- 37%, и не считай их,
+            # сечение выросло бы в полтора раза на пустом месте.
+            if not self._draw_mass(Q2, W2, t):
+                continue
+
             b = self._born(Q2, W2, t, phi, h)
             if b is None or not np.isfinite(b) or b <= 0:
                 continue
@@ -792,7 +867,7 @@ class Generator:
                     rc_e = rc_factor(Ebeam=self._E, Q2=Q2, W2=W2, t=t,
                                      phi=phi, sfmodel=self.sf, h=h,
                                      mx2_cut=self.mx2_cut,
-                                     t_kind=self._t_kind)
+                                     t_kind=self._t_kind, mV=self._mV)
                     so_e = float(rc_e["sigma_obs"])
 
                     # STAGE 2 (optional, EXACT_ACCEPT=1): re-accept on
@@ -832,7 +907,7 @@ class Generator:
                             return float(rc_factor(
                                 Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
                                 sfmodel=self.sf, h=h, mx2_cut=x + mU2,
-                                t_kind=self._t_kind)["sigma_obs"])
+                                t_kind=self._t_kind, mV=self._mV)["sigma_obs"])
 
                         N0 = max(so_e - sobs(vmn), 0.0)
                         if self.rng.random() < N0 / so_e:
@@ -997,7 +1072,9 @@ class Generator:
                     drop_no_tail=self.n_drop_no_tail,
                     drop_v_ge_vmax=self.n_drop_v_ge_vmax,
                     drop_photon_at=self.n_drop_photon_at,
-                    drop_except=self.n_drop_except)
+                    drop_except=self.n_drop_except,
+                    bw_channel=self.bw_channel,
+                    bw_thresh=self.n_bw_thresh, bw_tkin=self.n_bw_tkin)
 
     def health(self):
         r = self.report()

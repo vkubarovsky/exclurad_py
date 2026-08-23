@@ -17,7 +17,7 @@ from .radiative import sigma_F
 def rc_factor(Ebeam, Q2, W2, t, phi, sfmodel, h=+1,
               mx2_cut=None, M=M_P, m=M_E,
               n_v=30, n_core=16, n_tail=24, n_phi=16,
-              exponentiate=True, t_kind=None):
+              exponentiate=True, t_kind=None, mV=None):
     """Radiative correction at fixed observed (Q2, W2, t, phi), beam helicity h.
 
     mx2_cut : missing-mass-squared cut MX^2 < mx2_cut  (GeV^2), where the
@@ -35,11 +35,15 @@ def rc_factor(Ebeam, Q2, W2, t, phi, sfmodel, h=+1,
         t_kind = getattr(topo, 't_kind', 'photon') if topo else 'photon'
     _topo = getattr(sfmodel, "topology", None)
     _off = float(getattr(_topo, "phi_offset", 0.0))
-    kin = EventKin(Ebeam, Q2, W2, t, phi, sfmodel.mV, v=0.0, M=M, m=m, mU=mU,
+    # mV -- масса ЭТОГО события, если она разыграна по Брейту-Вигнеру.
+    # По умолчанию номинальная, как было: у pi0/eta и J/psi ширина
+    # ничтожна, и там ничего не меняется.
+    mV = sfmodel.mV if mV is None else float(mV)
+    kin = EventKin(Ebeam, Q2, W2, t, phi, mV, v=0.0, M=M, m=m, mU=mU,
                    phi_offset=_off,
                    t_kind=t_kind)
 
-    v_kin = EventKin.vmax_kin(Ebeam, Q2, W2, t, sfmodel.mV, M=M, m=m, mU=mU,
+    v_kin = EventKin.vmax_kin(Ebeam, Q2, W2, t, mV, M=M, m=m, mU=mU,
                               t_kind=t_kind)
     v_m = v_kin
     if mx2_cut is not None:

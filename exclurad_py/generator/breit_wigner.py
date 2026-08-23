@@ -40,6 +40,11 @@ DELTA_WIDTH = 1.0e-3
 RUNNING_WIDTH = ("rho", "omega")   # p-волна: Gamma ~ (p/p0)^3
 
 
+def width(channel):
+    """Полная ширина канала; 0 для неизвестного -- значит дельта-функция."""
+    return WIDTH.get(channel, 0.0)
+
+
 def _running_width(m, m0, gam0, p0, m_dau):
     p = np.sqrt(max(0.0, 0.25 * m * m - m_dau * m_dau))
     if p0 <= 0.0:
