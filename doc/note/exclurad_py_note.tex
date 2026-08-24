@@ -436,9 +436,25 @@ events pooled from two machines contain exactly $100$k distinct events.
 Conservation laws are checked per event rather than inferred from the shape of
 a distribution: the header's particle count, four-momentum against beam plus
 target over the status-1 particles, mass shells, the written mass against PDG,
-decay closure, charge, and the beam-polarisation column. All five channels
-pass; four-momentum closes to $1.25\times10^{-8}$~GeV and the decay to
-$10^{-10}$, both far inside the $10^{-6}$ tolerance.
+decay closure, charge, and the beam-polarisation column.
+
+Four-momentum needs care once the target radiator is on, and the earlier
+version of this paragraph got it wrong. The event is built at the event's own
+\emph{reduced} beam energy and the pre-vertex photon is never written --- it
+is absorbed into that reduction --- so summing the status-1 particles against
+the \emph{nominal} beam leaves a residual equal to the loss. Tested that way,
+every production sample failed: $5.7\,\%$ of $\pi^0$ events, worst residual
+$8.9$~GeV. The number quoted here before, $1.25\times10^{-8}$~GeV, came from a
+run with the radiator off and did not describe the delivered samples.
+
+The check now asks the sharper question, and the samples pass it. Where a
+residual exists it must be a lightlike vector \emph{along the beam} with
+\emph{positive} energy --- what a pre-vertex photon can be and nothing else
+can. Measured over $600$k production events: $|p_x|,|p_y|\le9\times10^{-11}$,
+$|E-p_z|\le8\times10^{-8}$, not one negative energy. A lost particle, a sign
+error or an unclosed decay would leave a residual that is not collinear, not
+lightlike, or negative. Elsewhere four-momentum closes to $10^{-6}$ and the
+decay to $10^{-10}$.
 
 \section{What is not established}
 

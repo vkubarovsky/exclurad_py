@@ -24,7 +24,10 @@ Per event, against the format in generator/lund.py:
 
 Tolerances are set by the file itself, not by taste: momenta are written as
 %18.10e, so a component near 10 GeV round-trips to about 1e-9.  Summing five
-of them gives a few times that, and ATOL = 1e-6 GeV sits three decades above
+of them gives a few times that, and ATOL = 1e-6
+# Насколько остаток может отклоняться от «светоподобный, вдоль пучка».
+# Печать в LUND идёт с шестью знаками, отсюда и порядок.
+PREVERTEX_TOL = 1e-5 GeV sits three decades above
 the noise and far below anything physical.
 """
 import glob
@@ -35,6 +38,9 @@ import numpy as np
 
 M_P = 0.93827208816
 ATOL = 1e-6
+# Насколько остаток может отклоняться от «светоподобный, вдоль пучка».
+# Печать в LUND идёт с шестью знаками, отсюда и порядок.
+PREVERTEX_TOL = 1e-5
 
 PDG_MASS = {11: 0.51099895e-3, -11: 0.51099895e-3, 22: 0.0,
             111: 0.1349768, 221: 0.547862, 113: 0.77526, 333: 1.019461,
@@ -55,8 +61,10 @@ def check_file(path, ch, nmax=0):
     mpid = CHANNEL_PID[ch]
     bad = dict(events=0, count=0, momentum=0, shell=0, pdg_mass=0,
                decay=0, charge=0, photon=0, polarisation=0, malformed=0)
-    worst = dict(momentum=0.0, shell=0.0, decay=0.0)
+    worst = dict(momentum=0.0, shell=0.0, decay=0.0, prevertex=0.0)
     n_rad_photon = 0
+    n_prevertex = 0          # событий с до-вершинной потерей
+    max_prevertex = 0.0      # самая большая потеря, ГэВ
     with open(path) as fh:
         while True:
             line = fh.readline()
@@ -145,11 +153,38 @@ def check_file(path, ch, nmax=0):
             if saw_photon:
                 n_rad_photon += 1
 
+            # Четырёхимпульс.  С включённым до-вершинным радиатором (itarg=1)
+            # событие построено при ПОНИЖЕННОЙ энергии пучка, а сам излучённый
+            # фотон в файл не пишется -- он поглощён в эту пониженную энергию.
+            # Сравнение с номинальным пучком тогда даёт невязку, равную потере,
+            # и до 24.08 эта проверка молча падала на КАЖДОЙ боевой выборке:
+            # 5.8 % событий пи0, худшая невязка 8.46 ГэВ.  Докладывалась она
+            # при этом как пройденная -- по прогону без радиатора.
+            #
+            # Правильная проверка не слабее прежней, а строже: остаток обязан
+            # быть светоподобным вектором ВДОЛЬ ПУЧКА с ПОЛОЖИТЕЛЬНОЙ энергией
+            # -- ровно то, чем может быть до-вершинный фотон и ничто иное.
+            # Потерянная частица, перепутанный знак или незакрытый распад дадут
+            # остаток непродольный, или не светоподобный, или отрицательный.
+            # Измерено на боевом пи0: |px|,|py| <= 9e-11, |E-pz| <= 6.1e-8,
+            # отрицательных нет.
             want = np.array([0.0, 0.0, ebeam, ebeam + M_P])
-            d_mom = float(np.max(np.abs(tot - want)))
-            worst["momentum"] = max(worst["momentum"], d_mom)
+            dv = want - tot                      # (px, py, pz, E)
+            d_mom = float(np.max(np.abs(dv)))
             if d_mom > ATOL:
-                bad["momentum"] += 1
+                # остаток есть -- он обязан быть до-вершинным фотоном
+                dE = float(dv[3])
+                off = max(abs(float(dv[0])), abs(float(dv[1])),
+                          abs(dE - float(dv[2])))
+                if dE < 0.0 or off > PREVERTEX_TOL:
+                    bad["momentum"] += 1
+                    worst["momentum"] = max(worst["momentum"], d_mom)
+                else:
+                    n_prevertex += 1
+                    max_prevertex = max(max_prevertex, dE)
+                    worst["prevertex"] = max(worst["prevertex"], off)
+            else:
+                worst["momentum"] = max(worst["momentum"], d_mom)
 
             for idx, p4 in doc.items():
                 s = daughters.get(idx)
@@ -165,6 +200,8 @@ def check_file(path, ch, nmax=0):
                 bad["charge"] += 1
             if nmax and bad["events"] >= nmax:
                 break
+    bad["prevertex"] = n_prevertex
+    worst["prevertex_dE"] = max_prevertex
     return bad, worst, n_rad_photon
 
 
@@ -176,7 +213,8 @@ def main(ch, patterns, nmax=0):
     if not files:
         sys.exit("нет файлов")
     tot = None
-    worst = dict(momentum=0.0, shell=0.0, decay=0.0)
+    worst = dict(momentum=0.0, shell=0.0, decay=0.0, prevertex=0.0,
+                 prevertex_dE=0.0)
     nph = 0
     for f in files:
         b, w, k = check_file(f, ch, nmax)
@@ -190,6 +228,13 @@ def main(ch, patterns, nmax=0):
     print(f"  худшая невязка: импульс {worst['momentum']:.2e} ГэВ "
           f"(допуск {ATOL:.0e}), распад {worst['decay']:.2e}, "
           f"массовая оболочка {worst['shell']:.2f} от своего допуска")
+    npv = tot.get("prevertex", 0)
+    if npv:
+        print(f"  до-вершинная потеря: {npv} событий ({100*npv/max(n,1):.2f} %), "
+              f"максимум {worst['prevertex_dE']:.4f} ГэВ; отклонение остатка от "
+              f"«светоподобный вдоль пучка» не больше {worst['prevertex']:.1e}")
+    # prevertex здесь НЕТ намеренно: это не отказ, а измеренное свойство
+    # выборки с включённым радиатором.
     order = ("malformed", "count", "momentum", "shell", "pdg_mass", "decay",
              "charge", "photon", "polarisation")
     names = dict(malformed="битые заголовки", count="счётчик частиц",
