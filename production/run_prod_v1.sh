@@ -36,6 +36,17 @@ NEV_BORN=${NEV_BORN:-$((NEV_RAD * 5))}
 # Секунд на одно радиационное событие на ядро -- только для оценки "влезет
 # ли круг до рубежа".  Ошибка здесь стоит недосчитанного круга, не порчи.
 SEC_RAD=${SEC_RAD:-26}          # десятые доли секунды
+# --- надзор за зависшей частью ------------------------------------------
+# `wait` без предела -- это то, чем оборачивается зависшая часть: круг стоит
+# вечно, рубеж проходит мимо, и никто не узнаёт.  Так уже вышло девять часов
+# простоя на J/psi у порога (тупик в завершении пула процессов, python 3.14).
+#
+# Признак зависания -- НЕ молчание лога: части со второй по N-ю не печатают
+# ничего до самого конца, у них лог молчит всегда.  Признак -- остановка
+# потребления процессора: тупик в блокировке тактов не жжёт, а медленный
+# счёт жжёт.  Это ловит ровно тот случай и не трогает просто долгие части.
+STALL_S=${STALL_S:-900}          # столько секунд без прироста CPU -- снимаем
+PART_MAX_H=${PART_MAX_H:-12}     # абсолютный предел на часть, часов
 [ -f "$REPO/cards/rad_$CH.txt" ] || { echo "нет карточки cards/rad_$CH.txt"; exit 1; }
 
 STOP=$OUT/STOP
@@ -162,6 +173,48 @@ EOF
   echo "@@@ $TAG README записан, код $VER, канал $CH, сетка ${MAJ_SHAPE:-по умолчанию}"
 fi
 
+# Надзор за частями.  Возвращает число снятых.
+# Массивы ТОЛЬКО индексные: на mac mini /bin/bash версии 3.2, там нет
+# declare -A, и ассоциативный массив тихо превратился бы в скаляр.
+supervise () {
+  local pids=("$@")
+  local n=${#pids[@]} t0 now i p cpu alive killed=0
+  local -a last_cpu last_change
+  t0=$(date +%s)
+  for ((i = 0; i < n; i++)); do last_cpu[$i]=""; last_change[$i]=$t0; done
+  while :; do
+    alive=0
+    now=$(date +%s)
+    for ((i = 0; i < n; i++)); do
+      p=${pids[$i]}
+      [ -z "$p" ] && continue
+      kill -0 "$p" 2>/dev/null || { pids[$i]=""; continue; }
+      alive=$((alive + 1))
+      cpu=$(ps -o time= -p "$p" 2>/dev/null | tr -d ' ')
+      if [ "$cpu" != "${last_cpu[$i]}" ]; then
+        last_cpu[$i]=$cpu
+        last_change[$i]=$now
+      fi
+      if [ $((now - ${last_change[$i]})) -gt "$STALL_S" ]; then
+        echo "@@@ $TAG ЗАВИСАНИЕ: часть $((i + 1)) (pid $p) не жжёт процессор ${STALL_S} с -- снимаю"
+      elif [ $((now - t0)) -gt $((PART_MAX_H * 3600)) ]; then
+        echo "@@@ $TAG ПРЕДЕЛ: часть $((i + 1)) (pid $p) идёт больше ${PART_MAX_H} ч -- снимаю"
+      else
+        continue
+      fi
+      # Только этот pid.  Групповой сигнал уносит tmux вместе со всем счётом.
+      kill -TERM "$p" 2>/dev/null
+      sleep 5
+      kill -KILL "$p" 2>/dev/null
+      pids[$i]=""
+      killed=$((killed + 1))
+    done
+    [ "$alive" -eq 0 ] && break
+    sleep 15
+  done
+  return $killed
+}
+
 mkcard () {   # $1=iborn $2=nev $3=имя
   python3 - "$1" "$2" "$OUT/$3" "$REPO/cards/rad_$CH.txt" <<'PY'
 import re, pathlib, sys
@@ -201,9 +254,11 @@ while [ "$(date +%s)" -lt "$DEADLINE" ]; do
     [ $mode = born ] && { ib=1; off=5300; } || { ib=0; off=7700; }
     sed "s|PLACEHOLDER|$W|" "$OUT/card_$mode.txt" > "$W/card_$mode.txt"
     echo "@@@ $TAG круг $n $mode начато $(date '+%d.%m %H:%M')"
+    PIDS=()
     for i in $(seq 1 $J); do
       python3 -u "$OUT/part_runner.py" "$W/card_$mode.txt" $i $J \
               $((BASE + n*310000 + off*i)) > "$W/logs/${mode}_$i.log" 2>&1 &
+      PIDS+=($!)
       # Первая часть строит и кэширует таблицу eta; ждём ИМЕННО её файл.
       # majorant.npz не появится никогда -- его пишет run_parallel, а части
       # зовут run(_part=...), который кэш только читает.  У born таблицы нет.
@@ -215,7 +270,10 @@ while [ "$(date +%s)" -lt "$DEADLINE" ]; do
         done; sleep 5
       fi
     done
+    supervise "${PIDS[@]}"
+    nkill=$?
     wait
+    [ "$nkill" -gt 0 ] && echo "@@@ $TAG ВНИМАНИЕ: снято частей $nkill из $J -- в круге $n режима $mode событий меньше заказанного"
     # Считаем файлы ТОЛЬКО текущего режима.  Раньше считался весь круг, и
     # провалившаяся радиационная часть рапортовала количество борновских:
     # 22.08 круг 1 на ферме отчитался "24 файлов" при нуле записанных
