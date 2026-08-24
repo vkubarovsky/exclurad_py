@@ -402,8 +402,47 @@ class Generator:
         # overweight counter catch any cell that was underestimated.
         rng = np.random.default_rng(20260811)
         n_probe = 24
+
+        # Клетки, целиком лежащие за катами, обязаны получить НОЛЬ.
+        # Мажоранта строится из голого борновского сечения, а каты по y, xB
+        # и приёмке электрона применяются в цикле розыгрыша ПОСЛЕ выбора
+        # клетки и до принятия -- то есть проба, попавшая в закатанную
+        # клетку, засчитывается в знаменатель и гибнет.  У J/psi сечение при
+        # Q2 = 0.001 в миллион раз больше, чем при 0.25, и электрон оттуда
+        # уходит в трубу пучка: нижняя клетка по Q2 держала 66 % интеграла
+        # мажоранты при 3 % сечения, перерасход в 876 раз.
+        #
+        # Проверка идёт по ГУСТОЙ сетке (Q2, W2) -- каты зависят только от
+        # этих двух и не требуют вычисления сечения, так что это почти
+        # даром.  Густота здесь не роскошь: пропустить узкую проходящую
+        # полоску значит выбросить кусок фазового объёма, а это смещение, а
+        # не медленный счёт.  Двадцати четырёх случайных проб для такого
+        # решения мало.
+        NC = 7
+        cut_ok = np.ones((nQ, nW), dtype=bool)
+        for i in range(nQ):
+            qs = np.linspace(edges["Q2"][i], edges["Q2"][i + 1], NC)
+            for j in range(nW):
+                ws = np.linspace(edges["W2"][j], edges["W2"][j + 1], NC)
+                ok = False
+                for Q2 in qs:
+                    for W2 in ws:
+                        if self._pass_yxb(Q2, W2) and \
+                                self._pass_electron_acc(Q2, W2):
+                            ok = True
+                            break
+                    if ok:
+                        break
+                cut_ok[i, j] = ok
+        n_dead = int((~cut_ok).sum())
+        if verbose and n_dead:
+            print(f" majorant: {n_dead}/{nQ * nW} (Q2,W2) cells fully outside "
+                  f"the cuts -- zeroed")
+
         for i in range(nQ):
             for j in range(nW):
+                if not cut_ok[i, j]:
+                    continue                      # клетка мертва: M остаётся 0
                 for k in range(nt):
                     for l in range(nph):
                         u = rng.random((n_probe, 4))
@@ -422,6 +461,9 @@ class Generator:
                         M[i, j, k, l] = best
         M *= eta_hi * self.safety
         tot = M.sum()
+        if not np.isfinite(tot) or tot <= 0:
+            raise RuntimeError(
+                "мажоранта вышла нулевой: коробка целиком за катами?")
         self.maj = dict(edges=edges, M=M, shape=self.majorant_shape,
                         cdf=_cell_cdf(M, edges),
                         eta_hi=eta_hi)
@@ -442,7 +484,7 @@ class Generator:
                     # edges being sampled.  Same gap the eta table had twice
                     # (phi convention, then the t axis); bump the tag with
                     # any change to how edges are laid out.
-                    edges="geom-q2t-v1",
+                    edges="geom-q2t-cutmask-v2",
                     cuts={k: (list(v) if isinstance(v, tuple) else v)
                           for k, v in sorted(self.cuts.items())})
         # NOTE: t_nucl is deliberately NOT part of the key. Since the

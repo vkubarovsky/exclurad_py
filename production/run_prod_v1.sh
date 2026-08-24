@@ -45,6 +45,16 @@ rm -f "$STOP"
 cd "$REPO"; export PYTHONPATH=$REPO
 export TABLE_SERIAL=1 ETA_PROPOSAL_CAP=5 EXACT_ACCEPT=1 EXPO_TAIL=1 MAJ_SAFETY=4.0
 
+# Сетка мажоранты -- по каналу.  У J/psi сечение меняется по Q2 в миллион
+# раз поперёк коробки, и сетка по умолчанию его не облегает: 8,8,8,12 даёт
+# 7.5 % эффективности против 18.8 % у 16,8,16,12.  Клетка вдвое дороже в
+# сборке и в двенадцать раз дешевле в счёте.
+case "$CH" in
+  jpsi) MAJ_SHAPE=${MAJ_SHAPE:-16,8,16,12} ;;
+  *)    MAJ_SHAPE=${MAJ_SHAPE:-} ;;
+esac
+[ -n "$MAJ_SHAPE" ] && export MAJ_SHAPE || unset MAJ_SHAPE
+
 # Запускалка одной части -- пишем её сами.  Раньше она лежала снаружи, и
 # перенос каталога ломал прогон.
 cat > "$OUT/part_runner.py" <<'PYRUN'
@@ -80,6 +90,7 @@ BOXPY
 Машина: $TAG ($(hostname)), ядер $J
 Начато: $(date '+%Y-%m-%d %H:%M %Z')
 Событий за круг: $NEV_RAD радиационных, $NEV_BORN борновских
+Сетка мажоранты: ${MAJ_SHAPE:-по умолчанию 8,8,8,12}, запас $MAJ_SAFETY
 
 ## Что это
 
