@@ -39,18 +39,18 @@ BORN_C, RAD_C = "#0072B2", "#D55E00"
 
 # (ключ, подпись, бинов, диапазон, логарифм по Y, только в rad)
 PANELS = [
-    ("Q2",     r"$Q^2$ (ГэВ$^2$)",              50, None,          False, False),
+    ("Q2",     r"$Q^2$ (GeV$^2$)",              50, None,          False, False),
     ("xB",     r"$x_B$",                        50, None,          False, False),
-    ("mt",     r"$-t$ (ГэВ$^2$)",               60, None,          True,  False),
+    ("mt",     r"$-t$ (GeV$^2$)",               60, None,          True,  False),
     ("y",      r"$y$",                          50, (0.0, 1.0),    False, False),
-    ("W",      r"$W$ (ГэВ)",                    50, None,          False, False),
-    ("nu",     r"$\nu$ (ГэВ)",                  50, None,          False, False),
-    ("pT2",    r"$p_T^2$ мезона (ГэВ$^2$)",     50, None,          True,  False),
-    ("phi",    r"$\phi_h$ (Тренто, град)",      36, (0.0, 360.0),  False, False),
-    ("v_rec",  r"$v$ по номинальной $E$ (ГэВ$^2$)", 50, (-0.02, 0.30), True, False),
-    ("MX",     r"$M_X$ недостающего (ГэВ)",     50, None,          True,  False),
-    ("E_miss", r"недостающая энергия (ГэВ)",    50, None,          True,  False),
-    ("Egam",   r"$E_\gamma$, только rad (ГэВ)", 50, None,          True,  True),
+    ("W",      r"$W$ (GeV)",                    50, None,          False, False),
+    ("nu",     r"$\nu$ (GeV)",                  50, None,          False, False),
+    ("pT2",    r"$p_T^2$ of the meson (GeV$^2$)",     50, None,          True,  False),
+    ("phi",    r"$\phi_h$ (Trento, deg)",      36, (0.0, 360.0),  False, False),
+    ("v_rec",  r"$v$ at nominal $E$ (GeV$^2$)", 50, (-0.02, 0.30), True, False),
+    ("MX",     r"$M_X$ of the missing system (GeV)",     50, None,          True,  False),
+    ("E_miss", r"missing energy (GeV)",    50, None,          True,  False),
+    ("Egam",   r"$E_\gamma$, rad only (GeV)", 50, None,          True,  True),
 ]
 
 
@@ -161,9 +161,9 @@ def panel(ax_top, ax_bot, born, rad, key, label, nb, rng, logy, rad_only):
     if b is not None:
         hb, _ = np.histogram(b, bins=e)
         fb = hb / max(hb.sum(), 1)
-        ax_top.step(c, fb, where="mid", color=BORN_C, lw=1.4, label="Борн")
-    ax_top.step(c, fr, where="mid", color=RAD_C, lw=1.4, label="с излучением")
-    ax_top.set_ylabel("доля", fontsize=8)
+        ax_top.step(c, fb, where="mid", color=BORN_C, lw=1.4, label="Born")
+    ax_top.step(c, fr, where="mid", color=RAD_C, lw=1.4, label="radiative")
+    ax_top.set_ylabel("fraction", fontsize=8)
     ax_top.tick_params(labelsize=7, labelbottom=False)
     ax_top.grid(alpha=.25, lw=.4)
     if logy:
@@ -183,7 +183,7 @@ def panel(ax_top, ax_bot, born, rad, key, label, nb, rng, logy, rad_only):
     ax_bot.errorbar(c[ok], ratio[ok], yerr=err[ok], fmt="o", ms=2.5,
                     color="black", lw=.8, capsize=1.5)
     ax_bot.set_xlabel(label, fontsize=8)
-    ax_bot.set_ylabel("rad/Борн", fontsize=7)
+    ax_bot.set_ylabel("rad/Born", fontsize=7)
     ax_bot.tick_params(labelsize=7)
     ax_bot.grid(alpha=.25, lw=.4)
     if np.isfinite(ratio[ok]).any():
@@ -264,7 +264,7 @@ def main():
               born, rad, key, label, nb, rng, logy, ronly)
     fig.legend(*fig.axes[0].get_legend_handles_labels(), loc="upper right",
                frameon=False, fontsize=10)
-    fig.suptitle("%s, версия %s — Борн %d, с излучением %d событий"
+    fig.suptitle("%s, version %s — Born %d, radiative %d events"
                  % (ch, ver, born["N"], rad["N"]),
                  fontsize=13, fontweight="bold")
     fig.savefig(out, bbox_inches="tight")

@@ -165,6 +165,15 @@ class Generator:
                 self.bw_channel = ch
         self.n_bw_thresh = 0     # sqrt(W2) < m_recoil + m: порог не пройден
         self.n_bw_tkin = 0       # (t, m) вне кинематических границ
+
+        # Откуда взялась мажоранта и была ли она откалибрована -- НЕ
+        # предположение вызывающего, а факт, записанный тем, кто её строил.
+        # Прежде run.py в режиме части утверждал в отчёте прогона, что
+        # загружена общая откалиброванная мажоранта; в боевой раскладке
+        # majorant.npz не создаётся никогда, так что каждая выборка несла
+        # про себя неправду.
+        self.maj_from_cache = False
+        self.maj_calibrated = False
         self.box = box
         self.mx2_cut = mx2_cut
         self.helicity = helicity
@@ -248,6 +257,19 @@ class Generator:
         self.expo_tail = os.environ.get("EXPO_TAIL", "") == "1"
         if self.expo_tail:
             self.exact_per_event = True
+        # Разыгранная масса запрещает путь по ячейкам.  Тот путь строит
+        # TailSampler один раз на ячейку и кладёт в кэш с ключом (ячейка,
+        # спиральность) -- массы в ключе нет и быть не может, она
+        # непрерывна.  Значит первое событие, зашедшее в ячейку, вморозило
+        # бы свою массу, и все следующие получили бы плотность фотона,
+        # посчитанную для чужой кинематики.  Продакшн и так идёт поточечно
+        # (EXACT_ACCEPT/EXPO_TAIL), но полагаться на переменную окружения
+        # в вопросе правильности нельзя.
+        if self.bw_channel is not None and not born_only \
+                and not self.exact_per_event:
+            self.exact_per_event = True
+            print(f"[{self.bw_channel}] масса разыгрывается по Брейту-Вигнеру: "
+                  f"включён поточечный путь (кэш по ячейкам с ней несовместим)")
         self._B = None            # per-majorant-cell bound for stage 2
         self._B_global = 3.0
         self.n_accept2 = 0
@@ -370,6 +392,7 @@ class Generator:
                 self.maj = dict(edges={k: d["e_" + k] for k in ("Q2", "W2", "t", "phi")},
                                 M=d["M"], shape=tuple(d["shape"]),
                                 cdf=d["cdf"], eta_hi=float(d["eta_hi"]))
+                self.maj_from_cache = True
                 if verbose:
                     print(f" majorant loaded from {os.path.basename(self.maj_cache)}")
                 return self
@@ -729,6 +752,13 @@ class Generator:
         return dict(v=buf["v"][i], nhat=buf["nhat"][i])
 
     # ------------------------------------------------------------------ #
+    def majorant_provenance(self):
+        """Одной строкой: откуда мажоранта и калибровалась ли она."""
+        src = ("loaded from %s" % os.path.basename(self.maj_cache)
+               if self.maj_from_cache else "built in this process")
+        return "majorant %s; %s" % (
+            src, "calibrated" if self.maj_calibrated else "NOT calibrated")
+
     def calibrate(self, n_probe=20000, margin=1.35, verbose=False):
         """Raise the majorant where a trial run exceeds it, then reset.
 
@@ -835,6 +865,7 @@ class Generator:
         self.n_overweight = 0
         self.max_overweight = 1.0
         self.n_cut_yxb = self.n_cut_acc = 0
+        self.maj_calibrated = True
         if verbose:
             print(f" calibrated majorant: {n_bad} of {int(np.prod(shape))} cells "
                   f"raised (worst factor {worst.max():.2f})")

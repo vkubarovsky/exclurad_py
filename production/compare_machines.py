@@ -40,10 +40,10 @@ BINS = {
     "Egam":  (0.0, 5.0, 40),
 }
 LABEL = {
-    "Q2": r"$Q^2$ (ГэВ$^2$)", "xB": r"$x_B$", "mt": r"$-t$ (ГэВ$^2$)",
-    "y": r"$y$", "W": r"$W$ (ГэВ)", "nu": r"$\nu$ (ГэВ)",
-    "pT2": r"$p_T^2$ (ГэВ$^2$)", "phi": r"$\phi_h$ (град)",
-    "v_rec": r"$v$ по номинальной $E$", "Egam": r"$E_\gamma$ (ГэВ)",
+    "Q2": r"$Q^2$ (GeV$^2$)", "xB": r"$x_B$", "mt": r"$-t$ (GeV$^2$)",
+    "y": r"$y$", "W": r"$W$ (GeV)", "nu": r"$\nu$ (GeV)",
+    "pT2": r"$p_T^2$ (GeV$^2$)", "phi": r"$\phi_h$ (deg)",
+    "v_rec": r"$v$ at nominal $E$", "Egam": r"$E_\gamma$ (GeV)",
 }
 
 
@@ -156,23 +156,23 @@ def do_plot(items, outfile):
                     color=colors[j % len(colors)])
             if ok.sum() > 1:
                 chi_all.append(float(np.sum(pull[ok] ** 2) / ok.sum()))
-        at.set_ylabel("доля", fontsize=8)
+        at.set_ylabel("fraction", fontsize=8)
         at.tick_params(labelsize=7, labelbottom=False)
         at.grid(alpha=.25, lw=.4)
         ab.axhspan(-2, 2, color="0.88", zorder=0)
         ab.axhline(0, color="0.4", lw=.7)
         ab.set_ylim(-5, 5)
         ab.set_xlabel(LABEL.get(key, key), fontsize=8)
-        ab.set_ylabel("σ к 1-му", fontsize=7)
+        ab.set_ylabel(r"$\sigma$ vs first", fontsize=7)
         ab.tick_params(labelsize=7)
         ab.grid(alpha=.25, lw=.4)
         if chi_all:
             worst[key] = max(chi_all)
-            ab.text(.03, .82, "χ²/N до %.2f" % max(chi_all), fontsize=7,
+            ab.text(.03, .82, r"$\chi^2/N$ up to %.2f" % max(chi_all), fontsize=7,
                     transform=ab.transAxes)
     fig.axes[0].legend(frameon=False, fontsize=9)
     tot = ", ".join("%s %d" % (l, int(d["n"])) for l, d in data)
-    fig.suptitle("Сверка машин (эталон: %s) — %s" % (ref_lab, tot),
+    fig.suptitle("Machine cross-check (reference: %s) — %s" % (ref_lab, tot),
                  fontsize=12, fontweight="bold")
     fig.savefig(outfile, bbox_inches="tight")
     print("\n%-10s %s" % ("величина", "худший χ²/N среди машин"))

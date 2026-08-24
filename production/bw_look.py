@@ -30,7 +30,16 @@ def load(run_dir, channel):
     f = glob.glob(os.path.join(run_dir, channel, "*", "lund", "*.lund"))
     if not f:
         sys.exit("нет lund в " + run_dir)
-    return read(f[0], channel), f[0]
+    d = read(f[0], channel)
+    # Если мезон записан целым (idecay=0), читатель подставляет вместо первой
+    # дочерней сам мезон, а вместо второй НУЛЕВОЙ вектор.  Угол разлёта тогда
+    # выходит ровно 90 градусов у каждого события, а импульс "h+" оказывается
+    # импульсом мезона -- картинка выглядит прилично и является чепухой.
+    # Лучше отказаться, чем нарисовать.
+    if np.linalg.norm(np.asarray(d["p_db"])[:, 1:], axis=1).max() <= 0.0:
+        sys.exit("в %s мезон не разложен (idecay=0): дочерних треков нет, "
+                 "сравнивать нечего" % run_dir)
+    return d, f[0]
 
 
 def mass_of(p4):
@@ -71,16 +80,16 @@ def main():
         c = np.einsum("ij,ij->i", a[:, 1:], b[:, 1:]) / np.maximum(na * nb, 1e-12)
         return np.degrees(np.arccos(np.clip(c, -1, 1)))
     panels = [
-        ("масса мезона", r"$M_{%s}$ (ГэВ)" % lab, d0["Mrec"], d1["Mrec"], None),
-        ("передача", r"$-t$ (ГэВ$^2$)", -np.asarray(d0["t"]),
+        ("meson mass", r"$M_{%s}$ (GeV)" % lab, d0["Mrec"], d1["Mrec"], None),
+        ("momentum transfer", r"$-t$ (GeV$^2$)", -np.asarray(d0["t"]),
          -np.asarray(d1["t"]), None),
-        ("энергия в с.ц.м.", r"$W$ (ГэВ)", d0["W"], d1["W"], None),
-        ("импульс $h^+$", r"$|p|$ (ГэВ)", p0, p1, None),
-        ("угол $h^+$", r"$\theta$ (град)", t0, t1, None),
+        ("c.m. energy", r"$W$ (GeV)", d0["W"], d1["W"], None),
+        ("$h^+$ momentum", r"$|p|$ (GeV)", p0, p1, None),
+        ("$h^+$ polar angle", r"$\theta$ (deg)", t0, t1, None),
         # Недостающая масса для Борна -- ровно масса протона в каждом
         # событии, смотреть там нечего.  Угол разлёта содержателен: он
         # задаётся массой мезона напрямую.
-        ("угол разлёта пары", r"$\theta_{h^+h^-}$ (град)",
+        ("pair opening angle", r"$\theta_{h^+h^-}$ (deg)",
          opening(d0), opening(d1), None),
     ]
 
@@ -112,10 +121,10 @@ def main():
         h0, _ = np.histogram(x0, bins=e)
         h1, _ = np.histogram(x1, bins=e)
         at.step(c, h0, where="mid", lw=1.4, color=BLUE,
-                label="масса фиксирована")
+                label="mass fixed at the pole")
         at.step(c, h1, where="mid", lw=1.6, color=VERM,
-                label="Брейт-Вигнер")
-        at.set_ylabel("событий", fontsize=8)
+                label="Breit-Wigner")
+        at.set_ylabel("events", fontsize=8)
         at.tick_params(labelsize=7, labelbottom=False)
         at.grid(alpha=.25, lw=.4)
         at.set_title(title, fontsize=10)
@@ -133,12 +142,12 @@ def main():
             ab.set_ylim(1 - 1.25 * m - .02, 1 + 1.25 * m + .02)
         at.set_xlim(lo, hi)
         ab.set_xlabel(xl, fontsize=9)
-        ab.set_ylabel("BW / фикс.", fontsize=7)
+        ab.set_ylabel("BW / fixed", fontsize=7)
         ab.tick_params(labelsize=7)
         ab.grid(alpha=.25, lw=.4)
         if k == 0:
             at.legend(frameon=False, fontsize=8.5)
-    fig.suptitle(r"$%s$: что меняет розыгрыш массы (%d событий, Борн, $%s$)"
+    fig.suptitle(r"$%s$: what the mass draw changes (%d events, Born, $%s$)"
                  % (lab, d1["N"], dec[2] if dec else ""),
                  fontsize=12, fontweight="bold")
     fig.savefig(a.out, bbox_inches="tight")

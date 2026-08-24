@@ -236,29 +236,29 @@ def main():
     fig, ax = plt.subplots(1, 2, figsize=(12.5, 4.6), dpi=140,
                            gridspec_kw=dict(width_ratios=[2, 1]))
     ax[0].errorbar(ctr, h, yerr=np.sqrt(h), fmt="o", ms=5, color=BLUE,
-                   capsize=2.5, label="события генератора")
+                   capsize=2.5, label="generator events")
     ax[0].fill_between(ctr, pred - perr, pred + perr, color=VERM, alpha=.25,
                        lw=0)
     ax[0].plot(ctr, pred, "-", lw=2.0, color=VERM,
-               label=r"предсказание: BW$/N(W^2)\times\int\sigma_{Born}$")
+               label=r"prediction: BW$/N(W^2)\times\int\sigma_{Born}$")
     ax[0].plot(ctr, pure, "--", lw=1.4, color=GREY,
-               label="чистый Брейт-Вигнер (для сравнения)")
+               label="pure Breit-Wigner (reference)")
     ax[0].axvline(m0, color="0.5", lw=.8, ls=":")
-    ax[0].set_xlabel(r"$M_{%s}$ (ГэВ)" % channel, fontsize=11)
-    ax[0].set_ylabel("событий в бине", fontsize=11)
+    ax[0].set_xlabel(r"$M_{%s}$ (GeV)" % channel, fontsize=11)
+    ax[0].set_ylabel("events per bin", fontsize=11)
     ax[0].grid(alpha=.3, lw=.5)
     ax[0].legend(frameon=False, fontsize=9.5)
-    ax[0].set_title(r"%s: масса как свойство события, $\langle M\rangle$ = %.4f"
+    ax[0].set_title(r"%s: mass as an event property, $\langle M\rangle$ = %.4f"
                     % (channel, m.mean()), fontsize=11)
 
     ax[1].axhspan(-2, 2, color="0.88")
     ax[1].axhline(0, color="0.4", lw=.8)
     ax[1].plot(ctr[ok], pull[ok], "o", ms=5, color="black")
-    ax[1].set_xlabel(r"$M$ (ГэВ)", fontsize=11)
-    ax[1].set_ylabel("отклонение, σ", fontsize=11)
+    ax[1].set_xlabel(r"$M$ (GeV)", fontsize=11)
+    ax[1].set_ylabel(r"deviation, $\sigma$", fontsize=11)
     ax[1].set_ylim(-5, 5)
     ax[1].grid(alpha=.3, lw=.5)
-    ax[1].set_title(r"$\chi^2/N$ = %.2f по %d бинам" % (chi2, int(ok.sum())),
+    ax[1].set_title(r"$\chi^2/N$ = %.2f over %d bins" % (chi2, int(ok.sum())),
                     fontsize=11)
     fig.tight_layout()
     fig.savefig(a.out, bbox_inches="tight")

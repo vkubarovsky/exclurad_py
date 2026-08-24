@@ -19,6 +19,7 @@
 потому что лечатся они по-разному: форма -- измельчением, запас -- только
 тогда, когда мажоранта перестала пробиваться.
 """
+import contextlib
 import os
 import sys
 import time
@@ -31,22 +32,41 @@ from exclurad_py.runcard import parse                         # noqa: E402
 from exclurad_py.generator.events import Box, Generator       # noqa: E402
 
 
+@contextlib.contextmanager
+def _env(**kw):
+    """Временно выставить переменные окружения и вернуть как было.
+
+    Без возврата вызывающий получает MAJ_SAFETY=1.0 на весь процесс, то есть
+    мажоранту без запаса, и не догадывается об этом: Generator читает
+    переменную в конструкторе, а поставил её не он.
+    """
+    old = {k: os.environ.get(k) for k in kw}
+    os.environ.update({k: str(v) for k, v in kw.items()})
+    try:
+        yield
+    finally:
+        for k, v in old.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+
+
 def build(cfg, shape, safety, seed=12345):
-    os.environ["MAJ_SHAPE"] = ",".join(str(x) for x in shape)
-    os.environ["MAJ_SAFETY"] = str(safety)
     ch = cfg["model"].split(".")[0]
     kw = dict(t_nucl=cfg["t_nucl"]) if ch in ("pi0", "eta") else {}
     sf = models.get(cfg["model"], **kw)
     sf.Ebeam = float(cfg["ebeam"])
     mx2 = cfg["vcut"] + sf.mU ** 2 if cfg["vcut"] > 0 else None
-    g = Generator(sf, Ebeam=cfg["ebeam"],
-                  box=Box(Q2=cfg["Q2"], W2=cfg["W2"], t=cfg["t"]),
-                  mx2_cut=mx2, helicity=cfg["ihel"], seed=seed,
-                  born_only=True,                 # eta ~ 1: мешает, не помогает
-                  cuts=dict(y=cfg["y"], xB=cfg["xB"], iacc=cfg["iacc"]),
-                  itarg=0, vz=(0.0, 0.0))
-    t0 = time.time()
-    g.setup()
+    with _env(MAJ_SHAPE=",".join(str(x) for x in shape), MAJ_SAFETY=safety):
+        g = Generator(sf, Ebeam=cfg["ebeam"],
+                      box=Box(Q2=cfg["Q2"], W2=cfg["W2"], t=cfg["t"]),
+                      mx2_cut=mx2, helicity=cfg["ihel"], seed=seed,
+                      born_only=True,             # eta ~ 1: мешает, не помогает
+                      cuts=dict(y=cfg["y"], xB=cfg["xB"], iacc=cfg["iacc"]),
+                      itarg=0, vz=(0.0, 0.0))
+        t0 = time.time()
+        g.setup()
     return g, time.time() - t0
 
 

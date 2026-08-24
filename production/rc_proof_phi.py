@@ -95,25 +95,25 @@ def main():
     fig, ax = plt.subplots(1, 2, figsize=(12.5, 4.6), dpi=140,
                            gridspec_kw=dict(width_ratios=[2, 1]))
     ax[0].errorbar(ctr[ok], d_q_n[ok], yerr=e_q_n[ok], fmt="-", lw=2.0,
-                   color=VERM, label="точная квадратура (EXCLURAD)")
+                   color=VERM, label="exact quadrature (EXCLURAD)")
     ax[0].errorbar(ctr[ok], d_ev_n[ok], yerr=e_ev_n[ok], fmt="o", ms=6,
-                   color=BLUE, capsize=2.5, label="из событий, $N_{rad}/N_{Born}$")
-    ax[0].set_xlabel(r"$\phi_h$ (Тренто), град", fontsize=11)
-    ax[0].set_ylabel(r"$\delta(\phi)$, нормировано на среднее", fontsize=11)
+                   color=BLUE, capsize=2.5, label="from events, $N_{rad}/N_{Born}$")
+    ax[0].set_xlabel(r"$\phi_h$ (Trento), deg", fontsize=11)
+    ax[0].set_ylabel(r"$\delta(\phi)$, normalised to its mean", fontsize=11)
     ax[0].set_xlim(0, 360)
     ax[0].grid(alpha=.3, lw=.5)
     ax[0].legend(frameon=False, fontsize=10)
-    ax[0].set_title("%s: радиационная поправка по азимуту" % ch, fontsize=11)
+    ax[0].set_title("%s: radiative correction over the azimuth" % ch, fontsize=11)
 
     ax[1].axhspan(-2, 2, color="0.88")
     ax[1].axhline(0, color="0.4", lw=.8)
     ax[1].plot(ctr[ok], pull[ok], "o", ms=6, color="black")
-    ax[1].set_xlabel(r"$\phi_h$, град", fontsize=11)
-    ax[1].set_ylabel("отклонение, σ", fontsize=11)
+    ax[1].set_xlabel(r"$\phi_h$, deg", fontsize=11)
+    ax[1].set_ylabel(r"deviation, $\sigma$", fontsize=11)
     ax[1].set_xlim(0, 360)
     ax[1].set_ylim(-5, 5)
     ax[1].grid(alpha=.3, lw=.5)
-    ax[1].set_title(r"$\chi^2/N = %.2f$ по %d бинам" % (chi2, int(ok.sum())),
+    ax[1].set_title(r"$\chi^2/N = %.2f$ over %d bins" % (chi2, int(ok.sum())),
                     fontsize=11)
     fig.tight_layout()
     fig.savefig(a.out, bbox_inches="tight")

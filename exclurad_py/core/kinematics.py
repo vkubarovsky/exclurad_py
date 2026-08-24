@@ -68,9 +68,16 @@ class EventKin:
         if t_kind == EventKin.T_PHOTON:
             q0 = (W2 - Q2 - M * M) / (2.0 * W)
             base = -Q2 + mV * mV - 2.0 * q0 * Ev
-        else:                                   # target / cm_angle при v = 0
+        elif t_kind in (EventKin.T_TARGET, EventKin.T_CMANGLE):
+            # при v = 0 эти два совпадают, см. конструктор
             Ep = (W2 + Q2 + M * M) / (2.0 * W)
             base = M * M + mV * mV - 2.0 * Ep * Ev
+        else:
+            # Молча считать незнакомое соглашение целевым нельзя: конструктор
+            # на том же вводе бросает исключение, и обёртка не имеет права
+            # быть снисходительнее того, что она повторяет.  Опечатка дала бы
+            # границы по ДРУГОМУ соглашению, без единого признака ошибки.
+            raise ValueError(f"unknown t_kind {t_kind!r}")
         return base - 2.0 * qv * pv, base + 2.0 * qv * pv
 
     def __init__(self, Ebeam, Q2, W2, t, phi, mV, v=0.0, M=M_P, m=M_E, mU=None,

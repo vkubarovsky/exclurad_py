@@ -163,7 +163,7 @@ def main(ch):
                                           np.sqrt(card["W2"][1]), 13)),
           ("mt", r"$-t$ [GeV$^2$]", np.linspace(0.0,
                                                 min(-card["t"][0], 3.0), 13)),
-          ("phi", r"$\phi_h$ (Тренто, мезон) [deg]", np.linspace(0, 360, 13))]
+          ("phi", r"$\phi_h$ (Trento, meson) [deg]", np.linspace(0, 360, 13))]
 
     rng = np.random.default_rng(20260816)
     nq = int(os.environ.get("NQUAD", "6000"))
@@ -211,9 +211,9 @@ def main(ch):
         ctr = 0.5 * (edges[:-1] + edges[1:])
         ax.errorbar(ctr, dq, yerr=dqe, fmt="*-", ms=11, color=GREEN,
                     mec="k", mew=.4, capsize=2,
-                    label="квадратура exclurad", zorder=5)
+                    label="exclurad quadrature", zorder=5)
         ax.errorbar(ctr[ok], d[ok], yerr=e[ok], fmt="o", ms=5, color=BLUE,
-                    capsize=2, label="генератор rad/norad")
+                    capsize=2, label="generator rad/norad")
         ax.set_xlabel(lab, fontsize=9)
         ax.set_ylabel(r"$\delta = \sigma_{obs}/\sigma_{Born}$", fontsize=9)
         ax.grid(alpha=.3, lw=.5)
@@ -234,7 +234,7 @@ def main(ch):
                   f"   mean gen/quad = {np.nanmean(d/dq):.4f}"
                   + (f"   ({nref} бинов без опоры)" if nref else ""), flush=True)
     axes[0][0].legend(frameon=False, fontsize=8)
-    fig.suptitle(f"{ch}: радиационная поправка из генератора против квадратуры "
+    fig.suptitle(f"{ch}: radiative correction, generator against quadrature "
                  f"(rad {Nr}, norad {Nn})", fontsize=11, fontweight="bold")
     fig.tight_layout()
     out = os.path.join(OUT_DIR, f"delta_{ch}.png")

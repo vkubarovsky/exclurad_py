@@ -192,7 +192,12 @@ def run(card_path, date=None, verbose=True, _part=None):
         # the second pass stays OFF until it is.
         cal = g.calibrate(n_probe=30000, margin=2.0, verbose=verbose)
     else:
-        cal = "shared calibrated majorant loaded from majorant.npz"
+        # НЕ утверждать, что загружена общая откалиброванная мажоранта.
+        # В боевой раскладке majorant.npz пишет только run_parallel, а
+        # run_prod_v1.sh его не зовёт -- файла нет, каждая часть строит
+        # свою и не калибрует её.  Спрашиваем генератор, что было на самом
+        # деле: выборка, врущая про себя, хуже выборки без описания.
+        cal = g.majorant_provenance()
 
     t0 = time.time()
     ev = g.generate(cfg["nev"], progress=max(cfg["nev"] // 5, 1) if verbose else None)
