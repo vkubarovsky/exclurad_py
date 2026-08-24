@@ -106,7 +106,11 @@ def read(path, channel):
     return dict(Q2=Q2, xB=xB, t=t, y=y, W=np.sqrt(np.maximum(W2, 0)),
                 Mmiss=Mmiss, pT2=pT2, Mrec=Mrec, nu=nu, E_miss=E_miss,
                 Egam=gam[has_ph, 0], v=v, has_ph=has_ph, N=len(ev),
-                mmass=mmass, mlab=mlab, dlab=dec[2] if dec else mlab)
+                mmass=mmass, mlab=mlab, dlab=dec[2] if dec else mlab,
+                # Четыре-векторы самих частиц: в детекторе видны они, а не
+                # инварианты, и при разыгранной массе мезона именно импульсы
+                # дочерних треков расходятся заметнее всего.
+                p_scat=scat, p_rec=rec, p_gam=gam, p_da=da, p_db=db)
 
 
 def annotate(ax, data, unit="", fmt=".4f", loc="right"):
