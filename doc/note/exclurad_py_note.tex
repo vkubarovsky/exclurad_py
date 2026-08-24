@@ -33,11 +33,14 @@ azimuth, where the correction swings from $1.15$ to $0.92$, events and
 quadrature agree with $\chi^2/N=0.79$ over eighteen bins. The target radiator
 is validated against an independent implementation, exclugen, to
 $0.6\,\sigma$. Four independent samples on three machines, two processor
-families and two python generations are statistically indistinguishable. The
-note states, with equal care, what is \emph{not} yet established: the vector
-channels have no external anchor for their radiative correction, and $\rho$
-and $\phi$ still lack the Breit--Wigner mass, which for $\rho$ is not a
-cosmetic omission.
+families and two python generations are statistically indistinguishable. For
+$\rho$ and $\phi$ the meson mass is drawn from a Breit--Wigner and carried
+through the kinematics, the $t$ limits and the radiative correction; the
+resulting mass spectrum agrees with an independently computed prediction at
+$\chi^2/N=0.69$. The note states, with equal care, what is \emph{not} yet
+established: the vector channels still have no external anchor for their
+radiative correction, and the $\rho$ and $\phi$ production boxes are run
+with no inelasticity cut.
 \end{abstract}
 
 \tableofcontents
@@ -55,8 +58,8 @@ channel & internal RC & external anchor & B--W mass & status \\
 \midrule
 $\pi^0$  & validated & published EXCLURAD table & n/a & production running \\
 $\eta$   & validated & published table via $\vcut$ & n/a & next \\
-$\rho$   & vs.\ own quadrature & none & \textbf{missing} & blocked on B--W \\
-$\phi$   & vs.\ own quadrature & none & \textbf{missing} & blocked on B--W \\
+$\rho$   & vs.\ own quadrature & none & done, §\ref{sec:bw} & needs $\vcut>0$ \\
+$\phi$   & vs.\ own quadrature & none & done, §\ref{sec:bw} & ready to run \\
 $J/\psi$ & vs.\ own quadrature & none & not needed & box needs care \\
 \bottomrule
 \end{tabular}
@@ -269,6 +272,145 @@ v_{\rm rec}-v_{\rm true}=2\,\Delta E\,(E_X-p_{X,z})\;\ge\;0 ,
 \end{equation}
 so external loss can only move events out of the window, never into it.
 
+\section{The Breit--Wigner mass of the vector mesons}
+\label{sec:bw}
+
+Until this pass every $\rho$ was produced at exactly $775.3$~MeV. Its width is
+$150$~MeV --- nineteen percent --- so a fixed mass puts every $\pi^+\pi^-$
+pair in one bin where the experiment sees a broad resonance. For $\phi$,
+$\Gamma=4.27$~MeV and the peak itself is near the resolution; the mechanism
+is nonetheless the same, and the $\phi$ serves as the control.
+
+The mass does not stay in the lineshape. It sets the $W$ threshold, it moves
+the $t$ limits, it enters every four-vector, and through the kinematics it
+enters the region where the radiative correction is evaluated. It is
+therefore drawn per trial, at the same place in the loop where the beam
+energy is drawn, and carried through: the event kinematics, $v_{\max}$, the
+$t$ limits, $\sborn$, \code{rc\_factor} and the decay.
+
+\paragraph{The sampler.} A transcription of \code{sample\_bw} from
+\code{diffrad\_vm.f90}, deliberately without improvement: a reference exists,
+and a difference from it would be a transcription error rather than a better
+answer. The substitution $M^2=M_0^2+M_0\Gamma\tan\theta$ with uniform $\theta$
+gives an exact constant-width Breit--Wigner with no rejection; for $\rho$ a
+rejection on the running $p$-wave width
+$\Gamma(M)=\Gamma_0\,(p/p_0)^3\,(M_0/M)$ is applied on top, with the envelope
+normalised to its scanned maximum because the constant-width form is not
+everywhere above the running one. Against the Fortran over $200$k draws each:
+$\chi^2/N=0.80$ for $\rho$ and $0.73$ for $\phi$.
+
+\paragraph{Nothing else moved.} With the draw disabled the generator
+reproduces its previous output byte for byte --- the same $2442$ lines, only
+the provenance header differing. This is the first thing to establish when a
+quantity that was a constant becomes a per-event variable, and it is cheap:
+the draw consumes no random numbers when it is off, so the stream is
+untouched.
+
+\paragraph{The mass spectrum is predicted, not merely plausible.}
+In the sample the mass is \emph{not} distributed as a Breit--Wigner. The
+drawn mass then takes part in the acceptance, so the density is
+\begin{equation}
+p(M)\;\propto\;\frac{\mathrm{BW}(M)}{N(W^2)}
+\int\!\mathrm{d}V\;\sborn(V;M),
+\label{eq:bwpred}
+\end{equation}
+and the mean $\rho$ mass moves from $0.894$~GeV for the bare sampler to
+$0.847$ in the events. A shift of that size is explained equally well by a
+correct acceptance and by an error in the threading, so it has to be
+predicted. The right-hand side of~(\ref{eq:bwpred}) is evaluated by uniform
+quadrature over the box, with no majorant, no accept--reject and no
+generator loop --- what is being tested is the sampling. The Born cross
+section is the same function the generator calls; its physics is checked
+elsewhere and is common to both sides here.
+
+The factor $N(W^2)$ is not a detail. The ceiling of the draw is
+$\min(\sqrt{W^2}-m_p,\;M_0+5\Gamma)$ and depends on the event, so in the
+low-$W^2$ corner the resonance is truncated and the truncated Breit--Wigner
+is normalised on its own interval. Events from that corner therefore enter
+the prediction with a larger weight.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{bw_closure_rho.png}
+\caption{$\rho$, Born, $10.6$~GeV, $3000$ events. Left: the mass spectrum in
+the events (points) against the prediction~(\ref{eq:bwpred}) with its
+quadrature error (band), and a pure Breit--Wigner for comparison (dashed).
+The events sit visibly below the pure lineshape above the pole, because the
+cross section falls with mass, and the prediction follows them down. Right:
+the deviation in standard deviations. $\chi^2/N=0.69$ over $24$ bins; for
+$\phi$, $0.52$ over $18$, where the two curves are indistinguishable, which
+is the right answer for a $4$~MeV resonance.}
+\label{fig:bwclosure}
+\end{figure}
+
+\paragraph{Two things the threading broke, and how they were found.}
+Both were found by the closure test rather than by inspection, which is the
+argument for having written it.
+
+The first is bookkeeping. The total cross section is estimated as
+$(n_{\rm acc}/n_{\rm trials})$ times the majorant integral, and $37\,\%$ of
+$\rho$ trials now die on $t$ limits that move with the mass. The first
+version discarded those before incrementing the trial counter, which would
+have inflated the $\rho$ cross section by half. A proposal drawn from the
+majorant has been spent and must appear in the denominator with zero weight,
+exactly as a kinematic cut does. With the counting corrected, Breit--Wigner
+lowers the $\rho$ cross section by $8\,\%$: $0.9213$ from the generator
+against $0.9346\pm0.0185$ from direct quadrature over the same box.
+
+The second is physics. \code{rc\_factor} took the nominal mass. Across the
+$\rho$ range the correction varies by $7$--$25\,\%$ depending on the point,
+so an event generated at $1.35$~GeV was being corrected as though it were
+$0.775$. The function now takes the event's mass.
+
+\begin{center}
+\small
+\begin{tabular}{lcccccc}
+\toprule
+$M_\rho$ (GeV) & 0.45 & 0.60 & 0.775 & 0.90 & 1.10 & 1.35 \\
+\midrule
+$\delta$ at $Q^2=2$, $W^2=8$, $t=-0.5$, $\phi=3$
+ & 1.143 & 1.119 & 1.084 & 1.056 & 1.003 & 0.914 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{What it changes in the observables.} The peak has to appear; what
+matters is what the mass drags with it, and in particular the daughter
+tracks, since those and not the meson are what a detector sees. For $\rho$:
+$|t|$ shifts by $5.8\,\%$, the $\pi^+$ momentum by $1.5\,\%$, its polar angle
+by $4.2\,\%$ and the pair opening angle by $7.1\,\%$. For $\phi$ everything
+stays within half a percent --- the correct answer for a $4$~MeV resonance,
+and worth showing beside $\rho$ because it demonstrates that the draw carries
+nothing spurious with it.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{bw_look_rho.png}
+\caption{$\rho$: mass fixed at the pole (blue) against mass drawn from the
+Breit--Wigner (orange). Same seed, same card; the only difference is the
+mass. Lower panels: the ratio of the two. The missing-mass panel is omitted
+because at Born it is the proton mass in every event.}
+\label{fig:bwlook}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{bw_look_phi.png}
+\caption{$\phi$, the same comparison. Everything within half a percent, as a
+$4$~MeV width requires. A control of this kind is worth as much as the
+$\rho$ figure: it bounds what the machinery does when it should do nothing.}
+\label{fig:bwlookphi}
+\end{figure}
+
+\paragraph{Two errors in the check itself} are worth recording, because both
+were invisible at $400$k draws and obvious at $1.6$M, which is the argument
+for testing convergence in $N$ rather than at one sample size. The factor
+$M/M_0$ in the analytic density belongs only to the running-width branch,
+where it arrives with the rejection; applied to $\phi$ as well it biases the
+mean mass by $2\,\%$. And a $4$~MeV resonance binned at $0.9$~MeV must be
+integrated over the bin: taking the density at the bin centre gives
+$\chi^2/N\approx2.4$ and looks exactly like a broken sampler.
+
 \section{Reproducibility}
 \label{app:mach}
 
@@ -305,15 +447,19 @@ $J/\psi$ are checked against our own quadrature only. DIFFRAD, the
 Akushevich code for vector mesons, is on disk and is the natural reference;
 this comparison has not been made.
 
-\paragraph{$\rho$ and $\phi$ have no Breit--Wigner mass.} The meson is
-generated exactly on the pole. For $\phi$, $\Gamma/M=0.4\,\%$ and this is
-below resolution; for $\rho$, $\Gamma=150$~MeV at $M=775$~MeV, and a fixed
-mass is wrong in a way that matters. The mass enters the $t$ limits, the $W$
-threshold and through them the region where the correction is evaluated, so
-this is not only the shape of the peak. The sampler has been ported from
-\code{diffrad\_vm.f90} and agrees with it ($\chi^2/N=0.80$ for $\rho$, $0.73$
-for $\phi$ over $200$k draws each); what remains is to make the mass a
-property of the event throughout the kinematics.
+\paragraph{The Breit--Wigner has no end-to-end external anchor.} The sampler
+matches \code{diffrad\_vm.f90} and the threading is closed against our own
+quadrature (§\ref{sec:bw}), but no vector-meson mass spectrum from a
+\emph{different} code has been compared with ours after the full generation
+chain. DIFFRAD would supply exactly that, and it is the same missing
+comparison as the one below.
+
+\paragraph{The $\eta$ table is built at the nominal mass.} The interpolated
+$\eta$ serves only as the sampling proposal, and the second stage recomputes
+\code{rc\_factor} exactly at the event's own mass, so this costs efficiency
+and not correctness. It was checked rather than assumed: with the draw on,
+$\rho$ and $\phi$ show no majorant violations beyond the pre-existing $\rho$
+ones, and the largest overweight is smaller with the draw than without it.
 
 \paragraph{$\rho$ and $\phi$ run with no inelasticity cut.} $\vcut=0$ by
 decision, meaning the tail runs to the kinematic limit where the diffractive
@@ -339,8 +485,17 @@ calculation over the azimuth to $\chi^2/N=0.79$, the target radiator agrees
 with an independent implementation to $0.6\,\sigma$, four samples on three
 machines are indistinguishable, and the output satisfies the conservation
 laws event by event. $\eta$ shares the machinery and needs its own production
-and its own published-table comparison. The vector channels need the
-Breit--Wigner mass first --- mandatory for $\rho$ and $\phi$ --- and then an
-external anchor, for which DIFFRAD is available and unused.
+and its own published-table comparison.
+
+For the vector channels the Breit--Wigner mass is now a property of the
+event and closes against an independent prediction at $\chi^2/N=0.69$; $\phi$
+is ready to run, while $\rho$ should first be given a non-zero $\vcut$, since
+with $\vcut=0$ its tail reaches kinematics where the diffractive model is
+extrapolated far outside its fit. What all three still lack is an external
+anchor for the radiative correction itself, for which DIFFRAD is available
+and unused. Two of the three findings in §\ref{sec:bw} --- the trial
+counting and the mass in \code{rc\_factor} --- were produced by the closure
+test rather than by reading the code, which is the case for writing the test
+before trusting the change.
 
 \end{document}

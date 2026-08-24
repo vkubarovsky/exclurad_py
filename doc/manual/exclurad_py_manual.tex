@@ -160,6 +160,41 @@ energy loss can only raise the reconstructed inelasticity,
 $v_{\rm rec}-v_{\rm true} = 2\,\Delta E\,(E_X-p_{X,z}) \ge 0$, so events leave
 the window and never enter it.
 
+\section{The mass of a vector meson}
+\label{sec:bw}
+
+For $\rho$, $\phi$ and $\omega$ the meson mass is \emph{not} a constant. It is
+drawn per event from a Breit--Wigner --- with the running $p$-wave width for
+$\rho$ --- and carried through the kinematics, the $t$ limits, the $W$
+threshold, the Born cross section, the radiative correction and the decay.
+Nothing in the card switches this on: it is on, because for $\rho$
+($\Gamma=150$~MeV at $M=775$~MeV) a fixed mass is simply wrong, and for
+$\phi$ the same machinery costs nothing. $J/\psi$, $\pi^0$ and $\eta$ are
+narrow enough that the code treats them as $\delta$-functions, which is exact
+at their widths.
+
+Two consequences for the user of a sample. The written meson mass differs
+event by event, so reconstruct it from the daughters rather than assuming the
+PDG value. And the cross section is not the one at the pole: for $\rho$ over
+the standard box it is $8\,\%$ lower, because the Breit--Wigner average of
+$\sborn$ is not $\sborn$ at $M_0$.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{bw_look_rho.png}
+\caption{$\rho$: mass fixed at the pole (blue) against the Breit--Wigner
+draw (orange), same seed and same card. The peak is the obvious part; the
+point is what the mass drags with it --- $|t|$, the $\pi^+$ momentum and
+angle, the pair opening angle. These are the tracks the detector sees.}
+\end{figure}
+
+\paragraph{Turning it off.} \code{BW=0} in the environment restores the fixed
+mass. It exists for validation --- with the draw off the generator reproduces
+its pre-Breit--Wigner output byte for byte --- and for reproducing an old
+sample. It is not a physics option for $\rho$ or $\phi$. Whether the draw was
+active is recorded in the run's \code{report.bw\_channel}, so a sample can be
+asked rather than assumed.
+
 \section{Running}
 
 One part of a run:
@@ -169,6 +204,39 @@ export PYTHONPATH=$PWD
 export TABLE_SERIAL=1 ETA_PROPOSAL_CAP=5 EXACT_ACCEPT=1 EXPO_TAIL=1
 python3 -c "from exclurad_py.run import run; run('cards/rad_pi0.txt')"
 \end{lstlisting}
+
+\paragraph{Environment variables.} The card carries the physics; these carry
+the numerics, and the four in the line above are what every production run
+sets.
+
+\begin{center}
+\small
+\begin{tabular}{lll p{7.0cm}}
+\toprule
+variable & default & production & meaning \\
+\midrule
+\code{EXACT\_ACCEPT}     & 0 & \textbf{1} & Second acceptance stage against
+  the exact \code{rc\_factor} at the event's own kinematics, rather than
+  against the interpolated table. This is what makes the sample carry the
+  exact correction; it also forces the per-event photon path. \\
+\code{EXPO\_TAIL}        & 0 & \textbf{1} & YFS exponentiation of the soft
+  factor (scheme A). Also forces the per-event path. \\
+\code{TABLE\_SERIAL}     & 0 & \textbf{1} & Build the $\eta$ table in one
+  process. Slower, but the parallel build has hung in pool shutdown on
+  python 3.14. \\
+\code{ETA\_PROPOSAL\_CAP}& --- & \textbf{5} & Ceiling on the interpolated
+  $\eta$ used as the sampling proposal. Caps efficiency loss from a table
+  outlier; cannot bias the sample, because the second stage is exact. \\
+\code{BW}                & 1 & 1 & Breit--Wigner mass draw, §\ref{sec:bw}.
+  Set to 0 only to reproduce a pre-Breit--Wigner sample. \\
+\code{MAJ\_SAFETY}       & 1.6 & --- & Margin on the majorant. Raise it if the
+  \code{health:} line reports violations. \\
+\code{MAJ\_SHAPE}        & --- & --- & Override the majorant grid. \\
+\code{CARD}, \code{CARD\_PREFIX} & --- & --- & Which card the analysis tools
+  read; see §\ref{sec:check}. \\
+\bottomrule
+\end{tabular}
+\end{center}
 
 For anything larger use \code{production/run\_prod\_v1.sh}, which splits the
 work over cores, writes the README and the cards into the output directory,
@@ -253,6 +321,7 @@ class then builds it from $\sigma_U$ at the event's own $\varepsilon$, which
 needs the beam energy and stays correct when $\sigma_L$ stops being zero.
 
 \section{Checking a sample}
+\label{sec:check}
 
 \begin{center}
 \small
@@ -269,6 +338,10 @@ tool & what it answers \\
 \code{delta\_profiles.py}   & The same in $Q^2$, $W$, $|t|$, $\phi$. \\
 \code{soft\_limit.py}       & Do radiative events with $v\to0$ become Born? \\
 \code{compare\_machines.py} & Do two machines give the same sample? \\
+\code{bw\_look.py}          & What does the Breit--Wigner draw change? Two
+                              samples overlaid, mass fixed against mass drawn. \\
+\code{bw\_closure.py}       & Is the mass spectrum the one it should be?
+                              Events against BW$/N(W^2)\times\int\sborn$. \\
 \code{estimate\_rate.py}    & How long will this card take, before starting? \\
 \bottomrule
 \end{tabular}
