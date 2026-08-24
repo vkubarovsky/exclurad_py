@@ -26,8 +26,14 @@ from validate_lund import read, MESON  # noqa: E402
 
 M_P = 0.93827208816
 
-# Границы ФИКСИРОВАНЫ: наборы должны лечь на одну сетку.
-BINS = {
+# Границы ФИКСИРОВАНЫ: наборы разных машин должны лечь на одну сетку, иначе
+# сравнивать нечего.  Но фиксированы они ПО КАНАЛУ, а не на все сразу: эти
+# числа были подобраны под пи0, и у J/psi, живущего при Q2 < 0.25 и
+# W около 4.2, гистограмма по Q2 от 0.5 до 5.0 вышла бы пустой.
+#
+# Берутся из КАРТОЧКИ канала -- она одна и та же на всех машинах, поэтому
+# сетка остаётся общей, и при этом сама подстраивается под коробку.
+BINS_PI0 = {
     "Q2":    (0.5, 5.0, 45),
     "xB":    (0.03, 0.62, 45),
     "mt":    (0.0, 3.0, 45),
@@ -39,6 +45,42 @@ BINS = {
     "v_rec": (-0.02, 0.30, 40),
     "Egam":  (0.0, 5.0, 40),
 }
+BINS = dict(BINS_PI0)          # заполняется set_bins() под нужный канал
+
+
+def set_bins(channel, card=None):
+    """Сетка под коробку канала.  Без карточки остаётся пи0-шная."""
+    global BINS
+    if card is None:
+        here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        card = os.path.join(here, "cards", "rad_%s.txt" % channel)
+    if not os.path.exists(card):
+        print("  (карточки %s нет -- сетка остаётся пи0-шной)" % card)
+        return
+    v = [ln.split("!")[0].strip()
+         for ln in open(card) if ln.split("!")[0].strip()]
+    W2 = [float(x) for x in v[4].split()]
+    Q2 = [float(x) for x in v[5].split()]
+    t = [abs(float(x)) for x in v[6].split()]
+    vcut = float(v[7].replace("d", "e"))
+    y = [float(x) for x in v[13].split()] if len(v) > 13 else [0.1, 0.95]
+    xB = [float(x) for x in v[14].split()] if len(v) > 14 else [0.0, 0.62]
+    E0 = float(v[1])
+    nu = [(W2[0] - 0.8803 + Q2[0]) / (2 * 0.93827),
+          (W2[1] - 0.8803 + Q2[1]) / (2 * 0.93827)]
+    B = dict(BINS_PI0)
+    B["Q2"] = (Q2[0], Q2[1], 45)
+    B["W"] = (W2[0] ** 0.5, W2[1] ** 0.5, 45)
+    B["mt"] = (min(t), max(t), 45)
+    B["y"] = (y[0], y[1], 45)
+    B["xB"] = (xB[0], xB[1], 45)
+    B["nu"] = (max(nu[0], 0.0), min(nu[1], E0), 45)
+    B["pT2"] = (0.0, max(t), 45)
+    # v_rec: до ката плюс хвост от радиатора; при vcut = 0 -- до предела
+    hi = 0.30 if vcut <= 0 else 1.5 * vcut
+    B["v_rec"] = (-0.02, hi, 40)
+    B["Egam"] = (0.0, E0 / 2.0, 40)
+    BINS = B
 LABEL = {
     "Q2": r"$Q^2$ (GeV$^2$)", "xB": r"$x_B$", "mt": r"$-t$ (GeV$^2$)",
     "y": r"$y$", "W": r"$W$ (GeV)", "nu": r"$\nu$ (GeV)",
@@ -188,6 +230,7 @@ def main():
     ap.add_argument("-c", "--channel", default="pi0")
     ap.add_argument("-o", "--out", default="compare_machines.png")
     a = ap.parse_args()
+    set_bins(a.channel)
     if a.mode == "dump":
         do_dump(a.args[0], a.args[1], a.channel)
     else:
