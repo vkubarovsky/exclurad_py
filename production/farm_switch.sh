@@ -1,0 +1,65 @@
+#!/bin/bash
+# Переключение машины с одного канала на другой.
+#
+#   farm_switch.sh <тег> <канал> <ядер> <рубеж-epoch> <метка> [nev_rad]
+#
+# Смысл не в трёх командах, которые он выполняет, а в двух проверках перед
+# ними.
+#
+# ПЕРВАЯ.  git checkout переписывает run_prod_v1.sh.  Bash дочитывает
+# исполняемый скрипт по ходу дела, держа смещение в файле, поэтому
+# переключить код под живой петлёй значит подменить ей текст под ногами.
+# Убивать петлю тоже нельзя: она живёт в tmux, и сигнал уходит всей группе
+# вместе с воркерами -- так за неделю трижды пропал идущий счёт.
+# Единственный правильный порядок: touch STOP, дождаться выхода, потом код.
+#
+# ВТОРАЯ.  Тег должен отозваться после checkout.  Молчаливо остаться на
+# прежнем коммите -- ровно тот случай, когда выборка будет помечена одним
+# кодом, а посчитана другим, и понять это через месяц будет нечем.
+set -eu
+
+TAG=$1; CH=$2; J=$3; DEADLINE=$4; LABEL=$5; NEV=${6:-100000}
+CODE=${CODE:-/volatile/clas12/vpk/exclurad_py}
+DATA=${DATA:-/volatile/clas12/vpk/exclurad_py_data}
+OUT=$DATA/${CH}_v1
+
+# Ищем именно ИНТЕРПРЕТАТОР, запущенный на скрипте, а не любое упоминание
+# его имени: у ssh-команды, которая этот скрипт обсуждает, имя тоже в
+# командной строке.  Такое совпадение приводит к отказу, то есть в
+# безопасную сторону, но список процессов от него становится враньём.
+# pgrep -a на macOS нет -- поэтому ps.
+# Имя скрипта должно стоять НЕПОСРЕДСТВЕННО за интерпретатором: у обёртки
+# `bash -c ...` оно тоже есть, но дальше в тексте команды.
+LIVE=$(ps -u "$USER" -o pid=,args= | grep -E "[b]ash +[^ ]*run_prod_v1\.sh " || true)
+if [ -n "$LIVE" ]; then
+  echo "ОТКАЗ: петля ещё жива.  Поставьте STOP и дождитесь её выхода:"
+  echo "$LIVE" | head -3 | sed 's/^/    /'
+  exit 1
+fi
+if command -v squeue >/dev/null 2>&1 && [ "$(squeue -u "$USER" -h 2>/dev/null | wc -l)" -gt 0 ]; then
+  echo "ПРЕДУПРЕЖДЕНИЕ: в очереди slurm ещё есть задачи -- они читают код при старте."
+  squeue -u "$USER" -h -o "%.12i %.20j %.2t" | head -5
+  echo "Снимите ожидающие (scancel --state=PENDING -u $USER) или дождитесь их."
+  exit 1
+fi
+
+cd "$CODE"
+git fetch --tags --quiet
+git checkout --quiet "$TAG"
+GOT=$(git describe --tags)
+[ "$GOT" = "$TAG" ] || { echo "ОТКАЗ: просили $TAG, получили $GOT"; exit 1; }
+echo "код на $GOT"
+
+[ -f "cards/rad_$CH.txt" ] || { echo "ОТКАЗ: нет cards/rad_$CH.txt"; exit 1; }
+echo "карточка: cards/rad_$CH.txt"
+grep -vE "^\s*!|^\s*$" "cards/rad_$CH.txt" | sed -n '1p;4p;8p' | sed 's/^/    /'
+
+mkdir -p "$OUT"
+rm -f "$OUT/STOP"
+NEV_RAD=$NEV nohup ./production/run_prod_v1.sh "$CODE" "$OUT" \
+        "$(date +%s)" "$J" "$DEADLINE" "$LABEL" "$CH" \
+        >> "$DATA/${CH}_v1.log" 2>&1 < /dev/null &
+disown
+echo "запущено: $CH, $J ядер, до $(date -d "@$DEADLINE" '+%d.%m %H:%M' 2>/dev/null || date -r "$DEADLINE" '+%d.%m %H:%M')"
+echo "лог: $DATA/${CH}_v1.log"
+echo "остановка: touch $OUT/STOP"
