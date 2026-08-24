@@ -44,6 +44,34 @@ if command -v squeue >/dev/null 2>&1 && [ "$(squeue -u "$USER" -h 2>/dev/null | 
 fi
 
 cd "$CODE"
+
+# Рабочее дерево должно быть чистым, иначе checkout откажется.  Два случая
+# различаются и лечатся по-разному.
+#
+# Отслеживаемый файл изменён -- это чья-то правка, и трогать её нельзя:
+# отказываемся и показываем, что именно.
+DIRTY=$(git status --porcelain --untracked-files=no)
+if [ -n "$DIRTY" ]; then
+  echo "ОТКАЗ: в $CODE есть изменённые отслеживаемые файлы:"
+  echo "$DIRTY" | sed 's/^/    /'
+  exit 1
+fi
+# Неотслеживаемый файл, который есть в целевом теге -- это остаток ручного
+# разворачивания (так на обеих машинах лежали report_run.py и
+# compare_machines.py, разложенные до того, как они попали в репозиторий).
+# checkout на нём падает.  Убираем в сторону с отметкой, а не удаляем.
+STASH="$CODE/../exclurad_py_untracked_$(date +%Y%m%d_%H%M%S)"
+MOVED=0
+while IFS= read -r f; do
+  [ -z "$f" ] && continue
+  if git cat-file -e "$TAG:$f" 2>/dev/null; then
+    mkdir -p "$STASH/$(dirname "$f")"
+    mv "$f" "$STASH/$f"
+    MOVED=$((MOVED + 1))
+  fi
+done <<< "$(git ls-files --others --exclude-standard)"
+[ "$MOVED" -gt 0 ] && echo "убрано в сторону неотслеживаемых файлов: $MOVED -> $STASH"
+
 # --force обязателен.  Обычный `git fetch --tags` НЕ обновляет тег, который
 # на машине уже есть: он исходит из того, что теги неподвижны.  Тег
 # prod-vm-v1 двигался дважды 24.08 (данных под ним ещё не было, поэтому это

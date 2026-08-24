@@ -36,6 +36,10 @@ import sys
 
 import numpy as np
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from exclurad_py.generator.breit_wigner import (            # noqa: E402
+    DELTA_WIDTH, M_DAUGHTER, WIDTH)
+
 M_P = 0.93827208816
 ATOL = 1e-6
 # Насколько остаток может отклоняться от «светоподобный, вдоль пучка».
@@ -54,6 +58,15 @@ CHANNEL_PID = {"pi0": 111, "eta": 221, "rho": 113, "phi": 333, "jpsi": 443}
 # (models/vector.py:290), a deliberate 49 keV convention rather than an
 # error.  read_events already tolerates it; do the same here and say so.
 MASS_TOL = {333: 6e-5}
+
+# Каналы, у которых масса РАЗЫГРЫВАЕТСЯ.  Сравнивать её с полюсом нельзя: у
+# phi так падали 1962 события из 2000, и падали правильно с точки зрения
+# проверки и неправильно по сути -- масса и не должна быть полюсной.
+# Согласие записанной массы с четырёх-вектором проверяется отдельно
+# (массовая оболочка) и остаётся в силе; здесь проверяется, что масса лежит
+# в том окне, из которого её вообще могли разыграть.  Границы берутся из
+# таблицы генератора, а не переписываются сюда.
+BW_PID = {113: "rho", 333: "phi", 223: "omega"}
 
 
 def check_file(path, ch, nmax=0):
@@ -132,7 +145,13 @@ def check_file(path, ch, nmax=0):
                 worst["shell"] = max(worst["shell"], d_shell / tol_shell)
                 if d_shell > tol_shell:
                     shell_bad = True
-                if pid in PDG_MASS:
+                bwc = BW_PID.get(pid)
+                if bwc is not None and WIDTH.get(bwc, 0.0) >= DELTA_WIDTH:
+                    lo = 2.0 * M_DAUGHTER[bwc] - 1e-6
+                    hi = PDG_MASS[pid] + 5.0 * WIDTH[bwc] + 1e-6
+                    if not (lo <= m_written <= hi):
+                        pdg_bad = True
+                elif pid in PDG_MASS:
                     if abs(m_written - PDG_MASS[pid]) > MASS_TOL.get(pid, 1e-6):
                         pdg_bad = True
 
@@ -239,7 +258,7 @@ def main(ch, patterns, nmax=0):
              "charge", "photon", "polarisation")
     names = dict(malformed="битые заголовки", count="счётчик частиц",
                  momentum="четырёхимпульс", shell="массовая оболочка",
-                 pdg_mass="масса против PDG", decay="замыкание распада",
+                 pdg_mass="масса против PDG / окна Брейта-Вигнера", decay="замыкание распада",
                  charge="заряд", photon="радиационный фотон",
                  polarisation="поляризация в заголовке")
     fails = 0
