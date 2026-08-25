@@ -17,11 +17,33 @@ no stamp cannot be traced back to the model that made it.
 
 import os
 import subprocess
+
+# Читать версию -- значит ТОЛЬКО читать.  `git status` иначе обновляет индекс
+# и берёт .git/index.lock; двести частей на одном репозитории делают это
+# разом, а брошенный замок потом не даёт сделать checkout -- так и случилось
+# 23.08, замок пришлось снимать руками.
+_GIT_ENV = dict(os.environ, GIT_OPTIONAL_LOCKS="0")
 import sys
 
 VERSION = "0.1.0"
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
+
+
+# Версия, переданная через окружение тем, кто запускал.  Ставится один раз
+# на машине, где git заведомо работает, и переживает любой отказ git внутри
+# задачи.  25.08: девять slurm-частей из 551 записались с version_tag
+# "unknown" при живом git на узле -- git_branch у них отработал, а git_hash и
+# git_tag нет.  Причину воспроизвести не удалось (сорок одновременных вызовов
+# на ферме прошли без отказов), поэтому лечится не причина, а путь: три
+# независимых способа узнать версию вместо одного.
+_ENV_KEYS = dict(commit="EXCLURAD_COMMIT", tag="EXCLURAD_TAG",
+                 branch="EXCLURAD_BRANCH")
+
+
+def _env_version(key):
+    v = os.environ.get(_ENV_KEYS.get(key, ""), "").strip()
+    return v or None
 
 
 def _deployed_version(key):
@@ -36,6 +58,9 @@ def _deployed_version(key):
     production/deploy.sh writes exclurad_py/DEPLOYED_VERSION next to the
     package; this reads it as the fallback.
     """
+    v = _env_version(key)
+    if v:
+        return v
     f = os.path.join(_HERE, "DEPLOYED_VERSION")
     try:
         for line in open(f):
@@ -54,15 +79,24 @@ def git_hash(short=True):
         if short:
             args.append("--short")
         args.append("HEAD")
-        out = subprocess.run(args, capture_output=True, text=True, timeout=5)
+        out = subprocess.run(args, capture_output=True, text=True, timeout=20,
+                             env=_GIT_ENV)
         if out.returncode != 0:
             return _deployed_version("commit")
         h = out.stdout.strip()
-        dirty = subprocess.run(["git", "-C", _HERE, "status", "--porcelain"],
-                               capture_output=True, text=True, timeout=5)
-        if dirty.returncode == 0 and dirty.stdout.strip():
-            h += "-dirty"
-        return h or "unknown"
+        if not h:
+            return _deployed_version("commit")
+        # Проверка на грязное дерево -- отдельно.  Раньше её отказ выбрасывал
+        # уже полученный хеш и превращал известную версию в "unknown".
+        try:
+            dirty = subprocess.run(["git", "-C", _HERE, "status", "--porcelain"],
+                                   capture_output=True, text=True, timeout=20,
+                                   env=_GIT_ENV)
+            if dirty.returncode == 0 and dirty.stdout.strip():
+                h += "-dirty"
+        except Exception:
+            h += "-?"          # чисто оно или нет -- неизвестно, но хеш есть
+        return h
     except Exception:
         return _deployed_version("commit")
 
@@ -77,7 +111,8 @@ def git_tag():
     try:
         out = subprocess.run(["git", "-C", _HERE, "describe", "--tags",
                               "--always", "--dirty"],
-                             capture_output=True, text=True, timeout=5)
+                             capture_output=True, text=True, timeout=20,
+                             env=_GIT_ENV)
         return (out.stdout.strip() if out.returncode == 0
                 else _deployed_version("tag")) or _deployed_version("tag")
     except Exception:
@@ -88,7 +123,8 @@ def git_branch():
     try:
         out = subprocess.run(["git", "-C", _HERE, "rev-parse",
                               "--abbrev-ref", "HEAD"],
-                             capture_output=True, text=True, timeout=5)
+                             capture_output=True, text=True, timeout=20,
+                             env=_GIT_ENV)
         return (out.stdout.strip() if out.returncode == 0
                 else _deployed_version("branch"))
     except Exception:

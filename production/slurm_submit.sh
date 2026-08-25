@@ -65,12 +65,32 @@ cat > "$TASKSH" <<'TASK'
 #SBATCH --output=@OUT@/logs/@MODE@_%a.out
 cd @CODE@
 export PYTHONPATH=@CODE@
-export TABLE_SERIAL=1 ETA_PROPOSAL_CAP=5 EXACT_ACCEPT=1 EXPO_TAIL=1 MAJ_SAFETY=4.0
+# Версия снята при ПОСТАНОВКЕ, на узле входа, где git работает.  На счётном
+# узле git может не отработать, и часть запишется безымянной.
+export EXCLURAD_COMMIT=@COMMIT@ EXCLURAD_TAG=@TAGV@ EXCLURAD_BRANCH=@BRANCH@
+export TABLE_SERIAL=1 ETA_PROPOSAL_CAP=5 EXACT_ACCEPT=1 EXPO_TAIL=1
+export MAJ_SAFETY=@SAFETY@
+@SHAPELINE@
 python3 -u @OUT@/part_runner.py @OUT@/card_@IBORN@.txt \
         "$SLURM_ARRAY_TASK_ID" @NPART@ \
         "$(( @SEED@ + 7700 * SLURM_ARRAY_TASK_ID ))"
 TASK
-sed -i.bak -e "s|@TLIM@|$TLIM|g" -e "s|@OUT@|$OUT|g" -e "s|@CODE@|$CODE|g" \
+# Сетка и запас мажоранты -- те же, что в run_prod_v1.sh.  Здесь стоял
+# MAJ_SAFETY=4.0 жёстко, и phi через slurm считался вдвое медленнее, чем
+# показал замер; настройки, померенные один раз, обязаны действовать всюду.
+case "$CH" in
+  jpsi) SAFETY=1.6; SHAPE=16,8,16,12 ;;
+  phi)  SAFETY=1.6; SHAPE= ;;
+  *)    SAFETY=4.0; SHAPE= ;;
+esac
+SHAPELINE=$([ -n "$SHAPE" ] && echo "export MAJ_SHAPE=$SHAPE" || echo "unset MAJ_SHAPE 2>/dev/null || true")
+VERC=$(cd "$CODE" && python3 -c "from exclurad_py.provenance import git_hash; print(git_hash())" 2>/dev/null || echo unknown)
+VERT=$(cd "$CODE" && python3 -c "from exclurad_py.provenance import git_tag; print(git_tag())" 2>/dev/null || echo unknown)
+VERB=$(git -C "$CODE" rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)
+echo "версия при постановке: $VERT ($VERC, $VERB)"
+sed -i.bak -e "s|@SAFETY@|$SAFETY|g" -e "s|@SHAPELINE@|$SHAPELINE|g" \
+           -e "s|@COMMIT@|$VERC|g" -e "s|@TAGV@|$VERT|g" -e "s|@BRANCH@|$VERB|g" \
+           -e "s|@TLIM@|$TLIM|g" -e "s|@OUT@|$OUT|g" -e "s|@CODE@|$CODE|g" \
            -e "s|@IBORN@|$IBORN|g" -e "s|@NPART@|$NPART|g" -e "s|@SEED@|$SEED|g" \
            -e "s|@MODE@|$MODE|g" "$TASKSH"
 rm -f "$TASKSH.bak"

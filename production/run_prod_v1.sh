@@ -102,6 +102,11 @@ run(card, verbose=(ipart == 1), _part=(ipart, npart, seed))
 PYRUN
 
 VER=$(python3 -c "from exclurad_py.provenance import git_hash, git_tag; print(git_hash(), git_tag())" 2>/dev/null || echo "unknown unknown")
+# Версия считается ЗДЕСЬ, один раз, где git заведомо работает, и передаётся
+# частям через окружение.  Внутри части git может не отработать -- 25.08 так
+# вышло у девяти slurm-частей из 551, и они записались безымянными.
+export EXCLURAD_COMMIT=${VER%% *} EXCLURAD_TAG=${VER##* }
+export EXCLURAD_BRANCH=$(git -C "$REPO" rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)
 
 # README пишется КАЖДЫЙ запуск, а не только первый.  Раньше он создавался
 # при отсутствии -- чтобы не затирать, -- и перезапуск с другим NEV_RAD или
