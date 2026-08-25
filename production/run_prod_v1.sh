@@ -53,7 +53,11 @@ STALL_S=${STALL_S:-2400}         # столько секунд без приро
 # Lustre под нагрузкой может держать запись минутами, и убивать за это
 # нельзя; многочасовое зависание 2400 с ловит так же надёжно.
 PART_MAX_H=${PART_MAX_H:-12}     # абсолютный предел на часть, часов
-[ -f "$REPO/cards/rad_$CH.txt" ] || { echo "нет карточки cards/rad_$CH.txt"; exit 1; }
+# Карточку можно назвать явно (env CARD).  Иначе берётся rad_<канал>.txt.
+# Нужно для отдельных исследований -- например, ро под разбивку статьи по BSA,
+# где коробка и обрезание свои, а канал тот же.
+CARD=${CARD:-$REPO/cards/rad_$CH.txt}
+[ -f "$CARD" ] || { echo "нет карточки $CARD"; exit 1; }
 
 STOP=$OUT/STOP
 mkdir -p "$OUT"
@@ -119,7 +123,7 @@ fi
 if true; then
   # Коробка берётся ИЗ КАРТОЧКИ, а не переписывается сюда руками: описание,
   # разошедшееся с тем, чем считали, хуже отсутствующего.
-  BOX=$(python3 - "$REPO/cards/rad_$CH.txt" <<'BOXPY'
+  BOX=$(python3 - "$CARD" <<'BOXPY'
 import pathlib, sys
 names = {1: "модель", 2: "E пучка, ГэВ", 5: "W2, ГэВ^2", 6: "Q2, ГэВ^2",
          7: "t, ГэВ^2", 8: "v_cut, ГэВ^2", 14: "y", 15: "xB", 16: "каты",
@@ -236,7 +240,7 @@ supervise () {
 }
 
 mkcard () {   # $1=iborn $2=nev $3=имя
-  python3 - "$1" "$2" "$OUT/$3" "$REPO/cards/rad_$CH.txt" <<'PY'
+  python3 - "$1" "$2" "$OUT/$3" "$CARD" <<'PY'
 import re, pathlib, sys
 ib, nev, dst = sys.argv[1:4]
 k = 0; out = []

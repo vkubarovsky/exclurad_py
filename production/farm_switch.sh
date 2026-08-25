@@ -84,13 +84,14 @@ GOT=$(git describe --tags)
 [ "$GOT" = "$TAG" ] || { echo "ОТКАЗ: просили $TAG, получили $GOT"; exit 1; }
 echo "код на $GOT"
 
-[ -f "cards/rad_$CH.txt" ] || { echo "ОТКАЗ: нет cards/rad_$CH.txt"; exit 1; }
-echo "карточка: cards/rad_$CH.txt"
-grep -vE "^\s*!|^\s*$" "cards/rad_$CH.txt" | sed -n '1p;4p;8p' | sed 's/^/    /'
+CARD=${CARD:-$CODE/cards/rad_$CH.txt}
+[ -f "$CARD" ] || { echo "ОТКАЗ: нет $CARD"; exit 1; }
+echo "карточка: $CARD"
+grep -vE "^\s*!|^\s*$" "$CARD" | sed -n '1p;4p;8p' | sed 's/^/    /'
 
 mkdir -p "$OUT"
 rm -f "$OUT/STOP"
-NEV_RAD=$NEV nohup ./production/run_prod_v1.sh "$CODE" "$OUT" \
+NEV_RAD=$NEV CARD=$CARD nohup ./production/run_prod_v1.sh "$CODE" "$OUT" \
         "$(date +%s)" "$J" "$DEADLINE" "$LABEL" "$CH" \
         >> "$DATA/${CH}_v1.log" 2>&1 < /dev/null &
 disown
