@@ -19,6 +19,8 @@ FIGS=(
   "bw_look_phi.png|BW_сравнение_phi.png"
   "bw_closure_rho.png|BW_замыкание_rho.png"
   "bw_closure_phi.png|BW_замыкание_phi.png"
+  "machines_jpsi.png|сверка_машин_jpsi.png"
+  "machines_phi.png|сверка_машин_phi.png"
 )
 DOCS=(
   "manual/exclurad_py_manual.pdf|exclurad_py_мануал.pdf"
@@ -54,6 +56,12 @@ done
   echo '  масса тянет за собой: у rho передача, импульс и угол пи+, угол'
   echo '  разлёта пары; у phi всё внутри полупроцента, как и должно быть'
   echo '  при ширине 4 МэВ.'
+  echo '- `сверка_машин_jpsi.png` -- J/psi, ноутбук (10 ядер) против'
+  echo '  ifarm2402 (24 ядра); `сверка_машин_phi.png` -- phi, мак-мини против'
+  echo '  пакетной фермы (slurm).  Первый боевой круг каждого канала, тег'
+  echo '  prod-vm-v1.  Отклонения ложатся как чистая статистика: rms 0.95 и'
+  echo '  0.99, за 3 сигмы ноль бинов из 300 и один из 373 при ожидании 0.8'
+  echo '  и 1.0.'
   echo '- `BW_замыкание_*.png` -- спектр масс в событиях против'
   echo '  предсказания BW/N(W^2) x интеграл sigma_Born, посчитанного'
   echo '  квадратурой по коробке без мажоранты и без accept-reject.'

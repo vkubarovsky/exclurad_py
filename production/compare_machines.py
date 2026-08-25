@@ -95,37 +95,47 @@ def edges(key):
 
 
 def recon(files, channel, E0=10.6):
-    det_pid = 2212 if channel in ("pi0", "eta") else MESON[channel][0]
-    mU2 = (MESON[channel][1] ** 2 if channel in ("pi0", "eta") else M_P ** 2)
+    """Неупругость и азимут при НОМИНАЛЬНОЙ энергии пучка -- как их видит
+    анализ, знающий только e' и зарегистрированный адрон.
+
+    Свой разборщик здесь был и искал зарегистрированный адрон как частицу со
+    СТАТУСОМ 1.  У векторных мезонов при idecay=1 мезон записан документацией
+    со статусом 0, а живут в файле его дочерние, поэтому для rho, phi и J/psi
+    не находилось ничего: панели по азимуту и по неупругости выходили пустыми
+    и просто не рисовались.  Азимут при этом -- та переменная, по которой
+    радиационная поправка меняется сильнее всего.
+
+    Теперь чтение идёт через validate_lund.read, который уже собирает мезон
+    из дочерних; заодно исчез второй разборщик LUND.
+    """
+    det_is_proton = channel in ("pi0", "eta")
+    mU2 = (MESON[channel][1] ** 2 if det_is_proton else M_P ** 2)
     vs, phis = [], []
     for path in files:
-        el = det = None
-        for line in open(path):
-            q = line.split()
-            if len(q) != 14:
-                el = det = None
-                continue
-            pid, st = int(q[3]), int(q[2])
-            p4 = np.array([float(q[6]), float(q[7]), float(q[8]), float(q[9])])
-            if pid == 11 and st == 1:
-                el = p4
-            elif pid == det_pid and st == 1:
-                det = p4
-            if el is not None and det is not None:
-                X = np.array([0.0, 0.0, E0, E0 + M_P]) - el - det
-                vs.append(X[3] ** 2 - X[:3] @ X[:3] - mU2)
-                beam = np.array([0.0, 0.0, E0])
-                qv = beam - el[:3]
-                nq = np.linalg.norm(qv)
-                if nq > 1e-12:
-                    qh = qv / nq
-                    aa = np.cross(qh, beam)
-                    bb = np.cross(qh, X[:3])
-                    den = max(np.linalg.norm(aa) * np.linalg.norm(bb), 1e-12)
-                    phis.append(np.degrees(np.arctan2(
-                        float(np.cross(beam, X[:3]) @ qh) / den,
-                        float(aa @ bb) / den)) % 360.0)
-                el = det = None
+        d = read(path, channel)
+        if not d["N"]:
+            continue
+        el = np.asarray(d["p_scat"])                 # (E, px, py, pz)
+        det = (np.asarray(d["p_rec"]) if det_is_proton
+               else np.asarray(d["p_da"]) + np.asarray(d["p_db"]))
+        # X = beam + target - e' - detected, всё при НОМИНАЛЬНОЙ энергии
+        Xe = E0 + M_P - el[:, 0] - det[:, 0]
+        Xp = -el[:, 1:] - det[:, 1:]
+        Xp[:, 2] += E0
+        vs.extend(Xe ** 2 - np.einsum("ij,ij->i", Xp, Xp) - mU2)
+
+        beam = np.array([0.0, 0.0, E0])
+        qv = beam - el[:, 1:]
+        nq = np.linalg.norm(qv, axis=1)
+        ok = nq > 1e-12
+        qh = qv[ok] / nq[ok, None]
+        aa = np.cross(qh, beam)
+        bb = np.cross(qh, Xp[ok])
+        den = np.maximum(np.linalg.norm(aa, axis=1) * np.linalg.norm(bb, axis=1),
+                         1e-12)
+        num = np.einsum("ij,ij->i", np.cross(beam, Xp[ok]), qh) / den
+        cos = np.einsum("ij,ij->i", aa, bb) / den
+        phis.extend(np.degrees(np.arctan2(num, cos)) % 360.0)
     return np.array(vs), np.array(phis)
 
 
@@ -229,8 +239,13 @@ def main():
     ap.add_argument("args", nargs="+")
     ap.add_argument("-c", "--channel", default="pi0")
     ap.add_argument("-o", "--out", default="compare_machines.png")
+    # Карточку можно назвать явно.  Иначе она ищется рядом со скриптом, а
+    # скрипт бывает скопирован в сторону -- и тогда сетка молча остаётся
+    # пи0-шной, что для J/psi означает пустую картинку с видом картинки.
+    ap.add_argument("-k", "--card", default=None,
+                    help="карточка канала; по умолчанию ../cards/rad_<ch>.txt")
     a = ap.parse_args()
-    set_bins(a.channel)
+    set_bins(a.channel, a.card)
     if a.mode == "dump":
         do_dump(a.args[0], a.args[1], a.channel)
     else:
