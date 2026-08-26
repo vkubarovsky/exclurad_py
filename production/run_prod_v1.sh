@@ -206,9 +206,12 @@ supervise () {
   local -a last_cpu last_change
   t0=$(date +%s)
   for ((i = 0; i < n; i++)); do last_cpu[$i]=""; last_change[$i]=$t0; done
+  local last_moan=0
   while :; do
     alive=0
+    n_stalled=0
     now=$(date +%s)
+    # ПЕРВЫЙ проход: обновить счётчики и сосчитать, сколько стоит.
     for ((i = 0; i < n; i++)); do
       p=${pids[$i]}
       [ -z "$p" ] && continue
@@ -219,7 +222,27 @@ supervise () {
         last_cpu[$i]=$cpu
         last_change[$i]=$now
       fi
+      [ $((now - ${last_change[$i]})) -gt "$STALL_S" ] && n_stalled=$((n_stalled + 1))
+    done
+    # ВТОРОЙ проход: решать.
+    for ((i = 0; i < n; i++)); do
+      p=${pids[$i]}
+      [ -z "$p" ] && continue
+      kill -0 "$p" 2>/dev/null || { pids[$i]=""; continue; }
       if [ $((now - ${last_change[$i]})) -gt "$STALL_S" ]; then
+        # Если стоят ВСЕ части разом -- это не зависание части, это машина:
+        # ноутбук ушёл в сон, файловая система встала, узел вытеснен.
+        # Убивать в этом случае нельзя ни одну.  26.08 так погиб целый
+        # радиационный круг J/psi на ноутбуке: тот заснул, десять частей
+        # подряд перестали жечь такты, надзор снял все десять, и защита от
+        # пустого круга уронила петлю.  Двенадцать часов счёта.
+        if [ "$n_stalled" -ge "$alive" ]; then
+          if [ $((now - last_moan)) -gt 900 ]; then
+            echo "@@@ $TAG ВСЕ $alive частей стоят -- похоже, встала машина (сон? диск?), НЕ снимаю"
+            last_moan=$now
+          fi
+          continue
+        fi
         echo "@@@ $TAG ЗАВИСАНИЕ: часть $((i + 1)) (pid $p) не жжёт процессор ${STALL_S} с -- снимаю"
       elif [ $((now - t0)) -gt $((PART_MAX_H * 3600)) ]; then
         echo "@@@ $TAG ПРЕДЕЛ: часть $((i + 1)) (pid $p) идёт больше ${PART_MAX_H} ч -- снимаю"
