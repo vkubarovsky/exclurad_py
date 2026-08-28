@@ -191,3 +191,137 @@ class Pi0_VPK2014(Pi0_VPK2013):
     provenance = ("DEPRECATED ALIAS of pi0.vpk2013 -- identical parameters. "
                   "Kept so older scripts and notes resolve; prefer "
                   "pi0.vpk2013, which names the production year correctly.")
+
+
+# --------------------------------------------------------------------------- #
+#  2021 functional form, refitted 2026 in the helicity-amplitude basis
+# --------------------------------------------------------------------------- #
+#
+# The forms are those of the March-2021 GT fit -- exp[(b + b' (ln xB - ln 0.15))
+# t] (Q2)^(c/2), one curvature term added -- which is why the vintage tag is
+# "amp2021".  The PARAMETERS are new: a 27-parameter fit made in 2026 to 639
+# CLAS points (pi0 and eta sigma_U/sigma_TT/sigma_LT, pi0 and eta beam-spin
+# asymmetries at 5.78 GeV, pi0 BSA at 10.6 GeV, eg1-dvcs target and double-spin
+# moments), chi2/ndf = 1.48.
+#
+# What is different from pi0.vpk2021 / eta.tableB1, and why it matters here:
+#
+#   * the fit parameters are the six helicity amplitudes T00^(+/-), T01^(+/-),
+#     U01^(+/-) per quark flavour, not the structure functions.  The five SFs
+#     below are entries of the Gram matrix of the channel vectors (u,v,w), so
+#     positivity (|sigma_TT| <= sigma_T, and the LT minor) holds identically
+#     and the generator's negative-weight clamp is never reached;
+#   * sigma_L is NOT zero.  It is separated from sigma_T without a Rosenbluth
+#     measurement, through the interferences that carry T00 linearly;
+#     sigma_L/sigma_T ~ 0.056 at Q2=1.94, xB=0.25, -t=0.4;
+#   * sigma_LT' is fitted to the beam-spin asymmetries, not set to a fixed
+#     fraction of sigma_U.  NOTE: a nonzero sigma_LT' makes the generator warn
+#     about EXACT_ACCEPT (the eta table is built at one helicity); that warning
+#     is about polarised samples only;
+#   * sigma_LT comes out with the measured (small, sign-changing) size because
+#     its sign is Re<T00|T01> with a fitted phase, not a positive-definite form;
+#   * ONE parameter set serves all four target/meson combinations below.
+#
+# Source of the parameters: ~/pi0_eta_amplitude_model (amplitudes.py, the fits
+# fit_global.py -> fit_level3.py -> fit_clas12.py, fitpar_amp27c.npy) and the
+# draft paper paper/paper.tex there.  Frozen copy: models/amp2021_par.npy.
+
+import os as _os
+import numpy as _np
+from . import _amplitude_fit as _AF
+
+_AMP_PAR = _np.load(_os.path.join(_os.path.dirname(__file__), "amp2021_par.npy"))
+
+# The CLAS6 fit domain.  Outside it the analytic forms extrapolate smoothly
+# (exponential in t, power in Q2); OutOfRange.REPORT counts the excursions.
+_AMP_VALIDITY = dict(W2=(4.0, 20.0), Q2=(1.0, 6.5), mt=(0.0, 2.5))
+
+_AMP_REF = ("PRC 90 025205; PRC 95 035202; PRC 77 042201; PLB 789 426; "
+            "PLB 849 138459; PLB 768 168; PoS SPIN2018 034")
+
+_AMP_PROV = (
+    "2021 functional form, REFITTED 2026 in the helicity-amplitude basis: "
+    "27 parameters, 639 CLAS points, chi2/ndf=1.48. Not the 2021 parameters "
+    "-- see pi0.vpk2021 for those. sigma_L != 0, sigma_LT' fitted, positivity "
+    "exact, one parameter set for pi0/eta on p and n. ")
+
+
+def _amp_sfs(channel, t_nucl, xB, Q2):
+    """(sT, sL, sTT, sLT, sLTp) in nb/GeV^2, canonical (meson-plane) sign."""
+    t = _np.atleast_1d(_np.asarray(t_nucl, dtype=float))
+    x = _np.atleast_1d(_np.asarray(xB, dtype=float))
+    q = _np.atleast_1d(_np.asarray(Q2, dtype=float))
+    t, x, q = _np.broadcast_arrays(t, x, q)
+    out = _np.zeros((5,) + t.shape)
+    o = out.reshape(5, -1)
+    for i, (ti, xi, qi) in enumerate(zip(t.ravel(), x.ravel(), q.ravel())):
+        s = _AF.structure(_AMP_PAR, channel, float(ti), float(xi), float(qi))
+        if s is None:                      # below meson threshold in t
+            continue
+        o[0, i], o[1, i] = s["T"], s["L"]
+        o[2, i], o[3, i], o[4, i] = s["TT"], s["LT"], s["LTp"]
+    if out.shape[1:] == (1,):
+        return tuple(float(v) for v in out[:, 0])
+    return tuple(out)
+
+
+@register
+class Pi0_Amp2021(ProtonDetectedModel):
+    name = "pi0.amp2021"
+    channel = "pi0"
+    version = "amp2021"
+    topology = _PI0_TOPO
+    validity = _AMP_VALIDITY
+    provenance = _AMP_PROV + "pi0 off the PROTON: (2F^u + F^d)/(3 sqrt2)."
+    reference = _AMP_REF
+
+    def _sfs_tn(self, t_nucl, xB, Q2):
+        return _amp_sfs("pi0p", t_nucl, xB, Q2)
+
+
+@register
+class Eta_Amp2021(ProtonDetectedModel):
+    name = "eta.amp2021"
+    channel = "eta"
+    version = "amp2021"
+    topology = _ETA_TOPO
+    validity = _AMP_VALIDITY
+    provenance = (_AMP_PROV + "eta off the PROTON: (2F^u - F^d)/(3 sqrt6 k), "
+                  "k = 0.863 transverse (chiral condensate + eta8-eta1 mixing), "
+                  "0.695 longitudinal (decay constants only). No free parameter.")
+    reference = _AMP_REF
+
+    def _sfs_tn(self, t_nucl, xB, Q2):
+        return _amp_sfs("etap", t_nucl, xB, Q2)
+
+
+@register
+class Pi0n_Amp2021(ProtonDetectedModel):
+    name = "pi0n.amp2021"
+    channel = "pi0"
+    version = "amp2021-n"
+    topology = _PI0_TOPO
+    validity = _AMP_VALIDITY
+    provenance = (_AMP_PROV + "pi0 off the NEUTRON: isospin rotation "
+                  "(F^u + 2F^d)/(3 sqrt2). PREDICTION -- no neutron data was "
+                  "used in the fit. Compare Hall-A PRL 118 222002.")
+    reference = _AMP_REF
+
+    def _sfs_tn(self, t_nucl, xB, Q2):
+        return _amp_sfs("pi0n", t_nucl, xB, Q2)
+
+
+@register
+class Etan_Amp2021(ProtonDetectedModel):
+    name = "etan.amp2021"
+    channel = "eta"
+    version = "amp2021-n"
+    topology = _ETA_TOPO
+    validity = _AMP_VALIDITY
+    provenance = (_AMP_PROV + "eta off the NEUTRON: isospin rotation of the "
+                  "eta combination, k (2F^d - F^u)/(3 sqrt6) -- i.e. u <-> d "
+                  "relative to eta.amp2021. PREDICTION, never measured.")
+    reference = _AMP_REF
+
+    def _sfs_tn(self, t_nucl, xB, Q2):
+        return _amp_sfs("etan", t_nucl, xB, Q2)
