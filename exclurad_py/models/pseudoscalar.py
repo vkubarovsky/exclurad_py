@@ -234,7 +234,16 @@ _AMP_PAR = _np.load(_os.path.join(_os.path.dirname(__file__), "amp2021_par.npy")
 
 # The CLAS6 fit domain.  Outside it the analytic forms extrapolate smoothly
 # (exponential in t, power in Q2); OutOfRange.REPORT counts the excursions.
-_AMP_VALIDITY = dict(W2=(4.0, 20.0), Q2=(1.0, 6.5), mt=(0.0, 2.5))
+# W2 floor: the fit domain is W2 > 4, but the radiative tail samples below it.
+# Measured (production/tail_reach.py, v_cut = 0.17/0.20 of the published
+# analyses): the tail NODES reach W~2 ~ 1.4 for pi0, but the WEIGHT is
+# concentrated within ~0.6 GeV^2 of the observed W2.  Zeroing the model below
+# W2 = 3.6 moves eta by < 0.25% in the worst (lowest-W2) bin and by < 0.06% in
+# the bulk; below 4.0 it moves eta by up to 5.6%, so 4.0 is too tight a floor
+# and 3.6 is enough.  Declared 3.3 for margin -- 0.7 GeV^2 of smooth
+# extrapolation, not a resonance model.  For GENERATION with a loose v_cut the
+# tail is far longer and this floor does not apply; see the run cards.
+_AMP_VALIDITY = dict(W2=(3.3, 20.0), Q2=(1.0, 6.5), mt=(0.0, 2.5))
 
 _AMP_REF = ("PRC 90 025205; PRC 95 035202; PRC 77 042201; PLB 789 426; "
             "PLB 849 138459; PLB 768 168; PoS SPIN2018 034")
