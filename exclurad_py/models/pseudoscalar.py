@@ -446,9 +446,16 @@ class Etan_Amp2026(ProtonDetectedModel):
 #   any t.  b2 was a near-tmin fudge: dropping it costs 71 chi2 on the full set
 #   but only 11 once -t' > 0.3, where sigma_TT is not dominated by its own
 #   kinematic t' factor.
-# Cost: chi2 1083.7 -> 1179.1 (chi2/ndf 1.5504 -> 1.6845).  The R_ET prior is
-# now pulled +4.5 sigma (R_ET = 1.21) - the fit compensates the lost curvature
-# in the d/u ratio.  See ~/rc_iter1/README.md.
+# The fit also AVERAGES THE MODEL OVER THE ACCEPTED BIN VOLUME (PRC 90 025205
+# and PRC 95 035202 Tables I-III, cut by W > 2, E' > 0.8, 21-45 deg and by the
+# tmin boundary), instead of evaluating it at the published bin mean.  The
+# reconstruction reproduces the published bin means to 0.001-0.02 GeV^2.
+# Cost of removing b2, bin-averaged: chi2 1090.7 -> 1159.0 (chi2/ndf 1.5604 ->
+# 1.6557), and the R_ET prior ends pulled +4.3 sigma (R_ET = 1.18) - the fit
+# compensates the lost curvature in the d/u ratio.  Proper bin averaging did NOT
+# remove the need for b2, and did not remove the negative H_T^d slope of the
+# free fit either.  Both are physics choices, not binning artefacts.
+# See ~/rc_iter1/README.md.
 #
 # Use amp2026s for production.  amp2026 is kept frozen because the OneDrive
 # generator baseline (Work/2026_pi0_amplitudes/generator/) was produced with it.
