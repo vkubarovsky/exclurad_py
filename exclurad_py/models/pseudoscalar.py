@@ -441,11 +441,14 @@ class Etan_Amp2026(ProtonDetectedModel):
 # negative H_T^d slope over the whole measured xB range.  Imposed here:
 #   b + b' ln xB >= 0 for every block on xB in [0.1, 0.6];
 #   slope(H_T^d) >= slope(H_T^u), the ordering of the global GPD fits;
-#   Ebar_T slope including the b2 t^2 curvature >= 0 out to -t = 2.5, so the
-#   curvature cannot reverse the fall inside the validity window.
-# Cost: chi2 1083.7 -> 1108.1 (chi2/ndf 1.5504 -> 1.5853) for zero new parameters,
-# and all of it sits in eta sigma_U at -t > 1.2; inside -t <= 1.2 the ordering
-# costs 6 chi2 on 513 points.  See ~/rc_iter1/README.md.
+#   and the b2 t^2 curvature of Ebar_T is REMOVED (26 parameters, not 27), so
+#   every form factor is a pure falling exponential and no slope can reverse at
+#   any t.  b2 was a near-tmin fudge: dropping it costs 71 chi2 on the full set
+#   but only 11 once -t' > 0.3, where sigma_TT is not dominated by its own
+#   kinematic t' factor.
+# Cost: chi2 1083.7 -> 1179.1 (chi2/ndf 1.5504 -> 1.6845).  The R_ET prior is
+# now pulled +4.5 sigma (R_ET = 1.21) - the fit compensates the lost curvature
+# in the d/u ratio.  See ~/rc_iter1/README.md.
 #
 # Use amp2026s for production.  amp2026 is kept frozen because the OneDrive
 # generator baseline (Work/2026_pi0_amplitudes/generator/) was produced with it.
