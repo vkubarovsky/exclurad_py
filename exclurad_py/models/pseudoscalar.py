@@ -554,7 +554,10 @@ def _amp26n_sfs(channel, t_nucl, xB, Q2):
     out = _np.zeros((5,) + t.shape)
     o = out.reshape(5, -1)
     for i, (ti, xi, qi) in enumerate(zip(t.ravel(), x.ravel(), q.ravel())):
-        s = _AF2.structure(_AMP26N_PAR, channel, float(ti), float(xi), float(qi))
+        try:
+            s = _AF2.structure(_AMP26N_PAR, channel, float(ti), float(xi), float(qi))
+        except (ValueError, ZeroDivisionError):
+            continue                # ниже порога: см. комментарий в amp2026c
         if s is None:
             continue
         o[0, i], o[1, i] = s["T"], s["L"]
@@ -604,3 +607,108 @@ class Pi0n_Amp2026n(ProtonDetectedModel):
 
     def _sfs_tn(self, t_nucl, xB, Q2):
         return _amp26n_sfs("pi0n", t_nucl, xB, Q2)
+
+
+# --------------------------------------------------------------------------- #
+#  amp2026c: the 2026-09-05 fit, run C0_with_compass -- the production vector
+# --------------------------------------------------------------------------- #
+#
+# 37 parameters, chi2/ndf 1.392 on 1527 points, eleven data sets including
+# Hall-A 2021 (the only data above Q2 = 4.3; without it everything the
+# generator samples up there is extrapolation) and COMPASS.  Fitted on the
+# 2026-09-05 database revision: De Masi systematics restored (0.016 of
+# PRC 77 042201R), Hall-A neutron systematics digitised from PRL 118 222002
+# fig. 5, the invented 10% on y16/neutron removed, three normalisations
+# fitted as nuisances with Gaussian priors, phase windows repaired.
+#
+# Provenance: ~/rc_iter1 (github vkubarovsky/rc_iter1), commit 8952a51,
+# run tag C0_with_compass, fitpar.npy md5 3010e197137b561b9767c7c30c2913f4.
+#
+# The fitted normalisation nuisances (De Masi 1.059, y16 1.056, neutron
+# 0.978) are the EXPERIMENTS' scales and are deliberately NOT applied here:
+# the model as stored is the cross section.
+#
+# Known weaknesses inherited from the fit (HANDOVER 2026-09-05, section 5):
+# sigma_LT is the worst-described quantity (the cos phi shape is the least
+# trustworthy output); the single-power Q^nQ does not describe both ends of
+# Q2 1.2-8.3 at once; Hall-A 2016 sits at 4.5 per point; the neutron rests
+# on four points with 42-90% errors.
+
+_AMP26C_PAR = _np.load(_os.path.join(_os.path.dirname(__file__), "amp2026c_par.npy"))
+_AMP26C_PROV = ("Amplitude fit of 2026-09-05, run C0_with_compass "
+                "(rc_iter1 8952a51, md5 3010e19713...). Normalisation "
+                "nuisances NOT applied. ")
+# Fitted support: Q2 1.15-8.31, xB 0.13-0.60, |t| to ~1.8.  The box below is
+# the rectangular over-cover of that support (xB is not a box axis; the true
+# constraint is the xB range).
+_AMP26C_VALIDITY = dict(W2=(2.2, 16.0), Q2=(1.15, 8.31), mt=(0.0, 1.8))
+
+
+def _amp26c_sfs(channel, t_nucl, xB, Q2):
+    t = _np.atleast_1d(_np.asarray(t_nucl, dtype=float))
+    x = _np.atleast_1d(_np.asarray(xB, dtype=float))
+    q = _np.atleast_1d(_np.asarray(Q2, dtype=float))
+    t, x, q = _np.broadcast_arrays(t, x, q)
+    out = _np.zeros((5,) + t.shape)
+    o = out.reshape(5, -1)
+    for i, (ti, xi, qi) in enumerate(zip(t.ravel(), x.ravel(), q.ravel())):
+        # Ниже порога rc_iter1 НЕ возвращает None, как обещает handover, --
+        # tmin() падает на sqrt от отрицательного (проверено: eta при
+        # W < Mp + m_eta).  Радиационный хвост зовёт модель на сдвинутой
+        # кинематике и до порога добирается, поэтому исключение здесь --
+        # это нуль сечения, а не авария.
+        try:
+            s = _AF2.structure(_AMP26C_PAR, channel, float(ti), float(xi), float(qi))
+        except (ValueError, ZeroDivisionError):
+            continue
+        if s is None:
+            continue                # ниже порога: нуль сечения физичен
+        o[0, i], o[1, i] = s["T"], s["L"]
+        o[2, i], o[3, i], o[4, i] = s["TT"], s["LT"], s["LTp"]
+    if out.shape[1:] == (1,):
+        return tuple(float(v) for v in out[:, 0])
+    return tuple(out)
+
+
+@register
+class Pi0_Amp2026c(ProtonDetectedModel):
+    name = "pi0.amp2026c"
+    channel = "pi0"
+    version = "amp2026c"
+    topology = _PI0_TOPO
+    validity = _AMP26C_VALIDITY
+    provenance = _AMP26C_PROV + "pi0 off the proton."
+    reference = _AMP_REF
+
+    def _sfs_tn(self, t_nucl, xB, Q2):
+        return _amp26c_sfs("pi0p", t_nucl, xB, Q2)
+
+
+@register
+class Eta_Amp2026c(ProtonDetectedModel):
+    name = "eta.amp2026c"
+    channel = "eta"
+    version = "amp2026c"
+    topology = _ETA_TOPO
+    validity = _AMP26C_VALIDITY
+    provenance = _AMP26C_PROV + "eta off the proton, flavour-rotated."
+    reference = _AMP_REF
+
+    def _sfs_tn(self, t_nucl, xB, Q2):
+        return _amp26c_sfs("etap", t_nucl, xB, Q2)
+
+
+@register
+class Pi0n_Amp2026c(ProtonDetectedModel):
+    name = "pi0n.amp2026c"
+    channel = "pi0"
+    version = "amp2026c-n"
+    topology = _PI0_TOPO
+    validity = _AMP26C_VALIDITY
+    provenance = _AMP26C_PROV + ("pi0 off the NEUTRON. INDICATIVE ONLY: "
+                                 "rests on four points with 42-90% errors; "
+                                 "dropping them moves n/p from 1.06 to 2.15.")
+    reference = _AMP_REF
+
+    def _sfs_tn(self, t_nucl, xB, Q2):
+        return _amp26c_sfs("pi0n", t_nucl, xB, Q2)
