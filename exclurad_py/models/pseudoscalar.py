@@ -644,27 +644,37 @@ _AMP26C_PROV = ("Amplitude fit of 2026-09-05, run C0_with_compass "
 _AMP26C_VALIDITY = dict(W2=(2.2, 16.0), Q2=(1.15, 8.31), mt=(0.0, 1.8))
 
 
+from . import _amplitude_fit2_vec as _AF2V
+# AMPVEC=0 возвращает скалярный цикл -- только для А/Б-проверок.  Векторный
+# путь эквивалентен скалярному до 1e-12 (self_check по 12000 точек, маски
+# порога совпадают точно); профиль 06.09: 343 тысячи скалярных вызовов
+# structure() на одно радиационное событие, 217 секунд из 268.
+_AMPVEC = _os.environ.get("AMPVEC", "1") != "0"
+
+
 def _amp26c_sfs(channel, t_nucl, xB, Q2):
     t = _np.atleast_1d(_np.asarray(t_nucl, dtype=float))
     x = _np.atleast_1d(_np.asarray(xB, dtype=float))
     q = _np.atleast_1d(_np.asarray(Q2, dtype=float))
     t, x, q = _np.broadcast_arrays(t, x, q)
-    out = _np.zeros((5,) + t.shape)
-    o = out.reshape(5, -1)
-    for i, (ti, xi, qi) in enumerate(zip(t.ravel(), x.ravel(), q.ravel())):
-        # Ниже порога rc_iter1 НЕ возвращает None, как обещает handover, --
-        # tmin() падает на sqrt от отрицательного (проверено: eta при
-        # W < Mp + m_eta).  Радиационный хвост зовёт модель на сдвинутой
-        # кинематике и до порога добирается, поэтому исключение здесь --
-        # это нуль сечения, а не авария.
-        try:
-            s = _AF2.structure(_AMP26C_PAR, channel, float(ti), float(xi), float(qi))
-        except (ValueError, ZeroDivisionError):
-            continue
-        if s is None:
-            continue                # ниже порога: нуль сечения физичен
-        o[0, i], o[1, i] = s["T"], s["L"]
-        o[2, i], o[3, i], o[4, i] = s["TT"], s["LT"], s["LTp"]
+    if _AMPVEC:
+        r, _ok = _AF2V.structure_arr(_AMP26C_PAR, channel, t, x, q)
+        out = _np.stack([r["T"], r["L"], r["TT"], r["LT"], r["LTp"]])
+    else:
+        out = _np.zeros((5,) + t.shape)
+        o = out.reshape(5, -1)
+        for i, (ti, xi, qi) in enumerate(zip(t.ravel(), x.ravel(), q.ravel())):
+            # Ниже порога rc_iter1 НЕ возвращает None, как обещает handover:
+            # tmin() падает на sqrt от отрицательного.  Хвост до порога
+            # добирается; исключение здесь -- нуль сечения, не авария.
+            try:
+                s = _AF2.structure(_AMP26C_PAR, channel, float(ti), float(xi), float(qi))
+            except (ValueError, ZeroDivisionError):
+                continue
+            if s is None:
+                continue
+            o[0, i], o[1, i] = s["T"], s["L"]
+            o[2, i], o[3, i], o[4, i] = s["TT"], s["LT"], s["LTp"]
     if out.shape[1:] == (1,):
         return tuple(float(v) for v in out[:, 0])
     return tuple(out)
