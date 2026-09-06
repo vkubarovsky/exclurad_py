@@ -154,6 +154,14 @@ def panel(ax_top, ax_bot, born, rad, key, label, nb, rng, logy, rad_only):
             ax_top.set_visible(False); ax_bot.set_visible(False)
             return
         rng = (lo, hi)
+    # Ось у обеих панелей ЯВНО из rng.  Нижняя рисует только бины с >20
+    # событиями; на редкой выборке она пуста, остаётся с дефолтными
+    # пределами +-0.05, и именно её подписи видны -- у верхней они скрыты.
+    # На дымовом прогоне amp2026c семь панелей так показали ось "+-0.05"
+    # под правильными гистограммами.  В августе каждая нижняя панель была
+    # населена, и дефект прятался.
+    ax_top.set_xlim(rng[0], rng[1])
+    ax_bot.set_xlim(rng[0], rng[1])
     e = np.linspace(rng[0], rng[1], nb + 1)
     hr, _ = np.histogram(r, bins=e)
     fr = hr / max(hr.sum(), 1)
