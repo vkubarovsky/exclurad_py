@@ -526,3 +526,81 @@ class Pi0n_Amp2026s(ProtonDetectedModel):
 
     def _sfs_tn(self, t_nucl, xB, Q2):
         return _amp26s_sfs("pi0n", t_nucl, xB, Q2)
+
+
+# --------------------------------------------------------------------------- #
+#  amp2026n: the 2026-08-30 fit, with the Hall-A neutron in it
+# --------------------------------------------------------------------------- #
+#
+# 26 free parameters, chi2/ndf 1.630 on 738 points.  Differs from amp2026s by:
+# no R_ET prior at all, an independent Ebar_T^d block, one alpha' per sector
+# shared by u and d, nQ_d = nQ_u imposed, complex flavour combination with a
+# relative u-d phase, and the Hall-A neutron (PRL 118 222002) in the fit.
+# It uses its OWN module _amplitude_fit2.py: the parameter vector is 37 long and
+# the slope convention is b + b' ln xB, neither of which the old
+# _amplitude_fit.py understands.  amp2021/amp2026/amp2026s are untouched.
+
+from . import _amplitude_fit2 as _AF2
+_AMP26N_PAR = _np.load(_os.path.join(_os.path.dirname(__file__), "amp2026n_par.npy"))
+_AMP26N_PROV = ("Amplitude fit of 2026-08-30 including the Hall-A neutron. "
+                "See ~/rc_iter1/README.md. ")
+
+
+def _amp26n_sfs(channel, t_nucl, xB, Q2):
+    t = _np.atleast_1d(_np.asarray(t_nucl, dtype=float))
+    x = _np.atleast_1d(_np.asarray(xB, dtype=float))
+    q = _np.atleast_1d(_np.asarray(Q2, dtype=float))
+    t, x, q = _np.broadcast_arrays(t, x, q)
+    out = _np.zeros((5,) + t.shape)
+    o = out.reshape(5, -1)
+    for i, (ti, xi, qi) in enumerate(zip(t.ravel(), x.ravel(), q.ravel())):
+        s = _AF2.structure(_AMP26N_PAR, channel, float(ti), float(xi), float(qi))
+        if s is None:
+            continue
+        o[0, i], o[1, i] = s["T"], s["L"]
+        o[2, i], o[3, i], o[4, i] = s["TT"], s["LT"], s["LTp"]
+    if out.shape[1:] == (1,):
+        return tuple(float(v) for v in out[:, 0])
+    return tuple(out)
+
+
+@register
+class Pi0_Amp2026n(ProtonDetectedModel):
+    name = "pi0.amp2026n"
+    channel = "pi0"
+    version = "amp2026n"
+    topology = _PI0_TOPO
+    validity = _AMP_VALIDITY
+    provenance = _AMP26N_PROV + "pi0 off the proton."
+    reference = _AMP_REF
+
+    def _sfs_tn(self, t_nucl, xB, Q2):
+        return _amp26n_sfs("pi0p", t_nucl, xB, Q2)
+
+
+@register
+class Eta_Amp2026n(ProtonDetectedModel):
+    name = "eta.amp2026n"
+    channel = "eta"
+    version = "amp2026n"
+    topology = _ETA_TOPO
+    validity = _AMP_VALIDITY
+    provenance = _AMP26N_PROV + "eta off the proton, flavour-rotated."
+    reference = _AMP_REF
+
+    def _sfs_tn(self, t_nucl, xB, Q2):
+        return _amp26n_sfs("etap", t_nucl, xB, Q2)
+
+
+@register
+class Pi0n_Amp2026n(ProtonDetectedModel):
+    name = "pi0n.amp2026n"
+    channel = "pi0"
+    version = "amp2026n-n"
+    topology = _PI0_TOPO
+    validity = _AMP_VALIDITY
+    provenance = _AMP26N_PROV + "pi0 off the NEUTRON, now constrained by Hall-A."
+    reference = _AMP_REF
+
+    def _sfs_tn(self, t_nucl, xB, Q2):
+        return _amp26n_sfs("pi0n", t_nucl, xB, Q2)
