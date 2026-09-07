@@ -1,0 +1,21 @@
+! exclurad_py run card -- plain text, one value per line, ! starts a comment.
+! Positional (exclugen convention): the ORDER of the lines is the format.
+eta.amp2609                                              ! model  <channel>.<vintage>   (--models to list)
+10.6                               ! ebeam (GeV)
+100000                             ! nev
+0                                  ! iborn   1 = Born only, 0 = full RC
+3.24 16.00                                                 ! W2 range (GeV^2)
+1.20 8.00                                                   ! Q2 range (GeV^2)
+-1.80 -0.001                                             ! t range (GeV^2, both negative)
+0.30                                                             ! vcut    MX^2 - m_miss^2 (GeV^2);  0 = no cut (kinematic limit)
+-0.30                              ! t_nucl  (GeV^2) for pi0/eta models; ignored for vector mesons
+0                                  ! ihel    +1, -1, or 0 = helicity-averaged
+20260813                           ! seed
+1                                  ! idecay  1 = decay vector meson to h+h- isotropically, 0 = no decay
+/Volumes/wd_14tb/mc/exclurad_py    ! output root (<channel>/<date>_<E>_<mode>_v1/ created under it)
+0.25 0.90                                                     ! y range  (nu/E)   -- match the reference generator's cut
+0.13 0.60                                                     ! xB range          -- match the reference generator's cut
+none                               ! iacc    acceptance preset: none | jpsi  (|p|,theta on e',p',daughters)
+1.0d-4                             ! vmin    soft/hard split (GeV^2); 0 = auto.  exclugen uses 1.0d-4
+1                                  ! itarg   1 = pre-vertex external radiator (target straggling)
+-7.5 -2.5                          ! vertex z range, cm -- the 5 cm LH2 cell

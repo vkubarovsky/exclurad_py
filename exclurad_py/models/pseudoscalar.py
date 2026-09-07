@@ -635,9 +635,13 @@ class Pi0n_Amp2026n(ProtonDetectedModel):
 # on four points with 42-90% errors.
 
 _AMP26C_PAR = _np.load(_os.path.join(_os.path.dirname(__file__), "amp2026c_par.npy"))
-_AMP26C_PROV = ("Amplitude fit of 2026-09-05, run C0_with_compass "
-                "(rc_iter1 8952a51, md5 3010e19713...). Normalisation "
-                "nuisances NOT applied. ")
+_AMP26C_PROV = ("CORRUPTED FIT -- DO NOT USE FOR PRODUCTION. "
+                "C0_with_compass carried the HallA_y21 kinematics bug "
+                "(group-label xB instead of per-setting <xB>, four of nine "
+                "settings shifted up to 0.03; found 2026-09-06). The name "
+                "is kept so existing events remain traceable. Superseded "
+                "by amp2609. Was: run C0_with_compass, rc_iter1 8952a51, "
+                "md5 3010e19713. ")
 # Fitted support: Q2 1.15-8.31, xB 0.13-0.60, |t| to ~1.8.  The box below is
 # the rectangular over-cover of that support (xB is not a box axis; the true
 # constraint is the xB range).
@@ -722,3 +726,92 @@ class Pi0n_Amp2026c(ProtonDetectedModel):
 
     def _sfs_tn(self, t_nucl, xB, Q2):
         return _amp26c_sfs("pi0n", t_nucl, xB, Q2)
+
+
+# --------------------------------------------------------------------------- #
+#  amp2609: the 2026-09-06 fit, run C1_with_compass -- corrected HallA_y21
+# --------------------------------------------------------------------------- #
+#
+# The same fit as C0_with_compass but on repaired kinematics: HallA_y21 had
+# carried the GROUP label of Table I (PRL 127 152301) as xB instead of the
+# per-setting <xB>; four of nine settings were shifted by up to 0.03.
+# 37 parameters, chi2/ndf 1.4018 = 2140.5/1527, eleven data sets, 1555 points.
+#
+# Provenance: ~/rc_iter1 commit b18c393, run tag C1_with_compass,
+# fitpar.npy md5 abcb2f6ce7c87864386d900d82ad13ef.
+# Normalisation nuisances are the experiments' scales and are NOT applied.
+# Registered under a NEW name deliberately: amp2026c stays as the label of
+# the corrupted fit so events already generated remain attributable.
+
+_AMP2609_PAR = _np.load(_os.path.join(_os.path.dirname(__file__), "amp2609_par.npy"))
+_AMP2609_PROV = ("Amplitude fit of 2026-09-06, run C1_with_compass, corrected "
+                 "HallA_y21 kinematics (rc_iter1 b18c393, md5 abcb2f6ce7...). "
+                 "Normalisation nuisances NOT applied. ")
+
+
+def _amp2609_sfs(channel, t_nucl, xB, Q2):
+    t = _np.atleast_1d(_np.asarray(t_nucl, dtype=float))
+    x = _np.atleast_1d(_np.asarray(xB, dtype=float))
+    q = _np.atleast_1d(_np.asarray(Q2, dtype=float))
+    t, x, q = _np.broadcast_arrays(t, x, q)
+    if _AMPVEC:
+        r, _ok = _AF2V.structure_arr(_AMP2609_PAR, channel, t, x, q)
+        out = _np.stack([r["T"], r["L"], r["TT"], r["LT"], r["LTp"]])
+    else:
+        out = _np.zeros((5,) + t.shape)
+        o = out.reshape(5, -1)
+        for i, (ti, xi, qi) in enumerate(zip(t.ravel(), x.ravel(), q.ravel())):
+            try:
+                s = _AF2.structure(_AMP2609_PAR, channel, float(ti), float(xi), float(qi))
+            except (ValueError, ZeroDivisionError):
+                continue
+            if s is None:
+                continue
+            o[0, i], o[1, i] = s["T"], s["L"]
+            o[2, i], o[3, i], o[4, i] = s["TT"], s["LT"], s["LTp"]
+    if out.shape[1:] == (1,):
+        return tuple(float(v) for v in out[:, 0])
+    return tuple(out)
+
+
+@register
+class Pi0_Amp2609(ProtonDetectedModel):
+    name = "pi0.amp2609"
+    channel = "pi0"
+    version = "amp2609"
+    topology = _PI0_TOPO
+    validity = _AMP26C_VALIDITY          # та же фитовая область
+    provenance = _AMP2609_PROV + "pi0 off the proton."
+    reference = _AMP_REF
+
+    def _sfs_tn(self, t_nucl, xB, Q2):
+        return _amp2609_sfs("pi0p", t_nucl, xB, Q2)
+
+
+@register
+class Eta_Amp2609(ProtonDetectedModel):
+    name = "eta.amp2609"
+    channel = "eta"
+    version = "amp2609"
+    topology = _ETA_TOPO
+    validity = _AMP26C_VALIDITY
+    provenance = _AMP2609_PROV + "eta off the proton, flavour-rotated."
+    reference = _AMP_REF
+
+    def _sfs_tn(self, t_nucl, xB, Q2):
+        return _amp2609_sfs("etap", t_nucl, xB, Q2)
+
+
+@register
+class Pi0n_Amp2609(ProtonDetectedModel):
+    name = "pi0n.amp2609"
+    channel = "pi0"
+    version = "amp2609-n"
+    topology = _PI0_TOPO
+    validity = _AMP26C_VALIDITY
+    provenance = _AMP2609_PROV + ("pi0 off the NEUTRON. INDICATIVE ONLY: "
+                                  "four points with 42-90% errors.")
+    reference = _AMP_REF
+
+    def _sfs_tn(self, t_nucl, xB, Q2):
+        return _amp2609_sfs("pi0n", t_nucl, xB, Q2)
