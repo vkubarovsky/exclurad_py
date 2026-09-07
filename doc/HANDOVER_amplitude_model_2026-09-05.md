@@ -163,3 +163,49 @@ The fit above is not the August one refitted — the data underneath it changed.
 
 Full detail: `~/rc_iter1` commits `d2b8543`, `bc7eb13`, `8952a51`, and
 `~/hepgen_fit/data/DATA_UPDATE_2026-09-05.md`.
+---
+
+# Correction, 2026-09-06 — read this before installing anything
+
+## The vector to install is C1, not C0
+
+`C0_with_compass` was fitted with a wrong kinematics for Hall-A 2021.  Table I of
+PRL 127 152301 heads its columns `0.36 / 0.48 / 0.60` and gives the per-setting
+`<xB>` in the row beneath: **0.45, 0.46, 0.46** inside the 0.48 group and
+**0.59** inside the 0.60 group.  The workbook had taken the heading, so four of
+the nine settings were evaluated at the wrong xB by up to 0.03.
+
+| what | where | md5 |
+|---|---|---|
+| parameter vector | `~/rc_iter1/runs/C1_with_compass/fitpar.npy` | `abcb2f6ce7c87864386d900d82ad13ef` |
+| the workbook it was fitted to | `~/rc_iter1/pi0_eta_database.xlsx` | `8d5b6a04206de590a186b0f205eea44c` |
+
+The second md5 is the **workbook's**, not this document's.  `C1` is 37 long,
+chi2/ndf 1.4018 = 2140.5/1527, eleven sets, 1555 points, normalisations 1.0586
+(De Masi), 0.9776 (neutron), 1.0583 (Hall-A 2016).
+
+Register it under a **new name** — `amp2609` — and do not overwrite `amp2026c`.
+An installed name must stay attached to the events made with it; overwriting one
+destroys that link for every file already on `wd_14tb`.  `amp2026c` holds the C0
+vector and should be treated as withdrawn: anything generated with it after
+2026-09-05 21:01 was made with the wrong Hall-A 2021 kinematics.
+
+As before: through `_amplitude_fit2` (the 37-parameter layout), **without**
+`reparam.to_old()`.
+
+## How much it actually matters
+
+Less than the noise around it deserved.  Between C0 and C1: chi2/ndf 1.3918 ->
+1.4018, nQ(H_T) 1.227 -> 1.260, n/p 1.042 -> 1.049, every set but y21 moving by
+hundredths.  y21 itself gets slightly *worse*, 2.35 -> 2.49 per point.  Cross
+sections from the generator will move by a few percent, not by factors.  That is
+a reason to replace the vector, not a reason to distrust what was made with the
+old one beyond labelling it correctly.
+
+## What has not changed
+
+Sections 1 to 6 above still hold: the two copies of the amplitude code, the
+validity box, the four inherited weaknesses, the RC closure question.  Section 2
+is superseded only in its choice of vector — `C1_with_compass` replaces
+`C0_with_compass`, and `B00_base` and `90_base` are both obsolete, having been
+fitted to the same wrong xB.
