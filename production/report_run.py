@@ -169,8 +169,10 @@ def panel(ax_top, ax_bot, born, rad, key, label, nb, rng, logy, rad_only):
     if b is not None:
         hb, _ = np.histogram(b, bins=e)
         fb = hb / max(hb.sum(), 1)
-        ax_top.step(c, fb, where="mid", color=BORN_C, lw=1.4, label="Born")
-    ax_top.step(c, fr, where="mid", color=RAD_C, lw=1.4, label="radiative")
+        ax_top.fill_between(c, 0, fb, step="mid", color=BORN_C, alpha=0.22, lw=0)
+        ax_top.step(c, fb, where="mid", color=BORN_C, lw=1.5, label="Born")
+    ax_top.fill_between(c, 0, fr, step="mid", color=RAD_C, alpha=0.22, lw=0)
+    ax_top.step(c, fr, where="mid", color=RAD_C, lw=1.5, label="radiative")
     ax_top.set_ylabel("fraction", fontsize=8)
     ax_top.tick_params(labelsize=7, labelbottom=False)
     ax_top.grid(alpha=.25, lw=.4)

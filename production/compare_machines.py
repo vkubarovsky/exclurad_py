@@ -143,7 +143,9 @@ def do_plot(items, outfile):
             if h.sum() == 0:
                 continue
             f = h / h.sum()
-            at.step(c, f, where="mid", lw=1.2, color=colors[j % len(colors)],
+            at.fill_between(c, 0, f, step="mid", lw=0,
+                            color=colors[j % len(colors)], alpha=0.15)
+            at.step(c, f, where="mid", lw=1.4, color=colors[j % len(colors)],
                     label=lab)
             if j == 0:
                 continue
