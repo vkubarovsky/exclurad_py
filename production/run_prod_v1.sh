@@ -31,6 +31,19 @@
 # петля доработает круг и выйдет сама.
 set -u
 REPO=$1; OUT=$2; BASE=$3; J=$4; DEADLINE=$5; TAG=$6; CH=${7:-pi0}
+# Карточка: по умолчанию cards/rad_$CH.txt, но CARD в окружении ПЕРЕКРЫВАЕТ.
+# Без этого амплитудную карточку rad_pi0_amp2609.txt нельзя подцепить, не
+# ломая имя канала.  Нет файла -- падаем сразу и громко, а не считаем молча
+# дефолтную карточку (так уже вышло: "amp2609" прогон оказался vpk2021).
+CARD=${CARD:-$REPO/cards/rad_$CH.txt}
+[ -f "$CARD" ] || { echo "НЕТ КАРТОЧКИ: $CARD"; exit 1; }
+# НАСТОЯЩИЙ канал берём из модели в карточке (первая значимая строка,
+# 'pi0.amp2609' -> 'pi0'): ровно так run()._outdir строит подкаталог вывода.
+# $CH может быть меткой (pi0_amp2609); путь вывода и подсчёт файлов ДОЛЖНЫ
+# смотреть в тот же подкаталог, что создаёт run(), иначе круг отчитается о
+# нуле файлов и петля встанет.
+CHAN=$(awk -F'!' '{sub(/^[ \t]+/,"",$1); if($1!=""){print $1; exit}}' "$CARD" | cut -d. -f1)
+[ -n "$CHAN" ] || { echo "не смог определить канал из $CARD"; exit 1; }
 NEV_RAD=${NEV_RAD:-100000}
 NEV_BORN=${NEV_BORN:-$((NEV_RAD * 5))}
 # Секунд на одно радиационное событие на ядро -- только для оценки "влезет
@@ -47,7 +60,7 @@ SEC_RAD=${SEC_RAD:-26}          # десятые доли секунды
 # счёт жжёт.  Это ловит ровно тот случай и не трогает просто долгие части.
 STALL_S=${STALL_S:-900}          # столько секунд без прироста CPU -- снимаем
 PART_MAX_H=${PART_MAX_H:-12}     # абсолютный предел на часть, часов
-[ -f "$REPO/cards/rad_$CH.txt" ] || { echo "нет карточки cards/rad_$CH.txt"; exit 1; }
+: # карточка проверена выше ($CARD)
 
 STOP=$OUT/STOP
 mkdir -p "$OUT"
@@ -78,7 +91,7 @@ export TABLE_SERIAL=1 ETA_PROPOSAL_CAP=5 EXACT_ACCEPT=1 EXPO_TAIL=1
 # Обоим ставим 1.6: у J/psi это край чистого, у phi -- запас сверх края,
 # и выборки в триста событий мало, чтобы идти до 1.2.
 # rho остаётся на 4.0: именно у него мажоранта пробивалась.
-case "$CH" in
+case "$CHAN" in
   jpsi) MAJ_SHAPE=${MAJ_SHAPE:-16,8,16,12}; MAJ_SAFETY=${MAJ_SAFETY:-1.6} ;;
   phi)  MAJ_SHAPE=${MAJ_SHAPE:-};           MAJ_SAFETY=${MAJ_SAFETY:-1.6} ;;
   *)    MAJ_SHAPE=${MAJ_SHAPE:-};           MAJ_SAFETY=${MAJ_SAFETY:-4.0} ;;
@@ -108,7 +121,7 @@ fi
 if true; then
   # Коробка берётся ИЗ КАРТОЧКИ, а не переписывается сюда руками: описание,
   # разошедшееся с тем, чем считали, хуже отсутствующего.
-  BOX=$(python3 - "$REPO/cards/rad_$CH.txt" <<'BOXPY'
+  BOX=$(python3 - "$CARD" <<'BOXPY'
 import pathlib, sys
 names = {1: "модель", 2: "E пучка, ГэВ", 5: "W2, ГэВ^2", 6: "Q2, ГэВ^2",
          7: "t, ГэВ^2", 8: "v_cut, ГэВ^2", 14: "y", 15: "xB", 16: "каты",
@@ -225,7 +238,7 @@ supervise () {
 }
 
 mkcard () {   # $1=iborn $2=nev $3=имя
-  python3 - "$1" "$2" "$OUT/$3" "$REPO/cards/rad_$CH.txt" <<'PY'
+  python3 - "$1" "$2" "$OUT/$3" "$CARD" <<'PY'
 import re, pathlib, sys
 ib, nev, dst = sys.argv[1:4]
 k = 0; out = []
@@ -273,7 +286,7 @@ while [ "$(date +%s)" -lt "$DEADLINE" ]; do
       # зовут run(_part=...), который кэш только читает.  У born таблицы нет.
       if [ $i -eq 1 ] && [ $mode = rad ]; then
         for _ in $(seq 1 900); do
-          ls "$W"/$CH/*/etatable.npz >/dev/null 2>&1 && break
+          ls "$W"/$CHAN/*/etatable.npz >/dev/null 2>&1 && break
           kill -0 $! 2>/dev/null || break
           sleep 3
         done; sleep 5
@@ -287,7 +300,7 @@ while [ "$(date +%s)" -lt "$DEADLINE" ]; do
     # провалившаяся радиационная часть рапортовала количество борновских:
     # 22.08 круг 1 на ферме отчитался "24 файлов" при нуле записанных
     # радиационных, и защита от пустого круга это пропустила.
-    nf=$(ls "$W"/$CH/*_${mode}_v1/lund/*.lund 2>/dev/null | wc -l | tr -d ' ')
+    nf=$(ls "$W"/$CHAN/*_${mode}_v1/lund/*.lund 2>/dev/null | wc -l | tr -d ' ')
     echo "@@@ $TAG круг $n $mode готово $(date '+%d.%m %H:%M'): $nf файлов; $(grep -h 'health:' "$W/logs/${mode}_1.log" | tail -1)"
     # Круг без файлов -- поломка, а не "мало посчиталось".  22.08 петля так
     # прокрутила 826 пустых кругов за два с половиной часа: карточки были
