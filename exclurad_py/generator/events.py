@@ -156,6 +156,11 @@ class Generator:
         # что давал код до Брейта-Вигнера.  Это и есть проверка, что правка
         # ничего не сдвинула помимо самой массы.
         self._mV = float(self.sf.mV)
+        # Initial-state nucleon at rest.  Proton everywhere except the
+        # free-neutron channels; taken from the model so the whole chain
+        # (kinematics, v_max, RC, electron acceptance) uses ONE target mass.
+        from ..core.constants import M_P as _MP_T
+        self._mT = float(getattr(self.sf, "mT", _MP_T))
         self.bw_channel = None
         if os.environ.get("BW", "1") != "0" and \
                 getattr(getattr(self.sf, "topology", None), "name", "") == \
@@ -302,11 +307,13 @@ class Generator:
         return EventKin(self._E, Q2, W2, t, phi, self._mV,
                         phi_offset=float(getattr(getattr(self.sf, 'topology', None),
                                                  'phi_offset', 0.0)),
-                        v=0.0, mU=self.sf.mU, t_kind=self._t_kind)
+                        v=0.0, mU=self.sf.mU, M=self._mT,
+                        t_kind=self._t_kind)
 
     def _vmax(self, Q2, W2, t):
         vk = EventKin.vmax_kin(self._E, Q2, W2, t, self._mV,
-                               mU=self.sf.mU, t_kind=self._t_kind)
+                               mU=self.sf.mU, M=self._mT,
+                               t_kind=self._t_kind)
         if self.mx2_cut is None:
             return vk
         return min(vk, self.mx2_cut - self.sf.mU ** 2)
@@ -549,7 +556,7 @@ class Generator:
         acc = self._acc_electron
         if acc is None:
             return True
-        nu = (W2 + Q2 - self.sf.mV * 0.0 - M_P_SQ) / (2.0 * M_P_)
+        nu = (W2 + Q2 - self._mT ** 2) / (2.0 * self._mT)
         Ep = self._E - nu
         if Ep <= 0.0:
             return False
@@ -699,7 +706,8 @@ class Generator:
             # prod(tail_shape) of them) puts numerator and denominator back at
             # the same kinematics and takes the eta table out of the split.
             self._set_event_t(ct)
-            rc_c = rc_factor(Ebeam=self._E, Q2=cQ2, W2=cW2, t=ct, phi=cph,
+            rc_c = rc_factor(M=self._mT,
+Ebeam=self._E, Q2=cQ2, W2=cW2, t=ct, phi=cph,
                              sfmodel=self.sf, h=h, mx2_cut=self.mx2_cut,
                              t_kind=self._t_kind, mV=self._mV)
             sigma_obs_c = float(rc_c["sigma_obs"])
@@ -839,8 +847,8 @@ class Generator:
                     eta = self.eta_proposal_cap
                 try:
                     self._set_event_t(t)
-                    so = float(rc_factor(
-                        Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
+                    so = float(rc_factor(M=self._mT,
+Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
                         sfmodel=self.sf, h=h_p, mx2_cut=self.mx2_cut,
                         t_kind=self._t_kind, mV=self._mV)["sigma_obs"])
                 except (ValueError, ZeroDivisionError, FloatingPointError):
@@ -937,7 +945,8 @@ class Generator:
                 # and one TailSampler (~0.4 s) per ACCEPTED event -- affordable
                 # because accepted events are ~1e4, not the 1e7 trials.
                 try:
-                    rc_e = rc_factor(Ebeam=self._E, Q2=Q2, W2=W2, t=t,
+                    rc_e = rc_factor(M=self._mT,
+Ebeam=self._E, Q2=Q2, W2=W2, t=t,
                                      phi=phi, sfmodel=self.sf, h=h,
                                      mx2_cut=self.mx2_cut,
                                      t_kind=self._t_kind, mV=self._mV)
@@ -977,8 +986,8 @@ class Generator:
                         mU2 = self.sf.mU ** 2
 
                         def sobs(x):
-                            return float(rc_factor(
-                                Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
+                            return float(rc_factor(M=self._mT,
+Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
                                 sfmodel=self.sf, h=h, mx2_cut=x + mU2,
                                 t_kind=self._t_kind, mV=self._mV)["sigma_obs"])
 

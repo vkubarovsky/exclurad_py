@@ -111,6 +111,15 @@ class StructureFunctions:
         """Mass of the undetected system (EventKin mU)."""
         return self.topology.m_missing
 
+    @property
+    def mT(self):
+        """Mass of the initial-state target nucleon at rest (EventKin M).
+
+        Proton for everything except the free-neutron channels, where the
+        1.3 MeV difference shifts W2, t_min and the RC phase space.
+        """
+        return getattr(self.topology, "m_target", M_P)
+
     # -- implemented by subclasses ----------------------------------------- #
     def _epsilon(self, xB, Q2):
         """Virtual-photon polarisation at this (xB, Q2) and self.Ebeam.

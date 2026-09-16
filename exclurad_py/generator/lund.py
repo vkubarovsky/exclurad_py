@@ -50,7 +50,7 @@ DECAY_PID = {"rho":  (211, -211, 0.13957039),
              "eta":  (22, 22, 0.0)}
 
 
-def event_lines(ev, channel, topology=None, target_pid=PID["p"],
+def event_lines(ev, channel, topology=None, target_pid=None,
                 beam_energy=10.6, pol_beam=None, pol_target=0.0, weight=1.0,
                 process_id=0, vertex=(0.0, 0.0, 0.0)):
     """LUND lines for one assembled event (see frames.assemble_event).
@@ -62,6 +62,13 @@ def event_lines(ev, channel, topology=None, target_pid=PID["p"],
     proton's momentum, which is why the topology is required here whenever
     it is not the plain meson-detected case.
     """
+    # Target PID follows the topology too.  Hardcoding the proton wrote
+    # 2212 in the event header of free-NEUTRON events, contradicting the
+    # 2112 recoil on the particle line right below it.
+    if target_pid is None:
+        target_pid = NAME_TO_PID.get(getattr(topology, "target", "p"), PID["p"]) \
+            if topology is not None else PID["p"]
+
     if topology is not None:
         det_pid = NAME_TO_PID.get(topology.detected)
         mis_pid = NAME_TO_PID.get(topology.missing)

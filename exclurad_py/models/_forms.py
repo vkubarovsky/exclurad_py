@@ -161,3 +161,14 @@ P2021_PI0 = [6.2054, 0.8020, -0.1066, 1.8364, 0.00,
              94.6474, 3.4426, -1.9769, -0.1324, 0.0000, 17.0001, 2.1228]
 P2021_ETA = [6.8774, 1.7856, -1.3181, 0.7827, 0.00,
              17.7821, 1.1451, 0.0053, 1.5816, 0.0000, 21.9122, 4.0069]
+
+# vpk-model-2026: same March-2021 functional form (this vpk2021_form),
+# refit to CLAS6 with the radiative correction recomputed self-consistently
+# (converged iteration 2).  sigma_L = 0 as in 2021.  Transcribed from
+# ~/vpk-model-2026/fit/model.py P2026 (the Python body, which is correct;
+# the eta row in dvmpx_2026.F carried a stale 2021 set until 2026-09-10).
+# eta values are the stat-only ("2026") set from MODEL-2026.txt.
+P2026_PI0 = [5.7839, 0.7573, -0.0188, 1.9616, 0.00,
+             93.1945, 3.4550, -1.9963, -0.0916, 0.0000, 15.1006, 2.7706]
+P2026_ETA = [7.0413, 1.8512, -1.3856, 0.6433, 0.00,
+             16.1449, 1.1019, 0.0760, 1.8348, 0.0000, 10.5373, 2.1277]

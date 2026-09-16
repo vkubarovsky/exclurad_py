@@ -114,11 +114,14 @@ def _combine(pair, ch, k):
     if ch == "pi0p": return (2*u + d)/(3*S2)
     if ch == "etap": return (2*u - d)/(3*S6*k)
     if ch == "pi0n": return (u + 2*d)/(3*S2)
+    # eta off the neutron: isospin sends F^u_n = F^d_p, F^d_n = F^u_p, so the
+    # eta combination (2F^u - F^d) becomes (2F^d - F^u) in proton flavours.
+    if ch == "etan": return (2*d - u)/(3*S6*k)
     raise ValueError(ch)
 
 def amplitudes(p, ch, t, xB, Q2):
     """Return dict of channel amplitudes (complex) at (t<0, xB, Q2)."""
-    mM = Meta if ch == "etap" else Mpi0
+    mM = Meta if ch in ("etap", "etan") else Mpi0
     tp = t - tmin(mM, Q2, xB)
     if tp >= 0: return None
     HT, ET, LL = _flavour(p, t, xB, Q2)

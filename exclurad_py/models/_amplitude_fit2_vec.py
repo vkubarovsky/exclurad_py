@@ -28,7 +28,7 @@ from . import _amplitude_fit2 as _S
 Mp = _S.Mp
 K_T, K_L = _S.K_T, _S.K_L
 S2, S6 = _S.S2, _S.S6
-_MM = {"pi0p": _S.Mpi0, "etap": _S.Meta, "pi0n": _S.Mpi0}
+_MM = {"pi0p": _S.Mpi0, "etap": _S.Meta, "pi0n": _S.Mpi0, "etan": _S.Meta}
 
 
 def structure_arr(p, ch, t, xB, Q2):
@@ -91,11 +91,20 @@ def structure_arr(p, ch, t, xB, Q2):
 
         # --- _combine ------------------------------------------------------
         def comb(u, d, k):
+            # Every channel is named explicitly and an unknown one RAISES.
+            # The bare fall-through that used to end this function returned
+            # the pi0n combination for anything unrecognised, so adding a
+            # channel here would have silently produced pi0n numbers under
+            # another channel's name instead of failing.
             if ch == "pi0p":
                 return (2.0 * u + d) / (3.0 * S2)
             if ch == "etap":
                 return (2.0 * u - d) / (3.0 * S6 * k)
-            return (u + 2.0 * d) / (3.0 * S2)          # pi0n
+            if ch == "pi0n":
+                return (u + 2.0 * d) / (3.0 * S2)
+            if ch == "etan":
+                return (2.0 * d - u) / (3.0 * S6 * k)
+            raise ValueError(ch)
 
         HT = comb(HTu, HTd_c, K_T)
         ET = comb(ETu, ETd_c, K_T)
@@ -157,7 +166,7 @@ def self_check(p, n=4000, seed=7, tol=1e-10):
     """
     rng = np.random.default_rng(seed)
     worst = 0.0
-    for ch in ("pi0p", "etap", "pi0n"):
+    for ch in ("pi0p", "etap", "pi0n", "etan"):
         t = -rng.uniform(0.001, 2.5, n)
         x = rng.uniform(0.05, 0.95, n)
         q = rng.uniform(0.8, 9.5, n)

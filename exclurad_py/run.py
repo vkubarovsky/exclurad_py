@@ -37,6 +37,17 @@ from .generator.tables import RCTable
 from .runcard import parse, echo
 
 
+def _needs_t_nucl(model_name):
+    """True if the model is constructed with the bin's nucleon transfer.
+
+    Asked of the CLASS, not of a hardcoded channel list: pi0/eta off the
+    proton AND off the neutron (pi0n/etan) are all ProtonDetectedModel, and
+    a channel list silently missed the neutron ones when they were added.
+    """
+    from .models.base import ProtonDetectedModel
+    return issubclass(models.get_class(model_name), ProtonDetectedModel)
+
+
 def _outdir(cfg, date=None, version="v1"):
     mode = "born" if cfg["iborn"] else "rad"
     ch = cfg["model"].split(".")[0]
@@ -66,7 +77,7 @@ def run_parallel(card_path, jobs, date=None, verbose=True):
     if not cfg["iborn"]:
         d, _, _ = _outdir(cfg, date)
         ch = cfg["model"].split(".")[0]
-        kw = dict(t_nucl=cfg["t_nucl"]) if ch in ("pi0", "eta") else {}
+        kw = dict(t_nucl=cfg["t_nucl"]) if _needs_t_nucl(cfg["model"]) else {}
         # The beam energy has to reach the MODEL, not only the generator.
         # StructureFunctions.Ebeam is a class attribute defaulting to 10.6,
         # and _epsilon uses it to turn SLT_OVER_SU / SLTP_OVER_SU into
@@ -94,7 +105,7 @@ def run_parallel(card_path, jobs, date=None, verbose=True):
     majc = os.path.join(d, "majorant.npz")
     if not os.path.exists(majc):
         ch = cfg["model"].split(".")[0]
-        kw = dict(t_nucl=cfg["t_nucl"]) if ch in ("pi0", "eta") else {}
+        kw = dict(t_nucl=cfg["t_nucl"]) if _needs_t_nucl(cfg["model"]) else {}
         sf0 = models.get(cfg["model"], **kw)
         sf0.Ebeam = float(cfg["ebeam"])
         mx20 = cfg["vcut"] + sf0.mU ** 2 if cfg["vcut"] > 0 else None
@@ -147,7 +158,7 @@ def run(card_path, date=None, verbose=True, _part=None):
 
     ch = cfg["model"].split(".")[0]
     kw = {}
-    if ch in ("pi0", "eta"):
+    if _needs_t_nucl(cfg["model"]):
         kw["t_nucl"] = cfg["t_nucl"]
     sf = models.get(cfg["model"], **kw)
     sf.Ebeam = float(cfg["ebeam"])          # see the note above

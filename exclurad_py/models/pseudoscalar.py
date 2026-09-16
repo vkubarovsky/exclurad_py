@@ -23,7 +23,7 @@ the base class from `topology.lt_sign`, not here.
 from . import _forms as F
 from .base import ProtonDetectedModel
 from .registry import register
-from ..core.constants import M_PI0, M_ETA
+from ..core.constants import M_PI0, M_ETA, M_N
 from ..topology import baryon_detected
 
 # EXCLURAD-2014 used the CHARGED pion mass for the missing-mass variable amu
@@ -50,6 +50,16 @@ M_PI0_FIT = 0.134976
 
 _PI0_TOPO = baryon_detected(M_PI0, meson="pi0")
 _ETA_TOPO = baryon_detected(M_ETA, meson="eta")
+
+# FREE-NEUTRON target: e n -> e' n' (pi0/eta).  The recoil IS the target, so
+# both the initial-state mass and the detected-baryon mass are M_N, and the
+# LUND writer emits PDG 2112 (it reads topology.detected).  The 1.3 MeV
+# proton-neutron difference is small but it is a genuine shift of W2, t_min
+# and the radiative phase space -- carrying a proton there would be wrong by
+# construction, not by approximation.  Deuteron/Fermi motion is NOT here:
+# this is a free neutron at rest (next step).
+_PI0N_TOPO = baryon_detected(M_PI0, meson="pi0", m_recoil=M_N, recoil="n")
+_ETAN_TOPO = baryon_detected(M_ETA, meson="eta", m_recoil=M_N, recoil="n")
 
 # The fits were made on the CLAS12 pi0/eta grids; outside them the radiative
 # tail would extrapolate a power law with no data behind it.
@@ -182,6 +192,56 @@ class Eta_VPK2021(ProtonDetectedModel):
         return sT, sL, sTT, sLT
 
 
+# --------------------------------------------------------------------------- #
+#  vpk2026 -- same March-2021 form, refit to CLAS6 with RC recomputed
+#  self-consistently (converged iteration 2).  sigma_L = 0, like 2021.
+# --------------------------------------------------------------------------- #
+@register
+class Pi0_VPK2026(ProtonDetectedModel):
+    name = "pi0.vpk2026"
+    channel = "pi0"
+    version = "2026"
+    topology = _PI0_TOPO
+    validity = _PS_VALIDITY
+    provenance = (
+        "March-2021 GT/transversity functional form (same vpk2021_form) "
+        "refit to CLAS6 pi0 with the radiative correction recomputed "
+        "self-consistently -- the RC-renormalised table model, converged at "
+        "iteration 2.  Parameters from ~/vpk-model-2026/fit/model.py P2026 "
+        "['pi0'].  sigma_L = 0, as in 2021; NO EXCLURAD factor 2 on sigma_LT "
+        "(see Pi0_VPK2021).  sigma_LT' carried as a fixed fraction of "
+        "sigma_U, same as 2021.")
+    reference = "~/vpk-model-2026/fit/model.py; MODEL-2026.txt"
+
+    SLTP_OVER_SU = 0.10       # same convention as Pi0_VPK2021
+
+    def _sfs_tn(self, t_nucl, xB, Q2):
+        return F.vpk2021_form(t_nucl, xB, Q2, F.P2026_PI0, M_PI0_FIT)
+
+
+@register
+class Eta_VPK2026(ProtonDetectedModel):
+    name = "eta.vpk2026"
+    channel = "eta"
+    version = "2026"
+    topology = _ETA_TOPO
+    validity = _PS_VALIDITY
+    provenance = (
+        "March-2021 GT/transversity functional form (same vpk2021_form) "
+        "refit to CLAS6 eta with the radiative correction recomputed "
+        "self-consistently.  Parameters from ~/vpk-model-2026/fit/model.py "
+        "P2026['eta'] (stat-only 2026 set from MODEL-2026.txt); this is the "
+        "CORRECT eta set -- dvmpx_2026.F had carried a stale 2021 eta row "
+        "until 2026-09-10, but the Python P2026 was always right.  "
+        "sigma_L = 0; no EXCLURAD factor 2 on sigma_LT.")
+    reference = "~/vpk-model-2026/fit/model.py; MODEL-2026.txt"
+
+    SLTP_OVER_SU = 0.10       # no eta measurement yet; see Pi0_VPK2021
+
+    def _sfs_tn(self, t_nucl, xB, Q2):
+        return F.vpk2021_form(t_nucl, xB, Q2, F.P2026_ETA, M_ETA_FIT)
+
+
 # Deprecated alias: this model is labelled "2014" in several older
 # directories, but the parameters are the July-2013 production set.
 @register
@@ -307,9 +367,9 @@ class Eta_Amp2021(ProtonDetectedModel):
 @register
 class Pi0n_Amp2021(ProtonDetectedModel):
     name = "pi0n.amp2021"
-    channel = "pi0"
+    channel = "pi0n"
     version = "amp2021-n"
-    topology = _PI0_TOPO
+    topology = _PI0N_TOPO
     validity = _AMP_VALIDITY
     provenance = (_AMP_PROV + "pi0 off the NEUTRON: isospin rotation "
                   "(F^u + 2F^d)/(3 sqrt2). PREDICTION -- no neutron data was "
@@ -323,9 +383,9 @@ class Pi0n_Amp2021(ProtonDetectedModel):
 @register
 class Etan_Amp2021(ProtonDetectedModel):
     name = "etan.amp2021"
-    channel = "eta"
+    channel = "etan"
     version = "amp2021-n"
-    topology = _ETA_TOPO
+    topology = _ETAN_TOPO
     validity = _AMP_VALIDITY
     provenance = (_AMP_PROV + "eta off the NEUTRON: isospin rotation of the "
                   "eta combination, k (2F^d - F^u)/(3 sqrt6) -- i.e. u <-> d "
@@ -407,9 +467,9 @@ class Eta_Amp2026(ProtonDetectedModel):
 @register
 class Pi0n_Amp2026(ProtonDetectedModel):
     name = "pi0n.amp2026"
-    channel = "pi0"
+    channel = "pi0n"
     version = "amp2026-n"
-    topology = _PI0_TOPO
+    topology = _PI0N_TOPO
     validity = _AMP_VALIDITY
     provenance = _AMP26_PROV + "pi0 off the NEUTRON. Prediction."
     reference = _AMP_REF
@@ -421,9 +481,9 @@ class Pi0n_Amp2026(ProtonDetectedModel):
 @register
 class Etan_Amp2026(ProtonDetectedModel):
     name = "etan.amp2026"
-    channel = "eta"
+    channel = "etan"
     version = "amp2026-n"
-    topology = _ETA_TOPO
+    topology = _ETAN_TOPO
     validity = _AMP_VALIDITY
     provenance = _AMP26_PROV + "eta off the NEUTRON. Prediction."
     reference = _AMP_REF
@@ -517,9 +577,9 @@ class Eta_Amp2026s(ProtonDetectedModel):
 @register
 class Pi0n_Amp2026s(ProtonDetectedModel):
     name = "pi0n.amp2026s"
-    channel = "pi0"
+    channel = "pi0n"
     version = "amp2026s-n"
-    topology = _PI0_TOPO
+    topology = _PI0N_TOPO
     validity = _AMP_VALIDITY
     provenance = _AMP26S_PROV + "pi0 off the NEUTRON. Prediction."
     reference = _AMP_REF
@@ -598,15 +658,31 @@ class Eta_Amp2026n(ProtonDetectedModel):
 @register
 class Pi0n_Amp2026n(ProtonDetectedModel):
     name = "pi0n.amp2026n"
-    channel = "pi0"
+    channel = "pi0n"
     version = "amp2026n-n"
-    topology = _PI0_TOPO
+    topology = _PI0N_TOPO
     validity = _AMP_VALIDITY
     provenance = _AMP26N_PROV + "pi0 off the NEUTRON, now constrained by Hall-A."
     reference = _AMP_REF
 
     def _sfs_tn(self, t_nucl, xB, Q2):
         return _amp26n_sfs("pi0n", t_nucl, xB, Q2)
+
+
+@register
+class Etan_Amp2026n(ProtonDetectedModel):
+    name = "etan.amp2026n"
+    channel = "etan"
+    version = "amp2026n-n"
+    topology = _ETAN_TOPO
+    validity = _AMP_VALIDITY
+    provenance = _AMP26N_PROV + (
+        "eta off the NEUTRON: isospin rotation (2F^d - F^u)/(3 sqrt6 k), "
+        "no new parameters. PREDICTION -- no eta-neutron data exists.")
+    reference = _AMP_REF
+
+    def _sfs_tn(self, t_nucl, xB, Q2):
+        return _amp26n_sfs("etan", t_nucl, xB, Q2)
 
 
 # --------------------------------------------------------------------------- #
@@ -715,9 +791,9 @@ class Eta_Amp2026c(ProtonDetectedModel):
 @register
 class Pi0n_Amp2026c(ProtonDetectedModel):
     name = "pi0n.amp2026c"
-    channel = "pi0"
+    channel = "pi0n"
     version = "amp2026c-n"
-    topology = _PI0_TOPO
+    topology = _PI0N_TOPO
     validity = _AMP26C_VALIDITY
     provenance = _AMP26C_PROV + ("pi0 off the NEUTRON. INDICATIVE ONLY: "
                                  "rests on four points with 42-90% errors; "
@@ -805,9 +881,9 @@ class Eta_Amp2609(ProtonDetectedModel):
 @register
 class Pi0n_Amp2609(ProtonDetectedModel):
     name = "pi0n.amp2609"
-    channel = "pi0"
+    channel = "pi0n"
     version = "amp2609-n"
-    topology = _PI0_TOPO
+    topology = _PI0N_TOPO
     validity = _AMP26C_VALIDITY
     provenance = _AMP2609_PROV + ("pi0 off the NEUTRON. INDICATIVE ONLY: "
                                   "four points with 42-90% errors.")
@@ -815,3 +891,20 @@ class Pi0n_Amp2609(ProtonDetectedModel):
 
     def _sfs_tn(self, t_nucl, xB, Q2):
         return _amp2609_sfs("pi0n", t_nucl, xB, Q2)
+
+
+@register
+class Etan_Amp2609(ProtonDetectedModel):
+    name = "etan.amp2609"
+    channel = "etan"
+    version = "amp2609-n"
+    topology = _ETAN_TOPO
+    validity = _AMP26C_VALIDITY
+    provenance = _AMP2609_PROV + (
+        "eta off the NEUTRON: isospin rotation (2F^d - F^u)/(3 sqrt6 k) of "
+        "the same fitted flavour amplitudes -- NO new parameters. "
+        "PREDICTION: no eta-neutron data exists, and none entered the fit.")
+    reference = _AMP_REF
+
+    def _sfs_tn(self, t_nucl, xB, Q2):
+        return _amp2609_sfs("etan", t_nucl, xB, Q2)

@@ -66,6 +66,12 @@ class Topology:
                   the hadron-plane x-axis flip
     detected    : human-readable name of the detected hadron
     missing     : human-readable name of the missing hadron
+    m_target    : mass of the INITIAL-STATE nucleon at rest -> EventKin M.
+                  Proton by default; M_N for a free-neutron target.  Kept
+                  separate from m_detected because the two coincide only in
+                  the baryon_detected case: for meson_detected the detected
+                  hadron is the meson while the target is still the nucleon.
+    target      : human-readable name of the target nucleon ("p" / "n")
     note        : free-text provenance / caveat
     """
 
@@ -78,6 +84,8 @@ class Topology:
     detected: str = ""
     missing: str = ""
     t_kind: str = "photon"     # which invariant the t bin holds fixed
+    m_target: float = M_P
+    target: str = "p"
     note: str = ""
 
     def __post_init__(self):
@@ -97,7 +105,8 @@ class Topology:
                     missing=self.missing, m_detected=self.m_detected,
                     m_missing=self.m_missing, sf_t=self.sf_t,
                     lt_sign=self.lt_sign, phi_offset=self.phi_offset,
-                    t_kind=self.t_kind)
+                    t_kind=self.t_kind, target=self.target,
+                    m_target=self.m_target)
 
     def __str__(self):
         return (f"{self.name}(detected={self.detected} m={self.m_detected:.6f}, "
@@ -118,14 +127,22 @@ def meson_detected(m_meson, meson="meson", m_recoil=M_P, recoil="p"):
                          "hadron plane defined by the meson.")
 
 
-def baryon_detected(m_meson, meson="meson", m_recoil=M_P, recoil="p"):
-    """EXCLURAD convention for pi0/eta: recoil proton detected, meson missing.
+def baryon_detected(m_meson, meson="meson", m_recoil=M_P, recoil="p",
+                    m_target=None, target=None):
+    """EXCLURAD convention for pi0/eta: recoil baryon detected, meson missing.
 
     The SF model must be evaluated at the nucleon transfer t_N, supplied by
     the caller (see exclurad_py.models.base.ProtonDetectedModel), and sigma_LT,
     sigma_LT' flip sign relative to the meson frame.
+
+    For the ELASTIC-recoil channels handled here the recoil IS the target
+    nucleon (e p -> e' p' M, e n -> e' n' M), so the target defaults to the
+    recoil rather than to the proton -- otherwise a neutron topology would
+    silently keep a proton's initial state.
     """
     return Topology(name="baryon_detected",
+                    m_target=m_recoil if m_target is None else m_target,
+                    target=recoil if target is None else target,
                     m_detected=m_recoil, m_missing=m_meson,
                     sf_t=FIXED_NUCLEON, lt_sign=-1.0, phi_offset=pi,
                     detected=recoil, missing=meson,
