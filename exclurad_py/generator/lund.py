@@ -49,6 +49,16 @@ DECAY_PID = {"rho":  (211, -211, 0.13957039),
              "pi0":  (22, 22, 0.0),
              "eta":  (22, 22, 0.0)}
 
+# see generator/decay.py: the free-neutron channels carry the SAME mesons, so
+# they decay and get the same PDG codes.  Listed explicitly, because
+# `channel in DECAY_PID` is a silent False for a missing key -- renaming the
+# neutron channels to pi0n/etan quietly dropped the pi0 -> gamma gamma decay
+# and wrote 3-particle events where GEMC needs 5.
+DECAY_PID["pi0n"] = DECAY_PID["pi0"]
+DECAY_PID["etan"] = DECAY_PID["eta"]
+CHANNEL_PID["pi0n"] = CHANNEL_PID["pi0"]
+CHANNEL_PID["etan"] = CHANNEL_PID["eta"]
+
 
 def event_lines(ev, channel, topology=None, target_pid=None,
                 beam_energy=10.6, pol_beam=None, pol_target=0.0, weight=1.0,

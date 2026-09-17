@@ -37,16 +37,38 @@ DECAY = {
     "pi0":  (22, 22, 0.0),
     "eta":  (22, 22, 0.0),
 }
+# Free-neutron channels decay exactly like their proton counterparts -- the
+# meson is the same particle.  They are listed EXPLICITLY rather than matched
+# by prefix: `ch in DECAY` is a silent False for a missing key, so when the
+# neutron channels were renamed from "pi0"/"eta" the pi0 -> gamma gamma decay
+# simply stopped happening and the LUND came out with 3 particles instead of
+# 5, with no error anywhere.
+DECAY["pi0n"] = DECAY["pi0"]
+DECAY["etan"] = DECAY["eta"]
+
 
 # Which event slot holds the MESON.  The core kinematics names its slots by
 # role, not by particle: ev["meson"] is the DETECTED hadron and ev["recoil"]
 # the missing one.  Under the EXCLURAD pi0/eta topology the detected hadron is
 # the PROTON, so decaying ev["meson"] there would blow apart the proton.
+_NUCLEONS = ("p", "n")
+
+
 def meson_slot(topology, channel):
-    """'meson' or 'recoil' -- whichever slot actually holds the meson."""
+    """'meson' or 'recoil' -- whichever slot actually holds the meson.
+
+    Decided by WHAT the missing particle is, never by comparing its name to
+    the channel name.  That comparison held only while every channel was
+    named after its meson: the free-neutron channels are "pi0n"/"etan" while
+    their missing particle is still "pi0"/"eta", so the test came out False,
+    the slot fell back to "meson" -- which under baryon_detected holds the
+    DETECTED NUCLEON -- and the neutron was decayed into two photons while
+    the pi0 was written as an undecayed status-0 parent.  Four-momentum then
+    failed by several GeV per event.
+    """
     if topology is None:
         return "meson"
-    return "recoil" if getattr(topology, "missing", "") == channel else "meson"
+    return "meson" if getattr(topology, "missing", "") in _NUCLEONS else "recoil"
 
 
 def boost_from_rest(p4_parent, p4_rest):
