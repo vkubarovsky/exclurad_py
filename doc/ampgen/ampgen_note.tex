@@ -1,0 +1,313 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=24mm]{geometry}
+\usepackage{amsmath,amssymb,booktabs,graphicx}
+\usepackage[hidelinks]{hyperref}
+\usepackage{microtype}
+\setlength{\parskip}{2pt}
+\newcommand{\sig}[1]{\sigma_{#1}}
+\newcommand{\code}[1]{\texttt{#1}}
+
+\title{\textbf{The amplitude model as a generator}\\[2mm]
+\large What \code{amp2609} is, where it may be used, and what it inherits}
+\author{V.\ Kubarovsky\\ \small Jefferson Lab}
+\date{18 September 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent
+\code{exclurad\_py} now generates $\pi^0$ and $\eta$ electroproduction from a
+model fitted directly to the world data at the level of the helicity amplitudes.
+This note covers the join between the two: which parameter vector is installed,
+what cross section is sampled, how far the sampling box reaches beyond the
+region the model was fitted in, whether the sampled cross section stays
+positive, and in what sense the radiative-correction loop is and is not closed.
+The physics of the model itself is not repeated here; it is in
+\code{\textasciitilde/rc\_iter1/tex/report.pdf}, and the radiative corrections
+are in \code{doc/note/exclurad\_py\_note.pdf}.  This note is only the seam.
+\end{abstract}
+
+\section{What is installed}
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+registered name & \code{pi0.amp2609}, \code{eta.amp2609}, \code{pi0n.amp2609}\\
+parameter file & \code{exclurad\_py/models/amp2609\_par.npy}, 37 long\\
+md5 & \code{abcb2f6ce7c87864386d900d82ad13ef}\\
+origin & \code{\textasciitilde/rc\_iter1/runs/C1\_with\_compass/fitpar.npy}\\
+fitted to & \code{pi0\_eta\_database.xlsx}, md5 \code{8d5b6a04206de590a186b0f205eea44c}\\
+quality & $\chi^2/\mathrm{ndf} = 1.4018 = 2140.5/1527$, eleven sets, 1555 points\\
+computed by & \code{\_amplitude\_fit2.py} (the 37-parameter layout)\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent
+The installed vector was verified byte-for-byte against the fit it claims to
+come from.  Three normalisations were fitted alongside it --- 1.0586 for De
+Masi, 0.9776 for the Hall A neutron, 1.0583 for Hall A 2016 --- and they are
+\emph{not} applied here: they describe those experiments' normalisations, not
+the physics.
+
+\paragraph{\code{amp2026c} is withdrawn.}  It holds the previous fit,
+\code{C0\_with\_compass}, which was made with a wrong kinematics for Hall A
+2021: table I of PRL \textbf{127} 152301 heads its columns $0.36/0.48/0.60$ and
+gives the per-setting $\langle x_B\rangle$ underneath, and the workbook had
+taken the heading, putting four of the nine settings at the wrong $x_B$ by up to
+$0.03$.  Anything generated with \code{amp2026c} after 2026-09-05 21:01 carries
+that error.  The practical size of it is small --- between the two fits
+$\chi^2/\mathrm{ndf}$ moves $1.3918 \to 1.4018$, $n_Q(H_T)$ $1.227 \to 1.260$,
+and cross sections shift by a few percent --- so the events are not nonsense,
+but they were made by a model that no longer exists and should be labelled, not
+quietly kept.  The name must not be reused: an installed name is the only link
+between a file on \code{wd\_14tb} and the physics that made it.
+
+\section{What is sampled}
+
+The model supplies nine structure functions in nb/GeV$^2$.  With an unpolarised target the generator samples
+samples
+\begin{equation}
+\frac{d^2\sigma}{dt\,d\phi} = \frac{1}{2\pi}\Big[
+\sig{T} + \epsilon\,\sig{L}
++ \epsilon\cos 2\phi\; \sig{TT}
++ \sqrt{2\epsilon(1+\epsilon)}\cos\phi\; \sig{LT}
++ h\sqrt{2\epsilon(1-\epsilon)}\sin\phi\; \sig{LT'}\Big],
+\label{eq:phi}
+\end{equation}
+with $\phi$ in the Trento convention and $h$ the beam helicity.  This is the
+decomposition the data were published in, so no conversion happens between the
+fit and the generator.
+
+Since 2026-09-18 the generator also samples the four structure functions a
+\emph{longitudinally polarised target} needs.  With target polarisation
+$\Lambda$, set by \code{ptarg} in the card, the bracket gains
+\begin{equation}
++\ \Lambda\Big(\sqrt{2\epsilon(1+\epsilon)}\sin\phi\; \sig{LT}^{UL}
+             + \epsilon\sin 2\phi\; \sig{TT}^{UL}\Big)
++\ h\Lambda\Big(\sqrt{1-\epsilon^2}\; \sig{T'}
+              + \sqrt{2\epsilon(1-\epsilon)}\cos\phi\; \sig{LT'}^{LL}\Big),
+\end{equation}
+the first line being $A_{UL}$ and the second $A_{LL}$.  All four are fitted:
+the eg1-dvcs moments of each are in the fit the parameters come from.
+
+Three things about that are worth knowing.
+
+\emph{The coefficients were measured, not assumed.}  Each candidate tensor
+structure was contracted with the lepton tensor over a grid in $\phi$ and its
+harmonic read off; the normalisation then follows from the same closure that
+fixes \code{NU\_LT} and \code{NU\_LTP} in \code{core/hadronic.py}, and that
+closure returns $-1$ for both of those, which is what makes the other four
+trustworthy.  Born closure with $\Lambda$ is flat to $10^{-8}$ over both
+helicities, $\Lambda \in \{0, \pm 1, 0.8\}$, nine $\phi$ and three kinematics.
+
+\emph{The radiative correction is polarisation-dependent, correctly.}
+\code{sigma\_F} contracts the hadronic tensor at the \emph{shifted} kinematics
+rather than scaling a scalar Born, so the polarised terms are integrated over
+photon emission like everything else, and the rotation of the photon frame
+against the fixed target spin falls out of the basis vectors being built from
+the actual momenta.  $\eta$ runs from 1.058 to 1.084 across $(h, \Lambda)$
+where before there was one number.
+
+\emph{The spin axis is the virtual photon, not the beam.}  The two differ by
+the photon scattering angle, and the difference mixes a transverse target
+asymmetry into $A_{UL}$.  The amplitude fit makes the same approximation, so
+generator and model agree and are approximate in the same way; the angle is
+the obvious next refinement, and it would require refitting eg1.
+
+End to end, 8000 Born events at each of $\Lambda = \pm 0.8$ with the beam
+helicity fixed give $\langle 2\sin\phi\rangle = +0.248 \pm 0.017$ against
+$-0.275 \pm 0.018$.  The model gives $A_{UL}^{\sin\phi} = 0.30$ there, so the
+modulation should be $0.8 \times 0.30 = 0.24$.
+
+\emph{Nothing else changed.}  The polarised terms are gated on both a non-zero
+$\Lambda$ and a model that supplies the keys, and \code{ptarg} defaults to
+zero, so the vector-meson channels are bit-identical: born, $\eta$ and
+$\sigma_{\rm obs}$ for \code{rho.diffrad\_vm}, \code{phi.diffrad\_vm},
+\code{jpsi.diffrad\_vm} and \code{jpsi.diffrad} were compared against a
+worktree at the previous commit over 48 values with zero differences.
+
+\section{Where it may be used}
+
+The model was fitted over
+\[
+Q^2 \in [1.15,\ 8.31]\ \mathrm{GeV}^2,\qquad
+x_B \in [0.13,\ 0.60],\qquad
+|t| \le 1.8\ \mathrm{GeV}^2 .
+\]
+The production card \code{cards/rad\_pi0\_2026.txt} samples $W^2 \in [4,12]$,
+$Q^2 \in [1,5]$, $|t| \in [0.10,\ 2.0]$ at $E = 10.6$~GeV.  Scanning that box on
+a grid of 62\,900 kinematic points:
+
+\begin{center}
+\begin{tabular}{lrr}
+\toprule
+ & points & share\\
+\midrule
+inside the fitted region & 50\,000 & 79.5\,\%\\
+$|t| > 1.8$ & 8\,405 & 13.4\,\%\\
+$x_B$ outside $[0.13, 0.60]$ & 3\,605 & 5.7\,\%\\
+$Q^2 < 1.15$ & 3\,198 & 5.1\,\%\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent
+So about a fifth of the sampled box is extrapolation, and the largest part of it
+is in $|t|$.  Two remarks on that.
+
+The card stops at $Q^2 = 5$ while the fit now reaches $8.31$: the upper half of
+the fitted range is not being used at all.  That is a card choice left from
+before Hall A 2021 entered the fit, and it is worth revisiting --- that region is
+now measured rather than extrapolated.
+
+Extrapolation in $|t|$ is the least safe of the three, because the $t$
+dependence is exactly what the form factors parametrise: eq.~(1) of the report
+falls as $\exp[(b + b'\ln x_B)t]$ with no curvature, so beyond the data the
+shape is an assumption, not a measurement.
+
+\section{Positivity}
+
+A generator cannot sample from a negative weight, and nothing in the fit
+guarantees the bracket of eq.~(\ref{eq:phi}) stays positive: $\sig{TT}$,
+$\sig{LT}$ and $\sig{LT'}$ enter with either sign and are not bounded by
+$\sig{T}+\epsilon\sig{L}$ in the parametrisation.  It was therefore checked
+rather than assumed.
+
+Over the card's box, on 263\,808 points $(Q^2, W^2, |t|, \phi)$ with $\phi$ in
+$7.5^\circ$ steps, the bracket never goes negative.  Its smallest value relative
+to $\sig{T}+\epsilon\sig{L}$ is
+\[
+\min \frac{[\,\cdot\,]}{\sig{T}+\epsilon\sig{L}} = 0.141
+\qquad\text{at } Q^2 = 1.00,\ x_B = 0.178,\ -t = 2.00,\ \phi = 180^\circ ,
+\]
+which is at the far corner of the extrapolated region, not inside the data.  The
+margin is comfortable, but it is a property of this vector: it must be re-checked
+whenever a new one is installed, and the scan above is cheap enough that there is
+no excuse not to.
+
+\section{The radiative-correction loop}
+
+This is the part most easily got wrong, so it is worth stating exactly.
+
+\paragraph{Inside the generator the loop is closed by construction.}
+\code{core/rc.py:rc\_factor} takes a single \code{sfmodel} and passes the same
+object to \code{born\_xsec} and to \code{sigma\_F}, the integral over real photon
+emission.  There is no second model inside the radiative correction: whatever
+the card names is used both for the Born cross section and for the soft and hard
+photon integrals, and
+\[
+\eta = \sigma_{\rm obs}/\sigma_{\rm Born}
+\]
+is computed with that one model throughout.  Nothing needs fixing here.
+
+\paragraph{On the data side the loop is at iteration one, and stopped there.}
+The CLAS6 cross sections the model is fitted to are not the published ones: they
+were re-corrected by
+\[
+\sigma_{\rm new} = \sigma_{\rm pub} / r, \qquad
+r = \frac{\eta(\text{new model})}{\eta(\text{published model})},
+\]
+both $\eta$ computed with \code{exclurad\_py} so that the code cancels and only
+the model difference survives (\code{compute\_rc.py}; published models
+\code{pi0.vpk2013} with $v_{\rm cut} = 0.18$ and \code{eta.tableB1} with
+$v_{\rm cut} = 0.094$).
+
+The ``new model'' in that ratio is \textbf{\code{amp2021}}.  The model that now
+describes those corrected data is \code{amp2609}, which is a different fit to a
+larger and repaired database.  So the iteration that gives \code{rc\_iter1} its
+name has been run once and not closed: the data carry the radiative correction
+of an August model, and the model fitted to them is a September one.
+
+The size of the inconsistency is not known and is directly computable: recompute
+$r$ with \code{amp2609}, apply it, refit, and see how far the structure functions
+and the parameters move.  Until that is done, absolute rates from the generator
+are self-consistent \emph{within} the generator but rest on data corrected with a
+different model.  This is the one open item in the chain, and it is a real one.
+
+\section{What the generator inherits from the fit}
+
+These are measured failures of the model, not caveats added for form.  Each is
+documented with numbers in the report; here is what each means for generated
+events.
+
+\paragraph{$\sig{LT}$ is the model's worst-described quantity.}  It carries the
+entire $\cos\phi$ modulation of eq.~(\ref{eq:phi}).  Left out of the fit, the
+CLAS12 cross sections are predicted at 20.4 per point in $\sig{LT}$ against 2.39
+in $\sig{U}$ and 3.51 in $\sig{TT}$; Hall A 2016 gives 4.7.  The $\phi$ shape of
+the generated sample is therefore the least trustworthy thing it produces, and
+any analysis that leans on the $\cos\phi$ moment should be aware of it.
+
+\paragraph{A single power of $Q^2$ spans $1.2$ to $8.3$, and does not fit.}
+Hall A 2016 and Hall A 2021 disagree with the model in opposite directions at the
+two ends.  With Hall A 2021 in the fit the compromise costs the asymmetries.
+Rates near the ends of the $Q^2$ range are less reliable than in the middle.
+
+\paragraph{The neutron channel runs, and its normalisation is soft by a factor
+two.}  \code{pi0n.amp2609} works and is a genuine prediction, but $n/p$ rests on
+four points with 42 to 90\,\% errors, and a single constrained variant of the fit
+--- tying the $t$-slopes of $\bar E_T^u$ and $\bar E_T^d$, which costs 194 units
+of $\chi^2$ --- halves it, from $1.05$ to $0.52$, while the neutron data
+themselves fit \emph{better}.  Treat neutron output as indicative.
+
+\paragraph{Two parameters sit on a bound.}  The $t$-slopes of $H_T^u$ and of the
+longitudinal block are both exactly zero, held there by the requirement that form
+factors fall rather than grow with $|t|$.  The constraint is deliberate and
+justified, but it means those slopes are limits, not measurements, and the
+extrapolation in $|t|$ noted above starts from a boundary value.
+
+\section{Reproducing a run}
+
+A production run is defined entirely by its card.  For the record, the shape of
+one:
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+\code{pi0.amp2609} & model, and therefore the physics\\
+\code{10.6} & beam energy, GeV\\
+\code{200000} & events\\
+\code{0} & \code{iborn}: 0 = full RC, 1 = Born only\\
+\code{4.0 12.0} & $W^2$ range\\
+\code{1.0 5.0} & $Q^2$ range\\
+\code{-2.0 -0.10} & $t$ range\\
+\code{0.50} & $v_{\rm cut}$\\
+\code{0.80} & \code{ptarg}: longitudinal target polarisation, $-1\ldots+1$\\
+\code{20260828} & seed\\
+\code{/Volumes/wd\_14tb/mc/...} & output root\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent
+Run from \code{\textasciitilde/ampgen}, which holds the cards, the run scripts
+and the logs, with
+
+\begin{center}
+\code{python3 -m exclurad\_py.run cards/<job>.txt --jobs 8}
+\end{center}
+
+\noindent
+Two things about that directory are worth fixing.  It is not under version
+control, so a card can change without leaving a trace, and the link between an
+output directory on \code{wd\_14tb} and the card that produced it exists only by
+naming convention.  For a generator whose whole value is reproducibility, that is
+the weakest link in the chain --- weaker than anything in the physics above.
+
+\section*{Where the rest is}
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+the model and the fit & \code{\textasciitilde/rc\_iter1/tex/report.pdf}, 28 pages\\
+the radiative corrections & \code{doc/note/exclurad\_py\_note.pdf}\\
+the formulas & \code{docs\_src/rc\_formulas.pdf}\\
+using the code & \code{doc/manual/exclurad\_py\_manual.pdf}\\
+installing a new vector & \code{doc/HANDOVER\_amplitude\_model\_2026-09-05.md}\\
+the fit, code and history & \url{https://github.com/vkubarovsky/rc_iter1}\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\end{document}
