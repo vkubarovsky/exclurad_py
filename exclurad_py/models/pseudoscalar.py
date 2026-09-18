@@ -826,16 +826,23 @@ _AMP2609_PROV = ("Amplitude fit of 2026-09-06, run C1_with_compass, corrected "
 
 
 def _amp2609_sfs(channel, t_nucl, xB, Q2):
+    """Nine structure functions: the five unpolarised, then the four that a
+    longitudinally polarised target needs.  The amplitude model has carried all
+    nine from the start -- sigma_LT^UL and sigma_TT^UL give A_UL, sigma_T' and
+    sigma_LT'^LL give A_LL, and the eg1-dvcs moments of all four are in the fit
+    the parameters come from.  Only the first five used to be passed on.
+    """
     t = _np.atleast_1d(_np.asarray(t_nucl, dtype=float))
     x = _np.atleast_1d(_np.asarray(xB, dtype=float))
     q = _np.atleast_1d(_np.asarray(Q2, dtype=float))
     t, x, q = _np.broadcast_arrays(t, x, q)
+    KEYS = ("T", "L", "TT", "LT", "LTp", "LTUL", "TTUL", "Tp", "LTpLL")
     if _AMPVEC:
         r, _ok = _AF2V.structure_arr(_AMP2609_PAR, channel, t, x, q)
-        out = _np.stack([r["T"], r["L"], r["TT"], r["LT"], r["LTp"]])
+        out = _np.stack([r[k] if k in r else _np.zeros_like(r["T"]) for k in KEYS])
     else:
-        out = _np.zeros((5,) + t.shape)
-        o = out.reshape(5, -1)
+        out = _np.zeros((len(KEYS),) + t.shape)
+        o = out.reshape(len(KEYS), -1)
         for i, (ti, xi, qi) in enumerate(zip(t.ravel(), x.ravel(), q.ravel())):
             try:
                 s = _AF2.structure(_AMP2609_PAR, channel, float(ti), float(xi), float(qi))
@@ -843,8 +850,8 @@ def _amp2609_sfs(channel, t_nucl, xB, Q2):
                 continue
             if s is None:
                 continue
-            o[0, i], o[1, i] = s["T"], s["L"]
-            o[2, i], o[3, i], o[4, i] = s["TT"], s["LT"], s["LTp"]
+            for j, k in enumerate(KEYS):
+                o[j, i] = s[k]
     if out.shape[1:] == (1,):
         return tuple(float(v) for v in out[:, 0])
     return tuple(out)

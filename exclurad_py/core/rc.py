@@ -14,7 +14,7 @@ from .virtual import delta_VR_inf, delta_vac
 from .radiative import sigma_F
 
 
-def rc_factor(Ebeam, Q2, W2, t, phi, sfmodel, h=+1,
+def rc_factor(Ebeam, Q2, W2, t, phi, sfmodel, h=+1, lam=0.0,
               mx2_cut=None, M=M_P, m=M_E,
               n_v=30, n_core=16, n_tail=24, n_phi=16,
               exponentiate=True, t_kind=None, mV=None):
@@ -51,10 +51,10 @@ def rc_factor(Ebeam, Q2, W2, t, phi, sfmodel, h=+1,
     if v_m <= 0:
         raise ValueError("no phase space for photon emission (v_m <= 0)")
 
-    sig_b = born_xsec(kin, sfmodel, h)
+    sig_b = born_xsec(kin, sfmodel, h, lam)
     d_VR, d_inf = delta_VR_inf(kin, v_m)
     d_vac = delta_vac(Q2)
-    sig_f = sigma_F(kin, sfmodel, h, v_m,
+    sig_f = sigma_F(kin, sfmodel, h, v_m, lam,
                     n_v=n_v, n_core=n_core, n_tail=n_tail, n_phi=n_phi)
 
     if exponentiate:

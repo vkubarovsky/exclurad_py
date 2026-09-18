@@ -31,6 +31,18 @@ from ..core.constants import M_P
 
 SF_KEYS = ("sT", "sL", "sTT", "sLT", "sLTp")
 
+# Optional, for a longitudinally polarised target.  A model that does not
+# supply them is unchanged in every respect; a model that does gets the
+# Lambda and h*Lambda terms of the cross section.
+POL_SF_KEYS = ("sLTUL", "sTTUL", "sTp", "sLTpLL")
+
+# lt_sign is the flip of the hadron-plane x axis when the detected hadron is
+# swapped.  y = z cross x flips with it, so what changes sign is every
+# structure with an ODD number of transverse basis vectors beside L:
+# sigma_LT and sigma_LT' among the unpolarised, sigma_LT^UL and sigma_LT'^LL
+# among the polarised.  sigma_TT^UL and sigma_T' carry two and do not.
+LT_SIGN_KEYS = ("sLT", "sLTp", "sLTUL", "sLTpLL")
+
 
 class OutOfRange:
     """What to do when kinematics leave the declared validity range.
@@ -198,9 +210,9 @@ class StructureFunctions:
             raise KeyError(f"{type(self).__name__}._sfs omitted {sorted(missing)}")
 
         out = {}
-        for k in SF_KEYS:
+        for k in SF_KEYS + tuple(k for k in POL_SF_KEYS if k in sf):
             v = np.broadcast_to(np.asarray(sf[k], dtype=float), W2.shape).copy()
-            if k in ("sLT", "sLTp"):
+            if k in LT_SIGN_KEYS:
                 v = v * self.topology.lt_sign
             if self.out_of_range == OutOfRange.ZERO:
                 v = np.where(inrange, v, 0.0)
@@ -309,7 +321,11 @@ class ProtonDetectedModel(StructureFunctions):
         # model's t-dependence entirely and the sampled |t| spectrum
         # collapses to phase space -- mean |t| 2.27 vs exclugen's 0.386.
         _sfs = self._sfs_tn(self.t_nucl, xBs, Q2s)
-        if len(_sfs) == 5:
+        pol = None
+        if len(_sfs) == 9:
+            sT, sL, sTT, sLT, sLTp = _sfs[:5]
+            pol = _sfs[5:]                   # sLTUL, sTTUL, sTp, sLTpLL
+        elif len(_sfs) == 5:
             sT, sL, sTT, sLT, sLTp = _sfs
         elif len(_sfs) == 4:
             sT, sL, sTT, sLT = _sfs
@@ -317,7 +333,8 @@ class ProtonDetectedModel(StructureFunctions):
         else:
             raise ValueError(
                 f"{type(self).__name__}._sfs_tn returned {len(_sfs)} values; "
-                f"expected 4 (sT, sL, sTT, sLT) or 5 (+ sLTp)")
+                f"expected 4 (sT, sL, sTT, sLT), 5 (+ sLTp) or 9 (+ the four "
+                f"polarised-target structure functions)")
 
         # FLUX-CONVENTION CONVERSION (found 2026-08-15; attribution corrected
         # same day).  The pi0/eta fits are HAND-convention -- the PRC paper
@@ -362,8 +379,13 @@ class ProtonDetectedModel(StructureFunctions):
         # assembly is WRONG for this term.  dvmpw.F:62 multiplies S_LTP by
         # SIN(2*PHI_G) where the canonical fifth term is sin(phi).  Dormant
         # only because dvmpw.F:158 sets SIGMA_LTP = 0.
-        return {"sT": g(sT), "sL": g(sL), "sTT": g(sTT),
-                "sLT": g(sLT), "sLTp": z if sLTp is None else g(sLTp)}
+        out = {"sT": g(sT), "sL": g(sL), "sTT": g(sTT),
+               "sLT": g(sLT), "sLTp": z if sLTp is None else g(sLTp)}
+        if pol is not None:
+            # The polarised four come out of the same fit in the same Hand
+            # convention, so they take the same kf conversion as the other five.
+            out.update(zip(POL_SF_KEYS, (g(v) for v in pol)))
+        return out
 
     def stamp(self):
         d = super().stamp()

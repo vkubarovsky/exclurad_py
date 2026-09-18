@@ -28,22 +28,26 @@ def born_tensors(kin, h):
     return L0, pref
 
 
-def born_H(kin, sfmodel):
+def born_H(kin, sfmodel, lam=0.0):
     """Born hadronic tensor H0 (1,4,4) from the SF model (units GeV^-4)."""
     sf = _sf_to_gev(sfmodel(kin.W2, kin.Q2, kin.t))
     qt = kin.q[None, :]
     p = kin.p[None, :]
     pv = kin.pv[None, :]
     W2t = np.array([kin.W2])
-    return hadronic_tensor(qt, p, pv, W2t, sf, M=kin.M)
+    return hadronic_tensor(qt, p, pv, W2t, sf, M=kin.M, lam=lam)
 
 
-def born_xsec(kin, sfmodel, h):
-    """d sigma_Born/(dQ2 dW2 dt dphi) in nb/GeV^6."""
+def born_xsec(kin, sfmodel, h, lam=0.0):
+    """d sigma_Born/(dQ2 dW2 dt dphi) in nb/GeV^6.
+
+    lam is the longitudinal target polarisation; 0 reproduces the previous
+    behaviour bit for bit.
+    """
     if hasattr(sfmodel, 'kf_W2Q2'):
         sfmodel.kf_W2Q2 = (float(kin.W2), float(kin.Q2))
     L0, pref = born_tensors(kin, h)
-    H0 = born_H(kin, sfmodel)[0]
+    H0 = born_H(kin, sfmodel, lam)[0]
     val = pref * np.real(contractLH(L0, H0))
     return val * GEV2_TO_NB
 

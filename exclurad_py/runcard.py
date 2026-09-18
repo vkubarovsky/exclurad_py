@@ -57,12 +57,13 @@ FIELDS = [
     ("vmin", float, "soft/hard split (GeV^2); 0 = choose automatically"),
     ("itarg", int, "1 = pre-vertex external radiator (target straggling)"),
     ("vz", "pair", "vertex z range (cm) -- the target cell"),
+    ("ptarg", float, "ptarg   longitudinal target polarisation, -1..+1; 0 = unpolarised"),
 ]
 N_REQUIRED = 13          # fields up to and including outroot
 # itarg defaults OFF and vz to a point target: a card written before the
 # radiator existed keeps producing exactly what it produced before.
 DEFAULT_OPT = dict(y=(0.0, 1.0), xB=(0.0, 1.0), iacc="none", vmin=0.0,
-                   itarg=0, vz=(0.0, 0.0))
+                   itarg=0, vz=(0.0, 0.0), ptarg=0.0)
 
 
 def _num(tok):
@@ -122,6 +123,14 @@ def _validate(cfg, path):
                          f"both negative (e.g. -2.0 -0.10)")
     if cfg["ihel"] not in (-1, 0, 1):
         raise ValueError(f"{path}: ihel must be +1, -1 or 0")
+    if not -1.0 <= cfg.get("ptarg", 0.0) <= 1.0:
+        raise ValueError(f"{path}: ptarg must lie in [-1, +1]")
+    if cfg.get("ptarg", 0.0) and cfg["ihel"] == 0:
+        # A_LL needs both spins; with ihel = 0 the h*Lambda terms average away
+        # and only A_UL survives.  Legal, but say so rather than let it look
+        # like the double-spin part is being generated.
+        print("runcard: ptarg is set but ihel = 0 -- the h*Lambda (A_LL) terms "
+              "average to zero; only the Lambda (A_UL) terms will show.")
     if cfg["iborn"] not in (0, 1):
         raise ValueError(f"{path}: iborn must be 0 or 1")
     if cfg["nev"] <= 0:

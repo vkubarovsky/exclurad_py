@@ -76,7 +76,7 @@ def _channel_nodes(kvec, m, n_core, n_tail, n_phi):
     return nhat, WW, KO
 
 
-def sigma_F(kin0, sfmodel, h, v_m,
+def sigma_F(kin0, sfmodel, h, v_m, lam=0.0,
             n_v=30, n_core=16, n_tail=24, n_phi=16, return_diag=False,
             v_lo=None, subtract=True):
     """IR-finite hard-photon integral (nb/GeV^6). kin0: Born EventKin (v=0).
@@ -91,7 +91,7 @@ def sigma_F(kin0, sfmodel, h, v_m,
     E1, E2 = k1[0], k2[0]
 
     L0, _ = born_tensors(kin0, h)
-    H0 = born_H(kin0, sfmodel)[0]
+    H0 = born_H(kin0, sfmodel, lam)[0]
     LH0 = np.real(contractLH(L0, H0))                 # Born contraction (GeV^-4 SF units)
 
     # angular node sets for the two channels (v-independent)
@@ -146,7 +146,7 @@ def sigma_F(kin0, sfmodel, h, v_m,
             sf = _sf_to_gev(sfmodel(W2t, np.maximum(Q2t, 1e-6), tt))
             H = hadronic_tensor(qt, p[None, :] * np.ones_like(om)[:, None],
                                 pv[None, :] * np.ones_like(om)[:, None],
-                                W2t, sf, M=M)
+                                W2t, sf, M=M, lam=lam)
 
             LR, _, _ = rad_L(k1, k2, m, h, k4)
             LRH = np.real(contractLH(LR, H))

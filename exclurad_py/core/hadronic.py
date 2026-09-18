@@ -36,6 +36,28 @@ from .spinors import dot4
 NU_LT = -1.0
 NU_LTP = -1.0
 
+# The four target-polarised structures, fixed the same way and by the same
+# test.  With the target spin taken ALONG THE VIRTUAL PHOTON, the spin
+# direction in the photon basis is z, and the structures that carry it are the
+# ones with an odd number of Y -- Y being normal to the hadron plane.  Which
+# harmonic each produces was not assumed but measured: contract it with the
+# lepton tensor over a grid in phi and read off the projection.
+#
+#   LY + YL      sin(phi),   h-independent   ->  sigma_LT^UL
+#   XY + YX      sin(2phi),  h-independent   ->  sigma_TT^UL
+#   i(XY - YX)   constant,   flips with h    ->  sigma_T'
+#   i(LY - YL)   cos(phi),   flips with h    ->  sigma_LT'^LL
+#
+# The same closure that returns these four returns -1 for NU_LT and NU_LTP,
+# which is what makes it trustworthy.
+NU_LTUL = +1.0
+NU_TTUL = -1.0
+NU_TP = +1.0
+NU_LTPLL = -1.0
+
+# Keys of the polarised structure functions, in the order above.
+POL_KEYS = ("sLTUL", "sTTUL", "sTp", "sLTpLL")
+
 
 # --------------------------------------------------------------------------- #
 #  photon polarization basis attached to the (possibly shifted) hadron vertex
@@ -100,12 +122,23 @@ def photon_basis(qt, p, pv):
     return X, Y, L
 
 
-def hadronic_tensor(qt, p, pv, W2t, sf, M=M_P):
+def hadronic_tensor(qt, p, pv, W2t, sf, M=M_P, lam=0.0):
     """H^{mu nu} (N,4,4) complex from structure functions.
 
     sf : dict with arrays 'sT','sL','sTT','sLT','sLTp' (N,), in GeV^-4
          (i.e. d sigma_i/dt in natural units) evaluated at the shifted point.
+         May also carry 'sLTUL','sTTUL','sTp','sLTpLL' for a polarised target.
     W2t : (N,) shifted W^2 entering the Hand flux factor of the SF definition.
+    lam : longitudinal target polarisation.  Zero, or a model without the
+          polarised keys, leaves the tensor exactly as it was -- every existing
+          channel is unaffected.
+
+    The spin axis is the VIRTUAL PHOTON direction, not the beam.  The two
+    differ by the photon scattering angle, and the difference mixes a
+    transverse target asymmetry into A_UL.  The amplitude fit these structure
+    functions come from makes the same approximation, so generator and model
+    agree; both are approximate in the same way, and the angle is the obvious
+    next refinement.
     """
     X, Y, L = photon_basis(qt, p, pv)
     # NOTE on flux convention: kap*(the 1/sqrt(lam_q) in born_tensors' pref)
@@ -129,6 +162,14 @@ def hadronic_tensor(qt, p, pv, W2t, sf, M=M_P):
         + NU_LT * sf['sLT'][:, None, None] * (LX + XL)
         + 1j * NU_LTP * sf['sLTp'][:, None, None] * (LX - XL)
     )
+    if lam and all(k in sf for k in POL_KEYS):
+        XY = op(X, Y); YX = op(Y, X); LY = op(L, Y); YL = op(Y, L)
+        H = H + (0.5 * kap * lam)[:, None, None] * (
+            NU_LTUL * sf['sLTUL'][:, None, None] * (LY + YL)
+            + NU_TTUL * sf['sTTUL'][:, None, None] * (XY + YX)
+            + 1j * NU_TP * sf['sTp'][:, None, None] * (XY - YX)
+            + 1j * NU_LTPLL * sf['sLTpLL'][:, None, None] * (LY - YL)
+        )
     return H
 
 # NOTE: the StructureFunctions interface and the TwoSF wrapper used to live
