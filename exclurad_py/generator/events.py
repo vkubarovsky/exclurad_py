@@ -105,7 +105,7 @@ class Box:
 class Generator:
     """Unweighted generator for one channel / model / beam energy."""
 
-    def __init__(self, sfmodel, Ebeam, box, mx2_cut=None, helicity=0,
+    def __init__(self, sfmodel, Ebeam, box, mx2_cut=None, helicity=0, ptarg=0.0,
                  seed=1234, majorant_shape=(8, 8, 8, 12),
                  table_shape=(5, 5, 5, 8), tail_shape=(2, 2, 2, 2),
                  safety=1.6, cache=None, born_only=False, cuts=None,
@@ -182,6 +182,10 @@ class Generator:
         self.box = box
         self.mx2_cut = mx2_cut
         self.helicity = helicity
+        # Longitudinal target polarisation.  Zero is the old behaviour in
+        # every respect: the polarised terms of the hadronic tensor are gated
+        # on it, so nothing is computed and nothing changes.
+        self.ptarg = float(ptarg)
         self.rng = np.random.default_rng(seed)
         # MAJ_SHAPE / MAJ_SAFETY override the defaults, because one setting
         # does not fit every channel.  J/psi sits against a kinematic
@@ -333,7 +337,7 @@ class Generator:
     def _born(self, Q2, W2, t, phi, h):
         self._set_event_t(t)
         try:
-            return born_xsec(self._kin(Q2, W2, t, phi), self.sf, h)
+            return born_xsec(self._kin(Q2, W2, t, phi), self.sf, h, self.ptarg)
         except (ValueError, ZeroDivisionError, FloatingPointError):
             return None
 
@@ -375,14 +379,15 @@ class Generator:
             pass
         elif self.cache:
             self.table = RCTable.load(self.cache, self.sf, self.Ebeam,
-                                      self.box, self.mx2_cut, h,
+                                      self.box, self.mx2_cut, h, self.ptarg,
                                       self.table_shape)
         if self.table is None and not self.born_only:
             if verbose:
                 print("building eta table "
                       f"({int(np.prod(self.table_shape))} RC points)...")
             self.table = RCTable(self.sf, self.Ebeam, self.box, self.mx2_cut,
-                                 h, self.table_shape).build(verbose=verbose)
+                                 h, self.ptarg,
+                                 self.table_shape).build(verbose=verbose)
             if self.cache:
                 self.table.save(self.cache)
 
@@ -501,7 +506,7 @@ class Generator:
 
     def _maj_key(self, eta_hi):
         return dict(model=self.sf.name, Ebeam=self.Ebeam, box=self.box.as_dict(),
-                    mx2_cut=self.mx2_cut, helicity=self.helicity,
+                    mx2_cut=self.mx2_cut, helicity=self.helicity, ptarg=self.ptarg,
                     shape=list(self.majorant_shape), safety=self.safety,
                     born_only=self.born_only, eta_hi=round(float(eta_hi), 9),
                     # The cell EDGES are part of what a cached majorant is,
@@ -708,7 +713,7 @@ class Generator:
             self._set_event_t(ct)
             rc_c = rc_factor(M=self._mT,
 Ebeam=self._E, Q2=cQ2, W2=cW2, t=ct, phi=cph,
-                             sfmodel=self.sf, h=h, mx2_cut=self.mx2_cut,
+                             sfmodel=self.sf, h=h, lam=self.ptarg, mx2_cut=self.mx2_cut,
                              t_kind=self._t_kind, mV=self._mV)
             sigma_obs_c = float(rc_c["sigma_obs"])
             if not np.isfinite(sigma_obs_c) or sigma_obs_c <= 0:
@@ -849,7 +854,7 @@ Ebeam=self._E, Q2=cQ2, W2=cW2, t=ct, phi=cph,
                     self._set_event_t(t)
                     so = float(rc_factor(M=self._mT,
 Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
-                        sfmodel=self.sf, h=h_p, mx2_cut=self.mx2_cut,
+                        sfmodel=self.sf, h=h_p, lam=self.ptarg, mx2_cut=self.mx2_cut,
                         t_kind=self._t_kind, mV=self._mV)["sigma_obs"])
                 except (ValueError, ZeroDivisionError, FloatingPointError):
                     continue
@@ -948,7 +953,7 @@ Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
                     rc_e = rc_factor(M=self._mT,
 Ebeam=self._E, Q2=Q2, W2=W2, t=t,
                                      phi=phi, sfmodel=self.sf, h=h,
-                                     mx2_cut=self.mx2_cut,
+                                     lam=self.ptarg, mx2_cut=self.mx2_cut,
                                      t_kind=self._t_kind, mV=self._mV)
                     so_e = float(rc_e["sigma_obs"])
 
@@ -988,7 +993,8 @@ Ebeam=self._E, Q2=Q2, W2=W2, t=t,
                         def sobs(x):
                             return float(rc_factor(M=self._mT,
 Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
-                                sfmodel=self.sf, h=h, mx2_cut=x + mU2,
+                                sfmodel=self.sf, h=h, lam=self.ptarg,
+                                mx2_cut=x + mU2,
                                 t_kind=self._t_kind, mV=self._mV)["sigma_obs"])
 
                         N0 = max(so_e - sobs(vmn), 0.0)

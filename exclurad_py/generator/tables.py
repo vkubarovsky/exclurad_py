@@ -39,13 +39,14 @@ from ..provenance import stamp
 class RCTable:
     """eta on a (Q2, W2, t, phi) grid, with cache and interpolation."""
 
-    def __init__(self, sfmodel, Ebeam, box, mx2_cut=None, helicity=+1,
+    def __init__(self, sfmodel, Ebeam, box, mx2_cut=None, helicity=+1, ptarg=0.0,
                  shape=(5, 5, 5, 8)):
         self.sf = sfmodel
         self.Ebeam = float(Ebeam)
         self.box = box
         self.mx2_cut = mx2_cut
         self.helicity = helicity
+        self.ptarg = float(ptarg)
         self.shape = tuple(shape)
         # key must carry the CONSTRUCTION t_nucl: the builder mutates
         # sf.t_nucl per grid node (last node = t axis edge), and saving the
@@ -83,7 +84,8 @@ class RCTable:
     def _key(self):
         return dict(model=self.sf.name, version=self.sf.version,
                     Ebeam=self.Ebeam, mx2_cut=self.mx2_cut,
-                    helicity=self.helicity, shape=list(self.shape),
+                    helicity=self.helicity, ptarg=self.ptarg,
+                    shape=list(self.shape),
                     box=self.box.as_dict(),
                     t_nucl=self._t_nucl0,
                     # bump when the build filter or interpolation changes,
@@ -136,6 +138,7 @@ class RCTable:
         kw = dict(t_nucl=getattr(self.sf, "t_nucl", None),
                   Ebeam=getattr(self.sf, "Ebeam", None))
         args = dict(model=self.sf.name, ctor=kw, Ebeam=self.Ebeam,
+                    ptarg=self.ptarg,
                     mx2_cut=self.mx2_cut, helicity=self.helicity)
         chunks = [nodes[i::jobs] for i in range(jobs)]
         if verbose:
@@ -170,7 +173,7 @@ class RCTable:
                                 self.sf.t_nucl = float(t)
                             r = rc_factor(Ebeam=self.Ebeam, Q2=Q2, W2=W2, t=t,
                                           phi=ph, sfmodel=self.sf,
-                                          h=self.helicity,
+                                          h=self.helicity, lam=self.ptarg,
                                           mx2_cut=self.mx2_cut)
                             e = r["eta"]
                             # keep every positive finite value -- see the
@@ -247,7 +250,7 @@ class RCTable:
                     self.sf.t_nucl = float(t)
                 ex = rc_factor(Ebeam=self.Ebeam, Q2=Q2, W2=W2, t=t, phi=ph,
                                sfmodel=self.sf, h=self.helicity,
-                               mx2_cut=self.mx2_cut)["eta"]
+                               lam=self.ptarg, mx2_cut=self.mx2_cut)["eta"]
             except (ValueError, ZeroDivisionError):
                 continue
             ip = float(self(Q2, W2, t, ph)[0])
@@ -269,9 +272,9 @@ class RCTable:
 
     @classmethod
     def load(cls, path, sfmodel, Ebeam, box, mx2_cut=None, helicity=+1,
-             shape=(5, 5, 5, 8)):
+             ptarg=0.0, shape=(5, 5, 5, 8)):
         """Load a cached table, refusing a mismatched one."""
-        obj = cls(sfmodel, Ebeam, box, mx2_cut, helicity, shape)
+        obj = cls(sfmodel, Ebeam, box, mx2_cut, helicity, ptarg, shape)
         if not os.path.exists(path):
             return None
         d = np.load(path, allow_pickle=True)
@@ -308,6 +311,7 @@ def _eta_chunk(payload):
                 sf.t_nucl = float(t)
             r = rc_factor(Ebeam=args["Ebeam"], Q2=Q2, W2=W2, t=t, phi=ph,
                           sfmodel=sf, h=args["helicity"],
+                          lam=args.get("ptarg", 0.0),
                           mx2_cut=args["mx2_cut"])
             e = r["eta"]
             # eta legitimately spans several decades on wide boxes: it blows

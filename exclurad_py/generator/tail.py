@@ -316,7 +316,7 @@ class TailSampler:
 
 
 # --------------------------------------------------------------------------- #
-def choose_vmin(kin0, sfmodel, h, v_max, sigma_obs, sigma_born=None,
+def choose_vmin(kin0, sfmodel, h, v_max, sigma_obs, sigma_born=None, lam=0.0,
                 target_soft=0.35, min_soft=MIN_SOFT_FRACTION,
                 min_ratio=1e-5, max_ratio=1e-1):
     """Pick the slicing point ANALYTICALLY -- no quadrature.
@@ -343,7 +343,7 @@ def choose_vmin(kin0, sfmodel, h, v_max, sigma_obs, sigma_born=None,
     from ..core.born import born_xsec
 
     if sigma_born is None:
-        sigma_born = born_xsec(kin0, sfmodel, h)
+        sigma_born = born_xsec(kin0, sfmodel, h, lam)
     if sigma_born <= 0 or sigma_obs <= 0:
         return None, None
 

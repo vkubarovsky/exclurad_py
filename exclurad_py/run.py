@@ -111,7 +111,8 @@ def run_parallel(card_path, jobs, date=None, verbose=True):
         mx20 = cfg["vcut"] + sf0.mU ** 2 if cfg["vcut"] > 0 else None
         g0 = Generator(sf0, Ebeam=cfg["ebeam"],
                        box=Box(Q2=cfg["Q2"], W2=cfg["W2"], t=cfg["t"]),
-                       mx2_cut=mx20, helicity=cfg["ihel"], seed=cfg["seed"],
+                       mx2_cut=mx20, helicity=cfg["ihel"],
+                       ptarg=cfg.get("ptarg", 0.0), seed=cfg["seed"],
                        born_only=bool(cfg["iborn"]),
                        cuts=dict(y=cfg["y"], xB=cfg["xB"], iacc=cfg["iacc"]),
                        itarg=cfg["itarg"], vz=cfg["vz"],
@@ -171,7 +172,8 @@ def run(card_path, date=None, verbose=True, _part=None):
     d, mode, ch = _outdir(cfg, date)
 
     g = Generator(sf, Ebeam=cfg["ebeam"], box=box, mx2_cut=mx2,
-                  helicity=cfg["ihel"], seed=cfg["seed"],
+                  helicity=cfg["ihel"], ptarg=cfg.get("ptarg", 0.0),
+                  seed=cfg["seed"],
                   born_only=bool(cfg["iborn"]),
                   cuts=dict(y=cfg["y"], xB=cfg["xB"], iacc=cfg["iacc"]),
                   itarg=cfg["itarg"], vz=cfg["vz"],
