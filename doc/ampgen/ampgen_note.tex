@@ -202,29 +202,34 @@ photon integrals, and
 \]
 is computed with that one model throughout.  Nothing needs fixing here.
 
-\paragraph{On the data side the loop is at iteration one, and stopped there.}
-The CLAS6 cross sections the model is fitted to are not the published ones: they
-were re-corrected by
+\paragraph{On the data side the loop was run twice and then deliberately
+frozen.}  The CLAS6 cross sections the model is fitted to are not the published
+ones: they were re-corrected by
 \[
 \sigma_{\rm new} = \sigma_{\rm pub} / r, \qquad
-r = \frac{\eta(\text{new model})}{\eta(\text{published model})},
+r = \frac{\eta(\text{current model})}{\eta(\text{published model})},
 \]
 both $\eta$ computed with \code{exclurad\_py} so that the code cancels and only
 the model difference survives (\code{compute\_rc.py}; published models
 \code{pi0.vpk2013} with $v_{\rm cut} = 0.18$ and \code{eta.tableB1} with
-$v_{\rm cut} = 0.094$).
+$v_{\rm cut} = 0.094$).  Two iterations were run, \code{i1} and \code{i2}, and
+the \code{\_rc} columns of the workbook carry \code{i2}.
 
-The ``new model'' in that ratio is \textbf{\code{amp2021}}.  The model that now
-describes those corrected data is \code{amp2609}, which is a different fit to a
-larger and repaired database.  So the iteration that gives \code{rc\_iter1} its
-name has been run once and not closed: the data carry the radiative correction
-of an August model, and the model fitted to them is a September one.
+Note that \code{amp2021} in \code{compute\_rc.py} is the name of a \emph{slot}
+in \code{exclurad\_py}, not of a model: \code{iterate.sh} overwrites
+\code{amp2021\_par.npy} with whatever seed it is given.  Reading it as a model
+leads to the wrong conclusion that the corrections came from an August fit.
 
-The size of the inconsistency is not known and is directly computable: recompute
-$r$ with \code{amp2609}, apply it, refit, and see how far the structure functions
-and the parameters move.  Until that is done, absolute rates from the generator
-are self-consistent \emph{within} the generator but rest on data corrected with a
-different model.  This is the one open item in the chain, and it is a real one.
+The model has changed since \code{i2} --- \code{fitpar\_i2.npy} is 27
+parameters, the current vector is 37, with an independent $\bar E_T^d$ block
+and the flavour phases that the older layout did not have.  Iterating again was
+considered and rejected, for two reasons.  The correction enters as a
+\emph{ratio} of two $\eta$, in which the model dependence largely cancels: what
+survives is the difference in shape over the radiative tail, not the difference
+in the cross section itself.  And re-correcting the data every time the fit
+moves makes the data a moving target, so that no published number means
+anything without naming the fit that corrected it.  The cross sections are
+final.  A later fit uses them as they are.
 
 \section{What the generator inherits from the fit}
 
@@ -232,12 +237,15 @@ These are measured failures of the model, not caveats added for form.  Each is
 documented with numbers in the report; here is what each means for generated
 events.
 
-\paragraph{$\sig{LT}$ is the model's worst-described quantity.}  It carries the
-entire $\cos\phi$ modulation of eq.~(\ref{eq:phi}).  Left out of the fit, the
-CLAS12 cross sections are predicted at 20.4 per point in $\sig{LT}$ against 2.39
-in $\sig{U}$ and 3.51 in $\sig{TT}$; Hall A 2016 gives 4.7.  The $\phi$ shape of
-the generated sample is therefore the least trustworthy thing it produces, and
-any analysis that leans on the $\cos\phi$ moment should be aware of it.
+\paragraph{The experiments disagree on the sign of $\sig{LT}$, which carries
+the $\cos\phi$ modulation.}  All three Hall A measurements give
+$\langle\sig{LT}\rangle$ firmly negative ($-77.6$, $-42.6$, $-7.0$, negative in
+more than $83\,\%$ of points); CLAS6 sits near zero; the preliminary CLAS12
+numbers are positive, $+8.3$, negative in only $24\,\%$.  The model follows the
+sets that are fitted and is negative, so its blind prediction of CLAS12
+$\sig{LT}$ costs 20.4 per point while $\sig{U}$ costs 2.4.  Within every fitted
+set $\sig{LT}$ is described as well as anything else.  Until that is resolved,
+the $\cos\phi$ shape of a generated sample is the part to trust least.
 
 \paragraph{A single power of $Q^2$ spans $1.2$ to $8.3$, and does not fit.}
 Hall A 2016 and Hall A 2021 disagree with the model in opposite directions at the
