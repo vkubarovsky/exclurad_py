@@ -105,7 +105,7 @@ class Box:
 class Generator:
     """Unweighted generator for one channel / model / beam energy."""
 
-    def __init__(self, sfmodel, Ebeam, box, mx2_cut=None, helicity=0, ptarg=0.0,
+    def __init__(self, sfmodel, Ebeam, box, mx2_cut=None, helicity=0, *, ptarg=0.0,
                  seed=1234, majorant_shape=(8, 8, 8, 12),
                  table_shape=(5, 5, 5, 8), tail_shape=(2, 2, 2, 2),
                  safety=1.6, cache=None, born_only=False, cuts=None,
@@ -379,15 +379,15 @@ class Generator:
             pass
         elif self.cache:
             self.table = RCTable.load(self.cache, self.sf, self.Ebeam,
-                                      self.box, self.mx2_cut, h, self.ptarg,
-                                      self.table_shape)
+                                      self.box, self.mx2_cut, h,
+                                      self.table_shape, ptarg=self.ptarg)
         if self.table is None and not self.born_only:
             if verbose:
                 print("building eta table "
                       f"({int(np.prod(self.table_shape))} RC points)...")
             self.table = RCTable(self.sf, self.Ebeam, self.box, self.mx2_cut,
-                                 h, self.ptarg,
-                                 self.table_shape).build(verbose=verbose)
+                                 h, self.table_shape,
+                                 ptarg=self.ptarg).build(verbose=verbose)
             if self.cache:
                 self.table.save(self.cache)
 

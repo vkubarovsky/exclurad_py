@@ -39,8 +39,8 @@ from ..provenance import stamp
 class RCTable:
     """eta on a (Q2, W2, t, phi) grid, with cache and interpolation."""
 
-    def __init__(self, sfmodel, Ebeam, box, mx2_cut=None, helicity=+1, ptarg=0.0,
-                 shape=(5, 5, 5, 8)):
+    def __init__(self, sfmodel, Ebeam, box, mx2_cut=None, helicity=+1,
+                 shape=(5, 5, 5, 8), *, ptarg=0.0):
         self.sf = sfmodel
         self.Ebeam = float(Ebeam)
         self.box = box
@@ -272,9 +272,9 @@ class RCTable:
 
     @classmethod
     def load(cls, path, sfmodel, Ebeam, box, mx2_cut=None, helicity=+1,
-             ptarg=0.0, shape=(5, 5, 5, 8)):
+             shape=(5, 5, 5, 8), *, ptarg=0.0):
         """Load a cached table, refusing a mismatched one."""
-        obj = cls(sfmodel, Ebeam, box, mx2_cut, helicity, ptarg, shape)
+        obj = cls(sfmodel, Ebeam, box, mx2_cut, helicity, shape, ptarg=ptarg)
         if not os.path.exists(path):
             return None
         d = np.load(path, allow_pickle=True)

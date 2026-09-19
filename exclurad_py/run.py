@@ -93,7 +93,8 @@ def run_parallel(card_path, jobs, date=None, verbose=True):
             box = Box(Q2=cfg["Q2"], W2=cfg["W2"], t=cfg["t"])
             h = cfg["ihel"] if cfg["ihel"] != 0 else +1
             t0 = time.time()
-            RCTable(sf, cfg["ebeam"], box, mx2, h, (5, 5, 5, 8)).build(
+            RCTable(sf, cfg["ebeam"], box, mx2, h, (5, 5, 5, 8),
+                    ptarg=cfg.get("ptarg", 0.0)).build(
                 verbose=verbose).save(cache)
             if verbose:
                 print(f" eta table built and cached in {time.time()-t0:.0f}s")
@@ -233,9 +234,15 @@ def run(card_path, date=None, verbose=True, _part=None):
         if verbose and n_bad:
             print(f" {n_bad} events below the {ch} decay threshold, left undecayed")
 
+    # ihel and ptarg belong in the header for the same reason the model does:
+    # a polarised study generates several samples that differ ONLY in the two
+    # spins, and without them the files are indistinguishable once they leave
+    # the directory that named them.  That is exactly how 36 GB of vpk2021
+    # came to be labelled amp2609.
     st = stamp(sf, extra=dict(runcard=os.path.abspath(card_path), mode=mode,
                               box=box.as_dict(), vcut=cfg["vcut"],
                               mx2_cut=mx2, Ebeam=cfg["ebeam"],
+                              ihel=cfg["ihel"], ptarg=cfg.get("ptarg", 0.0),
                               n_events=len(ev), seed=cfg["seed"],
                               eta_interp=interp))
     lund = os.path.join(d, "lund",
