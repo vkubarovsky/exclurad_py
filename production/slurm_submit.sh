@@ -25,6 +25,11 @@
 # нельзя: достаточно один раз поставить задачи в другом порядке.
 set -eu
 OUT=$1; NEV=$2; NPART=$3; IBORN=$4; SEED=$5; CH=${6:-pi0}; TLIM=${7:-01:00:00}
+# Раздел -- через окружение.  priority ограничен четырьмя часами, и в них не
+# влезает круг: 18.09 все четыре поляризованные задачи упали по TIMEOUT ровно
+# на 04:00:20, УЖЕ построив таблицу eta, а зависимые массивы 2..N были сняты
+# следом.  production даёт двое суток.
+PARTITION=${PARTITION:-priority}
 CODE=${CODE:-/volatile/clas12/vpk/exclurad_py}
 MODE=$([ "$IBORN" = 1 ] && echo born || echo rad)
 # Карточка: по умолчанию по каналу, но CARD в окружении ПЕРЕКРЫВАЕТ.  Без
@@ -63,7 +68,7 @@ TASKSH="$OUT/task_$MODE.sh"
 cat > "$TASKSH" <<'TASK'
 #!/bin/bash
 #SBATCH --account=clas12
-#SBATCH --partition=priority
+#SBATCH --partition=@PARTITION@
 #SBATCH --time=@TLIM@
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=2G
@@ -75,7 +80,7 @@ python3 -u @OUT@/part_runner.py @OUT@/card_@IBORN@.txt \
         "$SLURM_ARRAY_TASK_ID" @NPART@ \
         "$(( @SEED@ + 7700 * SLURM_ARRAY_TASK_ID ))"
 TASK
-sed -i.bak -e "s|@TLIM@|$TLIM|g" -e "s|@OUT@|$OUT|g" -e "s|@CODE@|$CODE|g" \
+sed -i.bak -e "s|@TLIM@|$TLIM|g" -e "s|@PARTITION@|$PARTITION|g" -e "s|@OUT@|$OUT|g" -e "s|@CODE@|$CODE|g" \
            -e "s|@IBORN@|$IBORN|g" -e "s|@NPART@|$NPART|g" -e "s|@SEED@|$SEED|g" \
            -e "s|@MODE@|$MODE|g" "$TASKSH"
 rm -f "$TASKSH.bak"
