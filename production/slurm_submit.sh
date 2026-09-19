@@ -27,11 +27,16 @@ set -eu
 OUT=$1; NEV=$2; NPART=$3; IBORN=$4; SEED=$5; CH=${6:-pi0}; TLIM=${7:-01:00:00}
 CODE=${CODE:-/volatile/clas12/vpk/exclurad_py}
 MODE=$([ "$IBORN" = 1 ] && echo born || echo rad)
-[ -f "$CODE/cards/rad_$CH.txt" ] || { echo "нет карточки $CODE/cards/rad_$CH.txt"; exit 1; }
+# Карточка: по умолчанию по каналу, но CARD в окружении ПЕРЕКРЫВАЕТ.  Без
+# этого поляризованную карточку (она отличается от канальной только ihel и
+# ptarg) нельзя подать вообще -- ровно та же дыра, из-за которой сентябрьский
+# "amp2609" прогон оказался vpk2021.  Нет файла -- падаем громко.
+CARD=${CARD:-$CODE/cards/rad_$CH.txt}
+[ -f "$CARD" ] || { echo "НЕТ КАРТОЧКИ: $CARD"; exit 1; }
 mkdir -p "$OUT/logs"
 
 # --- карточка
-python3 - "$IBORN" "$NEV" "$OUT" "$CODE/cards/rad_$CH.txt" <<'PY'
+python3 - "$IBORN" "$NEV" "$OUT" "$CARD" <<'PY'
 import re, pathlib, sys
 ib, nev, out, card = sys.argv[1:5]
 k = 0; res = []
