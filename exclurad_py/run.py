@@ -37,6 +37,22 @@ from .generator.tables import RCTable
 from .runcard import parse, echo
 
 
+def _cache_paths(d):
+    """Where this run reads/writes its eta table and majorant.
+
+    Default: inside the run directory, so every run builds its own.  ETA_TABLE
+    and MAJ_TABLE in the environment override that with one shared file --
+    the table depends only on model, box, E, vcut and the two spins, so a
+    run that differs in seed and event count reuses it verbatim.  Safety is
+    in RCTable.load, which refuses a key mismatch; a wrong path fails loudly.
+    Motivation: 120 slurm jobs of 2026-09-20 sat ten hours behind one job
+    that rebuilt a table already built four times that week.
+    """
+    eta = os.environ.get("ETA_TABLE") or os.path.join(d, "etatable.npz")
+    maj = os.environ.get("MAJ_TABLE") or os.path.join(d, "majorant.npz")
+    return eta, maj
+
+
 def _needs_t_nucl(model_name):
     """True if the model is constructed with the bin's nucleon transfer.
 
@@ -88,7 +104,7 @@ def run_parallel(card_path, jobs, date=None, verbose=True):
         sf = models.get(cfg["model"], **kw)
         sf.Ebeam = float(cfg["ebeam"])
         mx2 = cfg["vcut"] + sf.mU ** 2 if cfg["vcut"] > 0 else None
-        cache = os.path.join(d, "etatable.npz")
+        cache, _ = _cache_paths(d)
         if not os.path.exists(cache):
             box = Box(Q2=cfg["Q2"], W2=cfg["W2"], t=cfg["t"])
             h = cfg["ihel"] if cfg["ihel"] != 0 else +1
@@ -103,7 +119,7 @@ def run_parallel(card_path, jobs, date=None, verbose=True):
     # it.  Without this every worker repeats the ~19 s prescan, which made
     # --jobs slower than a single core (226 s vs 176 s for 100k).
     d, _, _ = _outdir(cfg, date)
-    majc = os.path.join(d, "majorant.npz")
+    _, majc = _cache_paths(d)
     if not os.path.exists(majc):
         ch = cfg["model"].split(".")[0]
         kw = dict(t_nucl=cfg["t_nucl"]) if _needs_t_nucl(cfg["model"]) else {}
@@ -118,7 +134,7 @@ def run_parallel(card_path, jobs, date=None, verbose=True):
                        cuts=dict(y=cfg["y"], xB=cfg["xB"], iacc=cfg["iacc"]),
                        itarg=cfg["itarg"], vz=cfg["vz"],
                        v_min=cfg["vmin"] or None,
-                       cache=None if cfg["iborn"] else os.path.join(d, "etatable.npz"))
+                       cache=None if cfg["iborn"] else _cache_paths(d)[0])
         t0 = time.time()
         g0.setup(verbose=verbose)
         g0.calibrate(n_probe=30000, margin=2.0, verbose=verbose)
@@ -179,8 +195,8 @@ def run(card_path, date=None, verbose=True, _part=None):
                   cuts=dict(y=cfg["y"], xB=cfg["xB"], iacc=cfg["iacc"]),
                   itarg=cfg["itarg"], vz=cfg["vz"],
                   v_min=cfg["vmin"] or None,
-                  maj_cache=os.path.join(d, "majorant.npz"),
-                  cache=None if cfg["iborn"] else os.path.join(d, "etatable.npz"))
+                  maj_cache=_cache_paths(d)[1],
+                  cache=None if cfg["iborn"] else _cache_paths(d)[0])
     t0 = time.time()
     g.setup(verbose=verbose)
     t_setup = time.time() - t0

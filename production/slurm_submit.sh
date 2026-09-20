@@ -76,13 +76,14 @@ cat > "$TASKSH" <<'TASK'
 cd @CODE@
 export PYTHONPATH=@CODE@
 export TABLE_SERIAL=1 ETA_PROPOSAL_CAP=5 EXACT_ACCEPT=1 EXPO_TAIL=1 MAJ_SAFETY=4.0
+export ETA_TABLE="@ETA_TABLE@"
 python3 -u @OUT@/part_runner.py @OUT@/card_@IBORN@.txt \
         "$SLURM_ARRAY_TASK_ID" @NPART@ \
         "$(( @SEED@ + 7700 * SLURM_ARRAY_TASK_ID ))"
 TASK
 sed -i.bak -e "s|@TLIM@|$TLIM|g" -e "s|@PARTITION@|$PARTITION|g" -e "s|@OUT@|$OUT|g" -e "s|@CODE@|$CODE|g" \
            -e "s|@IBORN@|$IBORN|g" -e "s|@NPART@|$NPART|g" -e "s|@SEED@|$SEED|g" \
-           -e "s|@MODE@|$MODE|g" "$TASKSH"
+           -e "s|@MODE@|$MODE|g" -e "s|@ETA_TABLE@|${ETA_TABLE:-}|g" "$TASKSH"
 rm -f "$TASKSH.bak"
 chmod +x "$TASKSH"
 
@@ -90,12 +91,23 @@ chmod +x "$TASKSH"
 bash -n "$TASKSH" || { echo "ОШИБКА: скрипт задачи не разбирается"; exit 1; }
 echo "скрипт задачи проверен: $TASKSH"
 
-J1=$(sbatch --parsable --array=1-1 --job-name="${CH}_tab_$MODE" "$TASKSH")
-echo "задача 1 (строит таблицу): $J1"
-if [ "$NPART" -gt 1 ]; then
-  J2=$(sbatch --parsable --dependency=afterok:"$J1" --array=2-"$NPART" \
-              --job-name="${CH}_arr_$MODE" "$TASKSH")
-  echo "массив 2-$NPART: $J2"
+# Два режима.  Без готовой таблицы -- как прежде: часть 1 строит её, массив
+# 2..N ждёт через afterok.  Ждёт он не файла, а ЗАВЕРШЕНИЯ части 1, то есть
+# и всех её событий: 20.09 116 задач простояли десять часов за одной.
+# С ETA_TABLE (готовая таблица, ключ проверяет RCTable.load) строить нечего:
+# весь массив 1..N уходит сразу, без зависимости.
+if [ -n "${ETA_TABLE:-}" ]; then
+  [ -f "$ETA_TABLE" ] || { echo "НЕТ ТАБЛИЦЫ: $ETA_TABLE"; exit 1; }
+  J1=$(sbatch --parsable --array=1-"$NPART" --job-name="${CH}_arr_$MODE" "$TASKSH")
+  echo "массив 1-$NPART (таблица $ETA_TABLE): $J1"
+else
+  J1=$(sbatch --parsable --array=1-1 --job-name="${CH}_tab_$MODE" "$TASKSH")
+  echo "задача 1 (строит таблицу): $J1"
+  if [ "$NPART" -gt 1 ]; then
+    J2=$(sbatch --parsable --dependency=afterok:"$J1" --array=2-"$NPART" \
+                --job-name="${CH}_arr_$MODE" "$TASKSH")
+    echo "массив 2-$NPART: $J2"
+  fi
 fi
 
 # Снимать ТОЛЬКО ожидающие: scancel по базовому номеру массива уносит и
