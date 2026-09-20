@@ -98,8 +98,11 @@ echo "скрипт задачи проверен: $TASKSH"
 # весь массив 1..N уходит сразу, без зависимости.
 if [ -n "${ETA_TABLE:-}" ]; then
   [ -f "$ETA_TABLE" ] || { echo "НЕТ ТАБЛИЦЫ: $ETA_TABLE"; exit 1; }
-  J1=$(sbatch --parsable --array=1-"$NPART" --job-name="${CH}_arr_$MODE" "$TASKSH")
-  echo "массив 1-$NPART (таблица $ETA_TABLE): $J1"
+  # ARRAY_FROM>1: досдать хвост массива, части 1..ARRAY_FROM-1 уже идут или
+  # готовы (20.09: часть 1 считала, 2..30 пересдавались без зависимости).
+  A0=${ARRAY_FROM:-1}
+  J1=$(sbatch --parsable --array="$A0"-"$NPART" --job-name="${CH}_arr_$MODE" "$TASKSH")
+  echo "массив $A0-$NPART (таблица $ETA_TABLE): $J1"
 else
   J1=$(sbatch --parsable --array=1-1 --job-name="${CH}_tab_$MODE" "$TASKSH")
   echo "задача 1 (строит таблицу): $J1"
