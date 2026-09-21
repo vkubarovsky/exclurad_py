@@ -69,7 +69,9 @@ def _events(path):
             yield "".join(buf)
 
 
-def merge(sources, out_dir, prefix, chunk=5000, verbose=True):
+def merge(sources, out_dir, prefix, chunk=5000, verbose=True, extra=()):
+    """`extra`: ('key', 'value') pairs added to the common header, e.g. the spins
+    for samples whose headers predate the spin stamp (taken from the card)."""
     os.makedirs(out_dir, exist_ok=True)
     # --- common header from the first source, identity checked on all
     kv0, raw0 = _header(sources[0][0])
@@ -84,6 +86,7 @@ def merge(sources, out_dir, prefix, chunk=5000, verbose=True):
             if k in kv:
                 seen[k].add(kv[k])
     common = [(k, v) for k, v in kv0.items() if k not in PER_FILE]
+    common += [(k, v) for k, v in extra if k not in kv0]
     hosts = sorted({h for _, h in sources})
     root = os.path.commonpath([s for s, _ in sources])
     rel = lambda p: os.path.relpath(p, start=root)

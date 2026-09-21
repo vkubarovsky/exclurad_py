@@ -66,19 +66,34 @@ def body_md5(path):
     return h.hexdigest()
 
 
-def main(channel, dry=False):
-    gen_ch, roots = SOURCES[channel]
-    out = f"{OUT}/{channel}/{SAMPLE}"
+UNPOL = {   # the 15.09 campaign: ihel=0 (helicity-averaged), no target pol, vcut 0.2/0.3
+    "pi0_p": ("pi0", f"{D}/amp2609_prod_20260915/pi0", "E10.6_Q1.2-8_t0.001-1.8_vcut0.2_unpol"),
+    "eta_p": ("eta", f"{D}/amp2609_prod_20260915/eta", "E10.6_Q1.2-8_t0.001-1.8_vcut0.3_unpol"),
+}
+
+
+def main(channel, dry=False, unpol=False):
+    if unpol:
+        gen_ch, root, sample = UNPOL[channel]
+        roots = [(root, "clonfarm11")]
+        spins = {"avg": ("beam_helicity_zero", "target_pol_zero")}
+        extra = (("run.ihel", "0"), ("run.ptarg", "0.0"))
+        combo_dir = ""          # no per-combo subdirectory in that layout
+    else:
+        gen_ch, roots = SOURCES[channel]
+        sample, spins, extra, combo_dir = SAMPLE, SPIN, (), None
+    out = f"{OUT}/{channel}/{sample}"
     os.makedirs(out, exist_ok=True)
     manifest, summary = [], []
     seen_md5 = {}
     dups = []
     t0 = time.time()
-    for combo, (hdir, tdir) in SPIN.items():
+    for combo, (hdir, tdir) in spins.items():
         for mode in ("born", "rad"):
             srcs = []
             for root, host in roots:
-                pat = f"{root}/{combo}/**/{gen_ch}/*_{mode}_v1/lund/*.lund"
+                sub = combo if combo_dir is None else combo_dir
+                pat = f"{root}/{sub}/**/{gen_ch}/*_{mode}_v1/lund/*.lund" if sub else f"{root}/**/{gen_ch}/*_{mode}_v1/lund/*.lund"
                 for f in sorted(glob.glob(pat, recursive=True), key=sort_key):
                     md5 = body_md5(f)
                     if md5 in seen_md5:
@@ -94,7 +109,7 @@ def main(channel, dry=False):
             print(f"{combo}/{mode}: {len(srcs)} source files -> {odir}")
             if dry:
                 continue
-            rows, info = merge(srcs, odir, prefix, chunk=CHUNK)
+            rows, info = merge(srcs, odir, prefix, chunk=CHUNK, extra=extra)
             for r in rows:
                 r.update(beam_helicity=hdir.split("_")[-1], target_pol=tdir.split("_")[-1], mode=mode)
                 manifest.append(r)
@@ -104,8 +119,15 @@ def main(channel, dry=False):
         return
     # --- cards and tables: from the first source root, one per combo
     os.makedirs(f"{out}/cards", exist_ok=True); os.makedirs(f"{out}/tables", exist_ok=True)
-    for combo, (hdir, tdir) in SPIN.items():
+    for combo, (hdir, tdir) in spins.items():
         root = roots[0][0]
+        if unpol:
+            cards = sorted(glob.glob(f"{root}/**/inputs/gen_input.txt", recursive=True), key=sort_key)
+            for c in cards[:2]:
+                shutil.copy2(c, f"{out}/cards/{hdir}_{tdir}_{os.path.basename(os.path.dirname(os.path.dirname(c)))}_gen_input.txt")
+            tabs = sorted(glob.glob(f"{root}/**/etatable.npz", recursive=True), key=sort_key)
+            if tabs: shutil.copy2(tabs[0], f"{out}/tables/{hdir}_{tdir}_etatable.npz")
+            continue
         for c in (f"{root}/{combo}.txt", f"{root}/{combo}/card_born.txt", f"{root}/{combo}/card_rad.txt",
                   f"{root}/{combo}/cyc01/card_born.txt", f"{root}/{combo}/cyc01/card_rad.txt"):
             if os.path.exists(c):
@@ -123,11 +145,13 @@ def main(channel, dry=False):
     # --- README
     kv, _ = _header(srcs[0][0])
     tot = {"born": 0, "rad": 0}
-    lines = [f"# {channel} — amp2609 — {SAMPLE}", "",
-             f"Generated 2026-09-18..21 with exclurad_py (exact Bardin–Shumeiko RC), model `{kv.get('sf.model')}`.",
+    lines = [f"# {channel} — amp2609 — {sample}", "",
+             f"Generated {'2026-09-15..18' if unpol else '2026-09-18..21'} with exclurad_py (exact Bardin–Shumeiko RC), model `{kv.get('sf.model')}`.",
              f"Beam {kv.get('run.Ebeam')} GeV.  Box: Q2 {kv.get('run.box.Q2')}, W2 {kv.get('run.box.W2')}, "
-             f"t {kv.get('run.box.t')} GeV2; vcut {kv.get('run.vcut')} (no cut on the radiative tail); "
-             f"y 0.25–0.90, xB 0.13–0.60; idecay 1; pre-vertex radiator on; |target polarisation| = 1.",
+             f"t {kv.get('run.box.t')} GeV2; vcut {kv.get('run.vcut')}"
+             + (" (no cut on the radiative tail); " if float(kv.get('run.vcut', 0)) == 0 else " (v = MX2 - m_miss2 cut on the radiative tail); ")
+             f"y 0.25–0.90, xB 0.13–0.60; idecay 1; pre-vertex radiator on; "
+             + ("beam helicity averaged (ihel=0), unpolarised target." if unpol else "|target polarisation| = 1."),
              f"Model validity: W2 {kv.get('sf.validity.W2')}, Q2 {kv.get('sf.validity.Q2')}, |t| {kv.get('sf.validity.mt')} "
              f"(out of range: {kv.get('sf.out_of_range')}).", "",
              "Every file holds exactly 5000 events; the final partial chunk of each stream was discarded.",
@@ -161,4 +185,4 @@ def main(channel, dry=False):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1], dry="--dry" in sys.argv)
+    main(sys.argv[1], dry="--dry" in sys.argv, unpol="--unpol" in sys.argv)
