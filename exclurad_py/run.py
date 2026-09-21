@@ -25,6 +25,7 @@ regenerated from what is sitting next to it.
 import json
 import os
 import shutil
+import socket
 import sys
 import time
 
@@ -259,6 +260,12 @@ def run(card_path, date=None, verbose=True, _part=None):
                               box=box.as_dict(), vcut=cfg["vcut"],
                               mx2_cut=mx2, Ebeam=cfg["ebeam"],
                               ihel=cfg["ihel"], ptarg=cfg.get("ptarg", 0.0),
+                              # the machine is provenance: once files are merged
+                              # across hosts only the header can still say
+                              host=socket.gethostname().split(".")[0],
+                              # the CARD's t_nucl -- sf.t_nucl in the stamp is
+                              # the live attribute, i.e. the last event's t
+                              t_nucl_card=cfg.get("t_nucl"),
                               n_events=len(ev), seed=cfg["seed"],
                               eta_interp=interp))
     lund = os.path.join(d, "lund",
