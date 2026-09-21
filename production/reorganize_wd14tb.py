@@ -67,15 +67,20 @@ def body_md5(path):
 
 
 UNPOL = {   # the 15.09 campaign: ihel=0 (helicity-averaged), no target pol, vcut 0.2/0.3
-    "pi0_p": ("pi0", f"{D}/amp2609_prod_20260915/pi0", "E10.6_Q1.2-8_t0.001-1.8_vcut0.2_unpol"),
-    "eta_p": ("eta", f"{D}/amp2609_prod_20260915/eta", "E10.6_Q1.2-8_t0.001-1.8_vcut0.3_unpol"),
+    "pi0_p": ("pi0", [(f"{D}/amp2609_prod_20260915/pi0", "clonfarm11")],
+              "E10.6_Q1.2-8_t0.001-1.8_vcut0.2_unpol"),
+    # the slurm eta run of early September is the SAME sample (same model, box,
+    # vcut, commit 1535b49) -- the one branch of that campaign that got the
+    # right card -- so it merges in here, dedup guarding against overlap
+    "eta_p": ("eta", [(f"{D}/amp2609_prod_20260915/eta", "clonfarm11"),
+                      (f"{D}/exclurad_amp2609_slurmeta_sep2026/eta_v1", "slurm")],
+              "E10.6_Q1.2-8_t0.001-1.8_vcut0.3_unpol"),
 }
 
 
 def main(channel, dry=False, unpol=False):
     if unpol:
-        gen_ch, root, sample = UNPOL[channel]
-        roots = [(root, "clonfarm11")]
+        gen_ch, roots, sample = UNPOL[channel]
         spins = {"avg": ("beam_helicity_zero", "target_pol_zero")}
         extra = (("run.ihel", "0"), ("run.ptarg", "0.0"))
         combo_dir = ""          # no per-combo subdirectory in that layout
@@ -150,7 +155,7 @@ def main(channel, dry=False, unpol=False):
              f"Beam {kv.get('run.Ebeam')} GeV.  Box: Q2 {kv.get('run.box.Q2')}, W2 {kv.get('run.box.W2')}, "
              f"t {kv.get('run.box.t')} GeV2; vcut {kv.get('run.vcut')}"
              + (" (no cut on the radiative tail); " if float(kv.get('run.vcut', 0)) == 0 else " (v = MX2 - m_miss2 cut on the radiative tail); ")
-             f"y 0.25–0.90, xB 0.13–0.60; idecay 1; pre-vertex radiator on; "
+             + f"y 0.25–0.90, xB 0.13–0.60; idecay 1; pre-vertex radiator on; "
              + ("beam helicity averaged (ihel=0), unpolarised target." if unpol else "|target polarisation| = 1."),
              f"Model validity: W2 {kv.get('sf.validity.W2')}, Q2 {kv.get('sf.validity.Q2')}, |t| {kv.get('sf.validity.mt')} "
              f"(out of range: {kv.get('sf.out_of_range')}).", "",
