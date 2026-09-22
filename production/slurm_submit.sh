@@ -32,6 +32,7 @@ OUT=$1; NEV=$2; NPART=$3; IBORN=$4; SEED=$5; CH=${6:-pi0}; TLIM=${7:-01:00:00}
 PARTITION=${PARTITION:-priority}
 CODE=${CODE:-/volatile/clas12/vpk/exclurad_py}
 MODE=$([ "$IBORN" = 1 ] && echo born || echo rad)
+MEM=${MEM:-512M}
 # Карточка: по умолчанию по каналу, но CARD в окружении ПЕРЕКРЫВАЕТ.  Без
 # этого поляризованную карточку (она отличается от канальной только ihel и
 # ptarg) нельзя подать вообще -- ровно та же дыра, из-за которой сентябрьский
@@ -71,7 +72,14 @@ cat > "$TASKSH" <<'TASK'
 #SBATCH --partition=@PARTITION@
 #SBATCH --time=@TLIM@
 #SBATCH --cpus-per-task=1
-#SBATCH --mem=2G
+# Memory: measured, not guessed.  320 completed jobs of 21.09 used
+# median 278 MB, max 320 MB (MaxRSS) -- the eta table is LOADED from
+# ETA_TABLE, never built, so nothing here is large.  2G was inherited from
+# the old two-stage script whose first job built the table, and gave 13.6%
+# efficiency: ~1.7 GB x 100 jobs of farm memory held idle, which is what the
+# scicomp memory-efficiency warning of 22.09 was about.  512M is 1.6x the
+# observed maximum.  Override with MEM= if a card ever needs more.
+#SBATCH --mem=@MEM@
 #SBATCH --output=@OUT@/logs/@MODE@_%a.out
 cd @CODE@
 export PYTHONPATH=@CODE@
@@ -83,7 +91,7 @@ python3 -u @OUT@/part_runner.py @OUT@/card_@IBORN@.txt \
 TASK
 sed -i.bak -e "s|@TLIM@|$TLIM|g" -e "s|@PARTITION@|$PARTITION|g" -e "s|@OUT@|$OUT|g" -e "s|@CODE@|$CODE|g" \
            -e "s|@IBORN@|$IBORN|g" -e "s|@NPART@|$NPART|g" -e "s|@SEED@|$SEED|g" \
-           -e "s|@MODE@|$MODE|g" -e "s|@ETA_TABLE@|${ETA_TABLE:-}|g" "$TASKSH"
+           -e "s|@MODE@|$MODE|g" -e "s|@ETA_TABLE@|${ETA_TABLE:-}|g" -e "s|@MEM@|$MEM|g" "$TASKSH"
 rm -f "$TASKSH.bak"
 chmod +x "$TASKSH"
 
