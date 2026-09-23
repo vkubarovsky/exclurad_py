@@ -270,7 +270,8 @@ def run(card_path, date=None, verbose=True, _part=None):
                               eta_interp=interp))
     lund = os.path.join(d, "lund",
                         f"{ch}_exclurad_py_{mode}_{cfg['ebeam']:g}GeV{part_tag}.lund")
-    n = write_lund(lund, ev, channel=ch, topology=sf.topology, stamp=st)
+    n = write_lund(lund, ev, channel=ch, topology=sf.topology, stamp=st,
+                   beam_energy=float(cfg["ebeam"]))   # header column 7; was the 10.6 default for every run
 
     shutil.copyfile(card_path, os.path.join(d, "inputs", "gen_input.txt"))
     rep = {k: (float(v) if isinstance(v, float) else v)
