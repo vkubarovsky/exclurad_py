@@ -39,6 +39,9 @@ as a frozen validation reference, never as a production path.
 
 ## Quick start
 
+To produce a CLAS12 sample (card -> LUND -> GEMC -> checks), read `docs/Story_instruction.md`;
+the production cards are `cards/{rad,born}_pi0_{rga,rgk6535,rgk7546}.txt`.
+
 ```bash
 python3 -c "from exclurad_py import models; print(models.list_models())"
 python3 -m exclurad_py.validation.selftest

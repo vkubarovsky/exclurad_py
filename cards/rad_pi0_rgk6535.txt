@@ -1,0 +1,25 @@
+! exclurad_py run card -- pi0 production, RG-K fall 2018 card (torus +1, E = 6.535 GeV), fixed 2026-09-23 with VPK
+! Positional: the ORDER of the lines is the format (exclurad_py/runcard.py FIELDS).
+! Box: RG-A card with ebeam, Q2 floor and y_max adapted; GEMC study at 6.535 GeV in
+! aao_norad_kin/README.md (RG-K section): accepted W <= 3.3, y <= 0.86, x_B <= 0.61, -t 95 % < 1.5;
+! the low-Q2 edge below 0.5 is not yet measured (theta_e' 5 deg <-> Q2 0.26 at E' = 5.3 GeV).
+pi0.amp2609                        ! model  <channel>.<vintage>  (pi0.vpk2021 for the aao-like model)
+6.535                              ! ebeam (GeV)  RG-K fall 2018
+5000                               ! nev per run (production wrapper sets NEV_RAD/NEV_BORN)
+0                                  ! iborn   1 = Born only, 0 = full RC   (Born twin: 1, all else identical)
+3.24 16.00                         ! W2 range (GeV^2): W 1.8 - 4.0; nothing is accepted above W = 3.95
+0.50 10.00                         ! Q2 range (GeV^2): VPK start value; detector edge (theta 5 deg, E' >= 1 GeV) reaches 0.05, vpk2021 fit starts at 0.5
+-5.00 -0.001                       ! t range (GeV^2): 5 % of accepted events have -t > 3; amp2609 validity ends at -1.8 -> model reports out of range
+0                                  ! vcut  0 = no missing-mass cut; the MX^2 cut is an analysis cut, apply it offline
+-0.30                              ! t_nucl (GeV^2) for the pi0/eta models
+0                                  ! ihel   0 = helicity-averaged (use +1/-1 twins for BSA samples)
+20260925                           ! seed   (unique per run/cycle)
+1                                  ! idecay (irrelevant for pi0)
+/Volumes/wd_14tb/exclurad_py       ! output root
+0.00 0.85                          ! y range: E' >= 1 GeV at 6.535 GeV is y <= 0.847; no lower cut
+0.00 1.00                          ! xB range: NO cut. xB <= 0.60 removed 4 % inbending at high Q2 / low W
+none                               ! iacc   no generator-level acceptance; GEMC does that
+1.0d-4                             ! vmin   soft/hard split (GeV^2)
+1                                  ! itarg  pre-vertex external radiator ON (aao lacks it; keep the difference visible)
+-5.5 -0.5                          ! vertex z range, cm -- 5 cm LH2 cell centred at -3 cm (rgk_fall2018_FTOn gcard: BEAM_V -3, SPREAD_V 2.5)
+0.0                                ! ptarg  unpolarised target

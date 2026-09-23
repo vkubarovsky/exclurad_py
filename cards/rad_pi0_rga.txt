@@ -1,0 +1,26 @@
+! exclurad_py run card -- pi0 production, RG-A card (inbending and outbending, fa18 and sp19), fixed 2026-09-23 with VPK
+! Positional: the ORDER of the lines is the format (exclurad_py/runcard.py FIELDS).
+! Box chosen from GEMC acceptance of the RG-A aao_norad pass2 samples, see
+! aao_norad_kin/README.md "Generator box from GEMC acceptance": covers 97 % (inb) / 99 % (out)
+! of the accepted e'p phase space at W >= 1.8, against 64 % / 30 % for the previous cards.
+! RG-K needs its own card (Q2 lower edge, ebeam); spring 2018 target sits at -1.94 cm (vz -4.44 0.56).
+pi0.amp2609                        ! model  <channel>.<vintage>  (pi0.vpk2021 for the aao-like model)
+10.6                               ! ebeam (GeV)
+5000                               ! nev per run (production wrapper sets NEV_RAD/NEV_BORN)
+0                                  ! iborn   1 = Born only, 0 = full RC   (Born twin: 1, all else identical)
+3.24 16.00                         ! W2 range (GeV^2): W 1.8 - 4.0; nothing is accepted above W = 3.95
+0.80 10.00                         ! Q2 range (GeV^2): outbending acceptance reaches the aao edge 0.9; amp2609 extrapolates below 1.15 and reports
+-5.00 -0.001                       ! t range (GeV^2): 5 % of accepted events have -t > 3; amp2609 validity ends at -1.8 -> model reports out of range
+0                                  ! vcut  0 = no missing-mass cut; the MX^2 cut is an analysis cut, apply it offline
+-0.30                              ! t_nucl (GeV^2) for the pi0/eta models
+0                                  ! ihel   0 = helicity-averaged (use +1/-1 twins for BSA samples)
+20260923                           ! seed   (unique per run/cycle)
+1                                  ! idecay (irrelevant for pi0)
+/Volumes/wd_14tb/exclurad_py       ! output root
+0.00 0.90                          ! y range: NO lower cut. y_min = 0.25 removed 20 % (inb) / 51 % (out) of accepted events; W and Q2 bound y from below
+0.00 1.00                          ! xB range: NO cut. xB <= 0.60 removed 4 % inbending at high Q2 / low W
+none                               ! iacc   no generator-level acceptance; GEMC does that
+1.0d-4                             ! vmin   soft/hard split (GeV^2)
+1                                  ! itarg  pre-vertex external radiator ON (aao lacks it; keep the difference visible)
+-5.5 -0.5                          ! vertex z range, cm -- 5 cm LH2 cell centred at -3 cm (rga_fall2018, rga_spring2019 gcards: BEAM_V -3, SPREAD_V 2.5; official aao MC uses this range)
+0.0                                ! ptarg  unpolarised target
