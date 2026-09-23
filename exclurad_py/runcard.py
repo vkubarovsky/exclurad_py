@@ -126,11 +126,18 @@ def _validate(cfg, path):
     if not -1.0 <= cfg.get("ptarg", 0.0) <= 1.0:
         raise ValueError(f"{path}: ptarg must lie in [-1, +1]")
     if cfg.get("ptarg", 0.0) and cfg["ihel"] == 0:
-        # A_LL needs both spins; with ihel = 0 the h*Lambda terms average away
-        # and only A_UL survives.  Legal, but say so rather than let it look
-        # like the double-spin part is being generated.
-        print("runcard: ptarg is set but ihel = 0 -- the h*Lambda (A_LL) terms "
-              "average to zero; only the Lambda (A_UL) terms will show.")
+        # ihel = 0 does NOT throw the double-spin part away.  The helicity is
+        # drawn per event, the Born and the RC are both evaluated at THAT h
+        # (events.py: _born(..., h) and rc_factor(..., h=h)), and since the
+        # 2026-09-23 fix the drawn value is written to LUND header column 5.
+        # So A_LL is recovered by splitting the one sample on column 5 -- the
+        # h*Lambda term shows up as a yield difference between the two subsets
+        # (measured: A = +0.21 +- 0.05 at Lambda = +1, and 0 at Lambda = 0).
+        # This warning used to say the terms "average to zero"; that was true
+        # only while column 5 was always 0.000 and h was therefore unrecorded.
+        print("runcard: ihel = 0 with ptarg != 0 -- the helicity is drawn per "
+              "event and written to LUND column 5; split on it to get A_LL. "
+              "Requires EXACT_ACCEPT=1, or the RC is built at one helicity.")
     if cfg["iborn"] not in (0, 1):
         raise ValueError(f"{path}: iborn must be 0 or 1")
     if cfg["nev"] <= 0:

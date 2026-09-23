@@ -92,6 +92,71 @@ package is organized around exactly those:
    `mV = m_p`, `mU = m_meson`, the SFs are functions of the nucleon
    transfer `t_N`, and `sigma_LT`, `sigma_LT'` flip sign.
 
+## Spins: what the card does, and what lands in the file
+
+`ihel` (card field 10) is the beam helicity, `ptarg` (field 20) the longitudinal
+target polarisation. Both reach the physics: the Born cross section and the
+radiative correction are evaluated at the event's own spins
+(`events.py: _born(..., h)`, `rc_factor(..., h=h, lam=ptarg)`).
+
+**`ihel = 0` does not average the double-spin part away.** The helicity is drawn
+per event, 50/50, and the event is then accepted against `sigma(h)` — so the two
+helicity subsets genuinely differ. Since 2026-09-23 the drawn value is written to
+**LUND event-header column 5**, so one sample carries both spin states:
+
+| column | content | card field |
+|---:|---|---|
+| 4 | target polarisation | `ptarg` |
+| 5 | **beam helicity of that event** | `ihel`, or the per-event draw if `ihel = 0` |
+| 7 | beam energy | `ebeam` |
+
+Measured on a 400-event test (`pi0.amp2609`, Q2 1-6, W2 3.24-16, t -2..-0.1):
+
+| card | A = (N+ - N-)/N |
+|---|---|
+| `ihel = 0`, `ptarg = +1` | **+0.210 +- 0.050** — this is A_LL const = sqrt(1-eps^2) sigma_T' / sigma_0 |
+| `ihel = 0`, `ptarg = 0` | -0.035 +- 0.050, i.e. zero — A_LU goes as sin(phi) and integrates away |
+
+So all four asymmetries of the polarised decomposition come out of **two** samples
+(`ihel = 0` with `ptarg = +1` and `-1`) rather than four, by splitting on column 5.
+Both helicities then come from identical running conditions, which cancels part of
+the systematics.
+
+**One condition, and it is not optional: `EXACT_ACCEPT=1`.** The eta table is built
+at a single helicity (`events.py:347`), so without exact per-event re-evaluation the
+Born stays right while the RC does not, and the helicity dependence of eta is biased.
+The generator prints a warning when it detects this.
+
+### Cross section and normalisation
+
+Events are **unweighted** — LUND column 10 is always 1.0, because GEMC does not
+propagate weights. The cross section lives beside the file, in
+`inputs/config.json`:
+
+```
+sigma_nb   0.3203551992991448     nb, integrated over the card's box and cuts
+trials     2608
+accepted   400
+```
+
+`sigma_nb` = (accepted / trials) x majorant integral, i.e. sigma over the whole box,
+not per event. Hence `sigma per event = sigma_nb / n_events` and the sample's
+luminosity is `n_events / sigma_nb` [nb^-1]. With `ihel = 0` it is already the
+helicity-averaged sigma, since h is drawn inside.
+
+### Radiative correction with `ihel = 0`
+
+eta = sigma_obs / sigma_Born, and both depend on the spins. Run born and rad from the
+**same card** (`ihel = 0` in both), then:
+
+- **unpolarised RC** — sum over both helicities, bin by bin:
+  `eta(bin) = [N_rad(bin)/N_rad_tot x sigma_nb_rad] / [N_born(bin)/N_born_tot x sigma_nb_born]`
+- **helicity-dependent RC** — apply the same formula separately to the column-5 = +1
+  and column-5 = -1 subsets of **both** samples.
+
+The second is only meaningful because the generator evaluated the RC at each event's
+own helicity; the label is not attached afterwards.
+
 ## Models and provenance
 
 ```
