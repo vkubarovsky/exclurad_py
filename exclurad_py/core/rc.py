@@ -16,7 +16,7 @@ from .radiative import sigma_F
 
 def rc_factor(Ebeam, Q2, W2, t, phi, sfmodel, h=+1, lam=0.0,
               mx2_cut=None, M=M_P, m=M_E,
-              n_v=30, n_core=16, n_tail=24, n_phi=16,
+              n_v=None, n_core=None, n_tail=None, n_phi=None,
               exponentiate=True, t_kind=None, mV=None):
     """Radiative correction at fixed observed (Q2, W2, t, phi), beam helicity h.
 

@@ -130,6 +130,24 @@ at a single helicity (`events.py:347`), so without exact per-event re-evaluation
 Born stays right while the RC does not, and the helicity dependence of eta is biased.
 The generator prints a warning when it detects this.
 
+### Speed
+
+Born is 3 ms per event per core.  Rad, on the production box (Q2 1-6, vcut 0),
+is ~0.8 s per event on an M4 mini and ~2 s on a JLab farm node, against 2.2 s
+for GEMC plus reconstruction.
+
+Where it goes, measured 2026-09-24 with warm caches: the hard-photon integral
+`sigma_F` is 73%, `born_xsec` 15%, the tail sampler 10%.  The rejection
+sampling is *not* the cost -- the majorant needs no cells raised (`worst factor
+1.00`) and stage 2 accepts 51-66% -- so `MAJ_SHAPE` and `TABLE_SHAPE` do not
+move the time.  What does is the quadrature, `RC_QUAD`, halved on 2026-09-24
+from (30,16,24,16) to (20,12,16,12) for 2.5x at 0.04% on eta.
+
+`sigma_F` is a genuine four-dimensional integral over the photon, and its cost
+is arithmetic, not call overhead: an `einsum` at the batch size used is already
+linear in the batch, so vectorising the loop further returns nothing.  Going
+much below this needs the inner loop in something faster than numpy.
+
 ### Cross section and normalisation
 
 Events are **unweighted** — LUND column 10 is always 1.0, because GEMC does not

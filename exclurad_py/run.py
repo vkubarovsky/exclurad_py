@@ -34,6 +34,7 @@ import numpy as np
 from . import models, stamp
 from .generator import (Generator, Box, write_lund, decay_two_body, DECAY,
                         meson_slot)
+from .core.radiative import quad_default
 from .generator.tables import RCTable
 from .runcard import parse, echo
 
@@ -263,6 +264,10 @@ def run(card_path, date=None, verbose=True, _part=None):
                               # the machine is provenance: once files are merged
                               # across hosts only the header can still say
                               host=socket.gethostname().split(".")[0],
+                              # the sigma_F quadrature: samples made before and
+                              # after 2026-09-24 differ by ~0.13% in eta, and
+                              # nothing else in the file would say which
+                              rc_quad=",".join(str(x) for x in quad_default()),
                               # the CARD's t_nucl -- sf.t_nucl in the stamp is
                               # the live attribute, i.e. the last event's t
                               t_nucl_card=cfg.get("t_nucl"),

@@ -201,6 +201,26 @@ class Generator:
         if _ms:
             majorant_shape = tuple(int(x) for x in _ms.split(","))
         self.majorant_shape = tuple(majorant_shape)
+        # TABLE_SHAPE mirrors MAJ_SHAPE.  The eta table is a proposal, so a
+        # coarse one costs speed -- but its interpolation rms is also the
+        # soft/hard split, and on the wide RG-A box (5,5,5,8) gives rms 1.19
+        # against the 0.02 the split needs.  So this one is correctness as
+        # well as cost, and it has to be reachable from the environment for a
+        # scan and for production to pin it.
+        # Stage-2 bound grid and probe budget.  B only has to majorise the
+        # exact/proposal ratio, so both are pure sampling efficiency -- the
+        # sample is exactly unweighted for any B above the true maximum, and
+        # violations are counted and reported either way.  They were tied to
+        # the majorant grid at 300 probes over 6144 cells: 5% of cells got
+        # their own bound and the other 95% used the global maximum set by the
+        # single worst cell, which is why the mean ratio was 0.16 against
+        # B = 1.57 and ten exact evaluations were needed per accepted event.
+        _bs = os.environ.get("B_SHAPE", "")
+        self.b_shape = tuple(int(x) for x in _bs.split(",")) if _bs else None
+        self.n_probe_b = int(os.environ.get("B_PROBES", "300"))
+        _ts = os.environ.get("TABLE_SHAPE", "")
+        if _ts:
+            table_shape = tuple(int(x) for x in _ts.split(","))
         self.table_shape = tuple(table_shape)
         self.tail_shape = tuple(tail_shape)
         self.safety = float(os.environ.get("MAJ_SAFETY", "") or safety)
@@ -742,11 +762,23 @@ Ebeam=self._E, Q2=cQ2, W2=cW2, t=ct, phi=cph,
             self._tail_cache[key] = None
         return self._tail_cache[key]
 
+    def _b_grid_cell(self, cell):
+        """Map a fine majorant cell onto the (coarser) stage-2 bound grid.
+
+        Same integer mapping as _tail_cell.  Separating the two grids is the
+        point: the majorant wants to be fine, the bound grid wants to be
+        coarse enough that 300-odd probes actually reach every cell.
+        """
+        if self.b_shape is None:
+            return cell
+        return tuple(int(c * bs // ms) for c, ms, bs
+                     in zip(cell, self.majorant_shape, self.b_shape))
+
     def _b_cell(self, cell):
         """Stage-2 bound for this majorant cell (calibrated; global fallback)."""
         if self._B is None:
             return self._B_global
-        v = float(self._B[cell])
+        v = float(self._B[self._b_grid_cell(cell)])
         return v if v > 0 else self._B_global
 
     def _draw_photon(self, entry, block=4096):
@@ -819,10 +851,11 @@ Ebeam=self._E, Q2=cQ2, W2=cW2, t=ct, phi=cph,
         # EXACT_ACCEPT=1 for the rad cards -- iborn=1 with the production
         # environment first happened on 2026-08-17.
         if self.exact_accept and not self.born_only:
-            bmax = np.zeros(shape)
+            bshape = self.b_shape or shape
+            bmax = np.zeros(bshape)
             n_b = 0
-            for _ in range(n_probe):
-                if n_b >= 300:
+            for _ in range(max(n_probe, self.n_probe_b)):
+                if n_b >= self.n_probe_b:
                     break
                 if not self._draw_vertex():
                     continue
@@ -862,8 +895,9 @@ Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
                     continue
                 n_b += 1
                 r = so / (b * eta)
-                if r > bmax[cell]:
-                    bmax[cell] = r
+                bc = self._b_grid_cell(cell)
+                if r > bmax[bc]:
+                    bmax[bc] = r
             self._B_global = float(max(bmax.max() * 1.3, 1.05))
             self._B = np.where(bmax > 0, bmax * 1.3, 0.0)
             if verbose:

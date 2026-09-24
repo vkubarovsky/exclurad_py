@@ -30,6 +30,10 @@ mkdir -p "$OUT/$MODE" "$OUT/logs" "$OUT/work"
 cp "$CARD" "$OUT/card_template.txt"
 export PYTHONPATH=$REPO OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1
 export TABLE_SERIAL=1 ETA_PROPOSAL_CAP=5 EXACT_ACCEPT=1 EXPO_TAIL=1
+# Квадратура sigma_F берётся из quad_default() -- (20,12,16,12) с 24.09.26,
+# было (30,16,24,16).  2.5x скорости за 0.04% на eta (740 точек боевого
+# бокса, веса по борновскому сечению).  RC_QUAD=n_v,n_core,n_tail,n_phi
+# перекрывает; значение пишется в шапку LUND как run.rc_quad.
 IBORN=$([ "$MODE" = born ] && echo 1 || echo 0)
 log(){ echo "$(date '+%d.%m %H:%M') $*" >> "$OUT/run.log"; }
 log "start: $TAG $MODE, $J parts, NEV=$NEV, seedbase $SEEDBASE, host $HOST, table $ETA_TABLE, code $(cd $REPO && git describe --tags 2>/dev/null)"

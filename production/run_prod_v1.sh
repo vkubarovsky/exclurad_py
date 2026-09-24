@@ -68,6 +68,10 @@ rm -f "$STOP"
 
 cd "$REPO"; export PYTHONPATH=$REPO
 export TABLE_SERIAL=1 ETA_PROPOSAL_CAP=5 EXACT_ACCEPT=1 EXPO_TAIL=1
+# Квадратура sigma_F берётся из quad_default() -- (20,12,16,12) с 24.09.26,
+# было (30,16,24,16).  2.5x скорости за 0.04% на eta (740 точек боевого
+# бокса, веса по борновскому сечению).  RC_QUAD=n_v,n_core,n_tail,n_phi
+# перекрывает; значение пишется в шапку LUND как run.rc_quad.
 
 # Сетка и запас мажоранты -- ПО КАНАЛУ.
 #
