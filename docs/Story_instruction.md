@@ -61,13 +61,12 @@ export TABLE_SERIAL=1 ETA_PROPOSAL_CAP=5 EXACT_ACCEPT=1 EXPO_TAIL=1 MAJ_SAFETY=4
 PYTHONPATH=. python3 -u -m exclurad_py.run cards/rad_pi0_rga.txt --jobs 8
 ```
 
-(this is what `production/run_prod_v1.sh` sets).  It is also slow: 1 to 2 seconds per event
-per core on a Mac, about 5 on the JLab farm, i.e. as expensive as GEMC itself, because the
-event is accepted by rejection sampling with a low efficiency.  With the wide 2026-09-23 box
-the generator also warns `eta interpolation rms ... > 0.02`; that means the majorant and
-tables were tuned for the old narrow box.  Until Valery has retuned them (`MAJ_SHAPE`,
-`table_shape`), make radiative samples small and check the health line at the end of the
-run; do all pipeline and acceptance work with Born samples, which cost nothing.
+(this is what `production/run_prod_v1.sh` sets).  It costs about 0.8 s per event per core on a
+Mac and about 2 s on a JLab farm core (the hard-photon quadrature, retuned on 2026-09-24), against
+2.2 s per event for GEMC plus reconstruction; so a radiative million events is 550 farm
+core-hours and belongs on the farm, see `production/farm/gen_array.sbatch`.  Always read the
+`health:` block at the end of a run: it reports the unweighting efficiency and any majorant
+violation.
 
 The LUND header is `nPart A Z polTarget polBeam beamPID beamE nucleonPID processID weight`.
 Column 5 carries the beam helicity per event when the card has `ihel = 0`. Lines starting
@@ -106,17 +105,19 @@ sample equivalent to the official productions on `/cache` and is the route for a
 sample. Not tested by us yet: if the portal complains about the files, the first thing to
 check is that the `#` lines are gone.
 
-**B. JLab farm with slurm**, no background merging; good for acceptance, resolution and
-yield studies, and what all the numbers in the aao_norad_kin study were made with.
+**B. JLab farm with slurm.**  Two arrays, symmetric for Born and rad, in `production/farm/`:
 
-1. Test with one job of 200 events: copy `production/farm/gemc_test.sbatch`, replace
-   `USER` in the paths, set gcard, yaml and torus sign for your data set, put one chunk as
-   `lund.dat` next to it, `sbatch gemc_test.sbatch`. Expect about 8 minutes; check that
-   `gemc.hipo` is a few MB, not 5 kB (5 kB means zero events).
-2. Production: `production/farm/gemc_array.sbatch`, same edits plus the array size
-   (`--array=1-80` for 200 000 events in chunks of 2500). Each job runs gemc (1.4 - 1.9 s per
-   event), `recon-util` with the configuration's yaml (0.8 - 1.0 s per event), writes a
-   filtered DST to `dst/` and a flat ntuple to `out/`.
+1. `gen_array.sbatch <born|rad>`: task $i$ generates one chunk (seed = base + i), keeps the LUND
+   with its provenance block and `config.json` (the cross section `sigma_nb` lives there), and
+   writes a `#`-stripped copy for GEMC into the directory that OSG would also be handed.
+2. `sim_array.sbatch <born|rad>`: gemc 5.13 + coatjava 10.0.7 (the pass-2 pair of setup.json for
+   `rga_fall2018`), then `bg-merger` with the 50 nA background file and the eleven detectors the
+   official OSG production merges, then `recon-util`, the DST and the ntuple.  Both Born and rad
+   get the background, so that their acceptance ratio is not biased.
+
+Submission lines are in the header of each script.  The older one-stage `gemc_test.sbatch`
+(200-event check) and `gemc_array.sbatch` (no background) remain for tests; the 200-event test
+first is still the rule: check that `gemc.hipo` is a few MB, not 5 kB (5 kB means zero events).
 
 Three rules, already in the scripts, learnt the hard way: `export TMPDIR=/tmp` before any
 `module` command (the per-job TMPDIR breaks the module system silently); never put
