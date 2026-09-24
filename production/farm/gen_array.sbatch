@@ -34,8 +34,19 @@ export TABLE_SERIAL=1 ETA_PROPOSAL_CAP=5 EXACT_ACCEPT=1 EXPO_TAIL=1 MAJ_SAFETY=4
 export MAJ_TABLE=$R/tables/majorant.npz
 
 rm -rf "$W"; mkdir -p "$W"
-sed -e "s|OUTROOT|$W|" -e "s|SEED|$SEED|" -e "s|^5000$|$NEV|" \
-    "$R/cards/rga_$MODE.txt" > "$W/card.txt"
+# Substitute by FIELD, not by pattern.  's|^5000$|$NEV|' looked right and did
+# nothing: the card line is "5000    ! nev", so the end anchor never matched
+# and NEV was silently ignored -- a 50-event test generated 5000.
+awk -v out="$W" -v seed="$SEED" -v nev="$NEV" '
+  { line = $0; sub(/!.*/, "", line) }
+  line ~ /[^ \t]/ {
+      k++
+      if (k == 3)  { print nev  "   ! nev";     next }
+      if (k == 11) { print seed "   ! seed";    next }
+      if (k == 13) { print out  "   ! outroot"; next }
+  }
+  { print }' "$R/cards/rga_$MODE.txt" > "$W/card.txt"
+grep -qE "^$NEV" "$W/card.txt" || { echo "FATAL: nev not substituted"; head -20 "$W/card.txt"; exit 1; }
 
 T0=$(date +%s)
 cd "$V"
