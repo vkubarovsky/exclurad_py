@@ -20,6 +20,7 @@ leading comment lines.  GEMC ignores lines starting with '#'; if a
 downstream tool does not, pass `comments=False`.
 """
 
+import os
 import numpy as np
 
 # PDG codes
@@ -139,8 +140,52 @@ def event_lines(ev, channel, topology=None, target_pid=None,
     return lines
 
 
+def _sidecar(path, stamp):
+    """Write the provenance block to <path>.info, in the same '# key: value'
+    form the header used, so anything that parsed the header can parse this."""
+    import json as _json
+    d = stamp if isinstance(stamp, dict) else _json.loads(stamp)
+    def flat(prefix, v):
+        if isinstance(v, dict):
+            for k2, v2 in v.items():
+                yield from flat(f"{prefix}{k2}." if prefix else f"{k2}.", v2)
+        else:
+            yield f"# {prefix.rstrip('.')}: {v}"
+    lines = []
+    for k, v in d.items():
+        lines += list(flat(f"{k}." if isinstance(v, dict) else k, v)) if isinstance(v, dict) \
+                 else [f"# {k}: {v}"]
+    with open(path + ".info", "w") as fh:
+        fh.write("\n".join(lines) + "\n")
+
+
+def read_header(path):
+    """Provenance of a LUND file, from its own '#' lines or from <path>.info.
+
+    Files written before 2026-09-24 carry the block inside; later ones carry it
+    beside.  Everything that used to grep '^#' out of the LUND should come
+    through here instead.
+    """
+    import re as _re
+    out = {}
+    for src in (path, path + ".info"):
+        try:
+            with open(src) as fh:
+                for line in fh:
+                    if not line.startswith("#"):
+                        if src == path:
+                            break
+                        continue
+                    m = _re.match(r"#\s*([\w.]+):\s*(.*)$", line.rstrip("\n"))
+                    if m:
+                        out.setdefault(m.group(1), m.group(2))
+        except OSError:
+            continue
+    return out
+
+
 def write_lund(path, events, channel, topology=None, stamp=None,
-               comments=True, allow_weighted=False, **kw):
+               comments=None, allow_weighted=False, **kw):
     """Write a list of assembled events to a LUND file.
 
     events : iterables of dicts from frames.assemble_event, each optionally
@@ -151,6 +196,18 @@ def write_lund(path, events, channel, topology=None, stamp=None,
 
     n_written = 0
     with open(path, "w") as fh:
+        # LUND carries no comments by default since 2026-09-24.  They were a
+        # good idea that breaks the format: no other generator writes them, and
+        # GEMC -- and therefore the OSG portal, which runs the same gemc --
+        # exits silently on the first '#', leaving a 5 kB file and zero events.
+        # That trap cost a day and is item 3 in the farm howto.  The provenance
+        # is not lost: the identical block goes to <file>.info beside the LUND,
+        # and the run's own inputs/config.json is written per part as before.
+        # LUND_COMMENTS=1 restores the old behaviour.
+        if comments is None:
+            comments = os.environ.get("LUND_COMMENTS", "") == "1"
+        if stamp is not None:
+            _sidecar(path, stamp)
         if comments and stamp is not None:
             for line in header_lines(stamp):
                 fh.write(line + "\n")

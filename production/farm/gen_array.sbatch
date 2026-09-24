@@ -11,8 +11,8 @@
 # It also decouples the failures: a GEMC crash no longer throws away two hours
 # of generated events.
 #
-# Writes BOTH the LUND with its provenance header (kept, and what OSG would be
-# given) and a stripped copy for GEMC, which exits silently on a '#' line.
+# Writes one clean LUND (no '#' since 2026-09-24) plus its .info sidecar and
+# config.json, which carries sigma_nb.
 set -u
 MODE=${1:?born or rad}
 R=/volatile/clas12/vpk/prod_pi0_rga_fa18_inb_20260924
@@ -52,26 +52,23 @@ fi
 N=$(grep -vc '^#' "$SRC")
 echo "events written: $(grep -c '^ *[0-9]* *1 *1 ' "$SRC" 2>/dev/null || echo '?')  lines: $N"
 
-# One LUND, stripped of '#'.  Both GEMC and the OSG portal run the same gemc,
-# which exits silently on a comment line, so the OSG-facing file has to be the
-# stripped one too -- keeping a second, header-bearing copy would be 800 kB per
-# chunk to preserve 1.8 kB of provenance.
-grep -v '^#' "$SRC" > "$R/$MODE/lund_osg/excluradpy_pi0_${MODE}_fa18_inb_$I.lund"
-ln -sf "$R/$MODE/lund_osg/excluradpy_pi0_${MODE}_fa18_inb_$I.lund" "$R/$MODE/chunks/lund_$I.dat"
+# The LUND is already clean: exclurad_py stopped writing '#' comments on
+# 2026-09-24 precisely because gemc -- and the OSG portal, which runs the same
+# gemc -- exits silently on the first one.  Nothing to strip.
+NAME=excluradpy_pi0_${MODE}_fa18_inb_$I
+cp "$SRC" "$R/$MODE/lund_osg/$NAME.lund"
+ln -sf "$R/$MODE/lund_osg/$NAME.lund" "$R/$MODE/chunks/lund_$I.dat"
 
-# The provenance travels separately, because nothing downstream carries it: the
-# stripped LUND has lost it and a hipo file records only RUN::config (run number
-# and fields), nothing about the generator.  Three small files per chunk:
-#   header      - the '#' block: model, git commit, rc_quad, spins, host, seed
-#   config.json - the generator's own report, and sigma_nb, the NORMALISATION
-#                 without which the sample cannot be turned into barns
-#   card        - the run card, verbatim
+# Provenance travels beside the file, not inside it: the .info sidecar the
+# generator writes, and its own config.json, which carries sigma_nb -- the
+# normalisation, without which the sample cannot be turned into barns.  The
+# previous version of this script deleted config.json with the work directory.
 mkdir -p "$R/$MODE/prov"
-grep '^#' "$SRC" > "$R/$MODE/prov/${MODE}_$I.header.txt"
+cp "$SRC.info" "$R/$MODE/lund_osg/$NAME.lund.info" 2>/dev/null || echo "WARNING: no .info sidecar"
 cp "$(dirname "$(dirname "$SRC")")/inputs/config.json" "$R/$MODE/prov/${MODE}_$I.config.json" 2>/dev/null \
   || echo "WARNING: no config.json -- sigma_nb lost for chunk $I"
 cp "$W/card.txt" "$R/$MODE/prov/${MODE}_$I.card.txt"
-grep -E "sigma_nb" "$R/$MODE/prov/${MODE}_$I.config.json" 2>/dev/null | head -1
+grep -o '"sigma_nb":[^,]*' "$R/$MODE/prov/${MODE}_$I.config.json" 2>/dev/null | head -1
 
 rm -rf "$W"
 echo "DONE $MODE $I"
