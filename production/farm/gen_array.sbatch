@@ -52,10 +52,26 @@ fi
 N=$(grep -vc '^#' "$SRC")
 echo "events written: $(grep -c '^ *[0-9]* *1 *1 ' "$SRC" 2>/dev/null || echo '?')  lines: $N"
 
-# the file OSG would be handed: header intact
-cp "$SRC" "$R/$MODE/lund_osg/excluradpy_pi0_${MODE}_fa18_inb_$I.lund"
-# the file GEMC can read: no '#' lines
-grep -v '^#' "$SRC" > "$R/$MODE/chunks/lund_$I.dat"
-cp "$W/card.txt" "$R/$MODE/logs/card_$I.txt"
+# One LUND, stripped of '#'.  Both GEMC and the OSG portal run the same gemc,
+# which exits silently on a comment line, so the OSG-facing file has to be the
+# stripped one too -- keeping a second, header-bearing copy would be 800 kB per
+# chunk to preserve 1.8 kB of provenance.
+grep -v '^#' "$SRC" > "$R/$MODE/lund_osg/excluradpy_pi0_${MODE}_fa18_inb_$I.lund"
+ln -sf "$R/$MODE/lund_osg/excluradpy_pi0_${MODE}_fa18_inb_$I.lund" "$R/$MODE/chunks/lund_$I.dat"
+
+# The provenance travels separately, because nothing downstream carries it: the
+# stripped LUND has lost it and a hipo file records only RUN::config (run number
+# and fields), nothing about the generator.  Three small files per chunk:
+#   header      - the '#' block: model, git commit, rc_quad, spins, host, seed
+#   config.json - the generator's own report, and sigma_nb, the NORMALISATION
+#                 without which the sample cannot be turned into barns
+#   card        - the run card, verbatim
+mkdir -p "$R/$MODE/prov"
+grep '^#' "$SRC" > "$R/$MODE/prov/${MODE}_$I.header.txt"
+cp "$(dirname "$(dirname "$SRC")")/inputs/config.json" "$R/$MODE/prov/${MODE}_$I.config.json" 2>/dev/null \
+  || echo "WARNING: no config.json -- sigma_nb lost for chunk $I"
+cp "$W/card.txt" "$R/$MODE/prov/${MODE}_$I.card.txt"
+grep -E "sigma_nb" "$R/$MODE/prov/${MODE}_$I.config.json" 2>/dev/null | head -1
+
 rm -rf "$W"
 echo "DONE $MODE $I"
