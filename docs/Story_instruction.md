@@ -69,23 +69,25 @@ core-hours and belongs on the farm, see `production/farm/gen_array.sbatch`.  Alw
 violation.
 
 The LUND header is `nPart A Z polTarget polBeam beamPID beamE nucleonPID processID weight`.
-Column 5 carries the beam helicity per event when the card has `ihel = 0`. Lines starting
-with `#` are provenance (code version, model, cuts); keep the files as they are for the
-record, strip the `#` lines only in the copy that goes to GEMC.
+Column 5 carries the beam helicity per event when the card has `ihel = 0`. The LUND files
+contain event lines only, no comment lines, so they go to GEMC or to the OSG portal as they
+are. The provenance of a run (code version, model, box, seed) and its cross section
+(`sigma_nb`) are in the run's `inputs/config.json` next to the `lund/` directory; keep that
+directory with the files.
 
 Start with 2000 events (`nev` line) and look at the LUND before doing a million.
 
 ## 3. Prepare the LUND for GEMC
 
-GEMC exits silently, with zero events and no error, if a LUND file contains `#` lines.
+Nothing to edit in the files. For OSG, put the LUND files of one submission into one flat
+directory and nothing else in it; that directory is what the portal picks up. For the farm,
+split the sample into chunks of 2500 events, which keeps one job under three hours:
 
 ```bash
-grep -hv '^#' <outroot>/pi0/<date>_10.6_born_v1/lund/*.lund > all.lund
 python3 production/farm/split_lund.py all.lund 2500 chunks/
 ```
 
-2500 events per chunk keeps one farm job under three hours. Copy `chunks/` to your
-directory on `/volatile`.
+(`all.lund` being the concatenation of the run's files; the splitter never cuts an event in two.)
 
 ## 4. Simulate and reconstruct
 
@@ -102,14 +104,13 @@ coatjava 11.1.0):
 **A. OSG, the official CLAS12 MC portal (gemc.jlab.org).** Upload the chunks as user LUND
 files, choose the configuration and torus sign, background merging on. This produces a
 sample equivalent to the official productions on `/cache` and is the route for a physics
-sample. Not tested by us yet: if the portal complains about the files, the first thing to
-check is that the `#` lines are gone.
+sample. Not tested by us yet with exclurad_py files; the first submission will tell.
 
 **B. JLab farm with slurm.**  Two arrays, symmetric for Born and rad, in `production/farm/`:
 
-1. `gen_array.sbatch <born|rad>`: task $i$ generates one chunk (seed = base + i), keeps the LUND
-   with its provenance block and `config.json` (the cross section `sigma_nb` lives there), and
-   writes a `#`-stripped copy for GEMC into the directory that OSG would also be handed.
+1. `gen_array.sbatch <born|rad>`: task $i$ generates one chunk (seed = base + i) into the
+   directory that GEMC reads and that OSG would also be handed, and keeps the chunk's
+   `config.json` (the cross section `sigma_nb` lives there) and card next to it.
 2. `sim_array.sbatch <born|rad>`: gemc 5.13 + coatjava 10.0.7 (the pass-2 pair of setup.json for
    `rga_fall2018`), then `bg-merger` with the 50 nA background file and the eleven detectors the
    official OSG production merges, then `recon-util`, the DST and the ntuple.  Both Born and rad
@@ -117,7 +118,8 @@ check is that the `#` lines are gone.
 
 Submission lines are in the header of each script.  The older one-stage `gemc_test.sbatch`
 (200-event check) and `gemc_array.sbatch` (no background) remain for tests; the 200-event test
-first is still the rule: check that `gemc.hipo` is a few MB, not 5 kB (5 kB means zero events).
+first is still the rule: check that `gemc.hipo` is a few MB, not 5 kB (5 kB means gemc read
+zero events, which happens if a LUND file is malformed or contains comment lines).
 
 Three rules, already in the scripts, learnt the hard way: `export TMPDIR=/tmp` before any
 `module` command (the per-job TMPDIR breaks the module system silently); never put
