@@ -1,6 +1,6 @@
 # Story: from a run card to a simulated CLAS12 sample
 
-Everything you need is in this repository (`exclurad_py`, branch `amp2026s`). The commands
+Everything you need is in this repository (`exclurad_py`, branch `production`). The commands
 below were all run in September 2026 and worked as written. Read `README.md` for what the
 generator is; this page is only how to use it for a GEMC sample.
 
@@ -11,7 +11,7 @@ with numpy on the machine where you generate (any laptop is fine); a directory o
 under `/volatile/clas12/users/<you>/` on ifarm.
 
 ```bash
-git clone -b amp2026s git@github.com:vkubarovsky/exclurad_py.git
+git clone -b production git@github.com:vkubarovsky/exclurad_py.git
 cd exclurad_py
 python3 -c "import numpy; import exclurad_py; print('ok')"
 ```
