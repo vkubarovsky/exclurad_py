@@ -69,8 +69,11 @@ def _events(path):
             yield "".join(buf)
 
 
-def merge(sources, out_dir, prefix, chunk=5000, verbose=True, extra=()):
-    """`extra`: ('key', 'value') pairs added to the common header, e.g. the spins
+def merge(sources, out_dir, prefix, chunk=5000, verbose=True, extra=(), start=0):
+    """`start`: number the first output file start+1, to append to an
+    existing sequence rather than overwrite it.
+
+    `extra`: ('key', 'value') pairs added to the common header, e.g. the spins
     for samples whose headers predate the spin stamp (taken from the card)."""
     os.makedirs(out_dir, exist_ok=True)
     # --- common header from the first source, identity checked on all
@@ -96,7 +99,7 @@ def merge(sources, out_dir, prefix, chunk=5000, verbose=True, extra=()):
     n_in = n_out = 0
     buf, buf_src = [], []           # events of the chunk being built; (path, host, first, last)
     cur = None                      # (path, host, first_idx_in_file)
-    ifile = 0
+    ifile = start
 
     def flush():
         nonlocal buf, buf_src, ifile, n_out
