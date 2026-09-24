@@ -1,0 +1,226 @@
+\documentclass[11pt]{article}
+\usepackage[margin=2.2cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{booktabs}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\lstset{basicstyle=\ttfamily\small,breaklines=true,frame=single,columns=fullflexible,keepspaces=true,backgroundcolor=\color{gray!8}}
+\title{How to run GEMC and the CLAS12 reconstruction\\on the JLab farm for an exclurad\_py sample}
+\author{V.~Kubarovsky (notes written with Claude, September 2026)}
+\date{24 September 2026}
+\begin{document}
+\maketitle
+
+\noindent This is the recipe that was used on 23 September 2026 to simulate 200\,000 exclurad\_py
+$\pi^0$ events at 6.535~GeV with the RG-K configuration: 80 slurm jobs, three hours, everything
+from cvmfs. It is written for someone who has never launched GEMC. Every command was run as
+shown. The scripts live in the exclurad\_py repository under \texttt{production/farm/}; this note
+explains them line by line.
+
+\section{What you need}
+\begin{itemize}
+\item A JLab account with \texttt{ifarm} (ssh \texttt{ifarm2402}), the farm (slurm, account
+  \texttt{clas12}, partition \texttt{production}), and the Lustre disk \texttt{/volatile}.
+\item A LUND file of generated events. Anything that writes the standard 10-column header and
+  14-column particle lines works; exclurad\_py, aao\_gen, dvcsgen all do.
+\item Nothing to install. GEMC~5.11, coatjava~11.1.0 and the configuration files (gcards, yaml) are
+  on cvmfs and are loaded with \texttt{module}.
+\end{itemize}
+Do not run anything heavy on the ifarm login node: processes started there, even inside tmux,
+are killed when your last ssh session closes. Everything below goes through \texttt{sbatch}.
+
+\section{A work area on /volatile}
+Your home directory has a small quota; a single 10\,M-event ntuple does not fit. Use
+\begin{lstlisting}
+mkdir -p /volatile/clas12/users/$USER/gemc_test
+mkdir -p /volatile/clas12/users/$USER/gemc_prod/{chunks,logs,out,dst}
+\end{lstlisting}
+Files on \texttt{/volatile} are deleted automatically after a few weeks of no access: copy what you
+want to keep to \texttt{/work} or to your own machine.
+
+\section{Prepare the LUND file}
+GEMC reads LUND directly, but it \textbf{exits silently, producing an output file of a few kB with
+zero events, if the file contains any line starting with \texttt{\#}}. exclurad\_py writes its
+provenance as such lines at the top of every file. Strip them, and split the sample into chunks
+of 2500 events, which keeps one farm job under three hours:
+\begin{lstlisting}
+grep -hv '^#' /path/to/lund/*.lund > all.lund
+python3 production/farm/split_lund.py all.lund 2500 /volatile/clas12/users/$USER/gemc_prod/chunks/
+\end{lstlisting}
+The splitter writes \texttt{lund\_001.dat}, \texttt{lund\_002.dat}, \dots\ It reads the header of each
+event to know how many particle lines follow, so it never cuts an event in two.
+
+The vertex columns of the LUND are used by GEMC as they are when they are non-zero. The exclurad\_py
+cards put the vertex in $-5.5 < z < -0.5$~cm, which is the 5~cm cell centred at $-3$~cm of the
+fall-2018 and spring-2019 gcards; do not ask GEMC to randomize the vertex on top of that.
+
+\section{Which configuration, and which software versions}
+The gcard (geometry, fields, digitization) and the yaml (reconstruction services) come as a pair
+from \texttt{clas12-config} on cvmfs:
+\begin{lstlisting}
+/cvmfs/oasis.opensciencegrid.org/jlab/hallb/clas12/sw/noarch/clas12-config/prod/gemc/<gemc version>/<name>.gcard
+/cvmfs/oasis.opensciencegrid.org/jlab/hallb/clas12/sw/noarch/clas12-config/prod/coatjava/<coatjava version>/<name>.yaml
+\end{lstlisting}
+The authoritative list of what goes together is \texttt{setup.json} in the same repository
+(\url{https://github.com/JeffersonLab/clas12-config}). For every configuration it gives the torus
+and solenoid settings that were run, the beam currents and energies of the background files, the
+target position, and the \emph{approved software pairs}, in chronological order. As of 24 September
+2026:
+\begin{center}
+\small
+\begin{tabular}{lllll}
+\toprule
+configuration & fields run & beam & target z & approved gemc + coatjava pairs \\
+\midrule
+\texttt{rga\_spring2018} & tor $-1$, tor $+1$ & 35--50 nA, 10594 MeV & $-1.94$ cm & 4.4.2+6.5.6.1; 5.13+11.1.0; 5.14+11.1.0 \\
+\texttt{rga\_fall2018}   & tor $-1$, tor $+1$, tor $+1.01$ & 40--55 nA, 10604 MeV & $-3.0$ cm & 4.4.2+6.5.6.1; 5.13+10.0.7; 5.14+10.0.7 \\
+\texttt{rga\_spring2019} & tor $-1$ & 50 nA, 10200 MeV & $-3.0$ cm & 4.4.2+6.5.6.1; 5.13+10.0.7; 5.14+10.0.7 \\
+\texttt{rgk\_fall2018\_FTOn}  & tor $+1$ & 35--45 nA, 7546 MeV & $-3.0$ cm & 4.4.2+6.5.6.1; 5.10+10.0.7; 5.11+11.1.0 \\
+\texttt{rgk\_fall2018\_FTOff} & tor $+1$ & 35--60 nA, 6535 MeV & $-3.0$ cm & 4.4.2+6.5.6.1; 5.10+10.0.7; 5.11+11.1.0 \\
+\bottomrule
+\end{tabular}
+\end{center}
+Solenoid is $-1.00$ everywhere. How to read this:
+\begin{itemize}
+\item \textbf{The first pair (gemc 4.4.2, coatjava 6.5.6.1) is the pass-1 generation}; it predates
+  binary field maps and the AI denoiser and is history.
+\item \textbf{The second pair is what the pass-2 Monte Carlo was made with}: gemc 5.13 with coatjava
+  10.0.7 for RG-A fall 2018 and spring 2019 (the aao\_norad ``pass2'' productions on
+  \texttt{/cache} used it), gemc 5.10 with coatjava 10.0.7 for RG-K. \emph{The coatjava version of
+  the MC must be the one of the data pass you analyse}, because tracking, PID and the
+  calibrations behave differently between 10.x and 11.x; the gemc minor version fixes geometry
+  details and matters less.
+\item \textbf{The last pair is the newest approved one} (gemc 5.14 for RG-A, 5.11 with coatjava
+  11.1.0 for RG-K); it is what the OSG portal offers by default and what an upcoming pass will use.
+  The RG-K farm run of 23 September used gemc 5.11 with coatjava 11.1.0, i.e.\ this pair.
+\item \textbf{RG-K has two gcards}: \texttt{FTOn} for the 7.546 GeV period and \texttt{FTOff} for
+  the 6.535 GeV period, where the forward tagger was replaced by shielding. This changes the
+  material at 2--7 degrees, exactly where the small-angle electrons and their bremsstrahlung
+  live. The 6.535 GeV run of 23 September was made with \texttt{FTOn} and should be repeated with
+  \texttt{FTOff} before its small-angle numbers are used.
+\end{itemize}
+The MC files themselves do not record the versions (only \texttt{RUN::config} with run number and
+field settings), so keep the pair in your directory names, as the OSG output names do.
+The torus sign is given on the gemc command line (\texttt{-SCALE\_FIELD="binary\_torus, +1.00"}).
+Negative torus bends electrons toward the beamline (inbending).
+
+\section{One test job of 200 events}
+Put one chunk into the test directory as \texttt{lund.dat}, copy
+\texttt{production/gemc\_check/hipo\_to\_ntuple.groovy} next to it, and create
+\texttt{gemc\_test.sbatch} (this is \texttt{production/farm/gemc\_test.sbatch} with \texttt{USER}
+replaced):
+\begin{lstlisting}
+#!/bin/bash
+#SBATCH --job-name=gemc_test
+#SBATCH --account=clas12
+#SBATCH --partition=production
+#SBATCH --time=01:30:00
+#SBATCH --mem=6G
+#SBATCH --cpus-per-task=1
+#SBATCH --output=/volatile/clas12/users/USER/gemc_test/test_%j.log
+set -x
+cd /volatile/clas12/users/USER/gemc_test
+export TMPDIR=/tmp                      # rule 1: before any "module" command
+source /etc/profile.d/modules.sh
+module use /cvmfs/oasis.opensciencegrid.org/jlab/hallb/clas12/sw/modulefiles
+module use /cvmfs/oasis.opensciencegrid.org/jlab/geant4/modules
+module load gemc/5.13                   # the pair of your data pass, see the table
+module load sqlite/5.13
+export RCDB_CONNECTION=mysql://null
+module load coatjava/10.0.7
+which gemc recon-util                   # both must print a cvmfs path
+GC=/cvmfs/.../clas12-config/prod/gemc/5.13/rga_fall2018.gcard      # pass-2 pair for RG-A
+YAML=/cvmfs/.../clas12-config/prod/coatjava/10.0.7/rga_fall2018.yaml
+gemc -USE_GUI=0 -NGENP=100 -N=200 -INPUT_GEN_FILE="lund, lund.dat" $GC \
+     -SCALE_FIELD="binary_torus, -1.00" -SCALE_FIELD="binary_solenoid, -1.00" \
+     -OUTPUT="hipo, gemc.hipo" -INTEGRATEDRAW="*" > gemc.log 2>&1
+recon-util -y $YAML -i gemc.hipo -o recon.hipo
+ls -la
+module purge                            # rule 3: before groovy
+export PATH=/group/clas12/packages/groovy/4.0.3/bin:$PATH
+/group/clas12/packages/coatjava/9.0.2/bin/run-groovy hipo_to_ntuple.groovy recon.hipo 1000 test.f32
+\end{lstlisting}
+Submit and watch:
+\begin{lstlisting}
+sbatch gemc_test.sbatch                 # prints "Submitted batch job 12345678"
+squeue -u $USER                         # PD = waiting, R = running
+tail -f /volatile/clas12/users/$USER/gemc_test/test_12345678.log
+sacct -j 12345678 -X --format=State,Elapsed,MaxRSS
+\end{lstlisting}
+Expect eight to ten minutes: gemc about 1.4 to 1.9~s per event, recon-util about 1~s per event.
+\textbf{The one check that matters:} \texttt{gemc.hipo} must be several MB. A \texttt{gemc.hipo} of
+about 5~kB means gemc read no events; the cause is almost always a \texttt{\#} line in the LUND.
+\texttt{recon.hipo} is then about 40~kB per event, and \texttt{test.f32} 200 bytes per event.
+
+\section{The production array}
+\texttt{production/farm/gemc\_array.sbatch} is the same script for a slurm array: task $i$ takes
+\texttt{chunks/lund\_00i.dat}, runs gemc with \texttt{-N=2500} and recon-util in its own work
+directory, filters the reconstruction output into a DST with only the banks an analysis needs
+(\texttt{RUN::*, REC::*, RECFT::*, MC::*}), writes the ntuple, and deletes the intermediate files.
+Edit the same four things as in the test, gcard, yaml, torus sign, \texttt{USER}, and the array
+size:
+\begin{lstlisting}
+#SBATCH --array=1-80        # 80 x 2500 = 200 000 events
+sbatch gemc_array.sbatch
+squeue -u $USER -h | wc -l  # how many still queued or running
+\end{lstlisting}
+Each task takes 1.5 to 1.8 hours; the 80 of 23 September all ran at once and were done in three
+hours. Outputs: \texttt{out/pi0gemc\_NNN.f32} and \texttt{dst/pi0gemc\_NNN.hipo}. Failures are visible
+with \texttt{sacct -u \$USER --name=pi0gemc -X --format=JobID,State,Elapsed}; a task can be rerun
+alone with \texttt{sbatch --array=17 gemc\_array.sbatch}.
+
+Budget: about 2.2 core-seconds per event for gemc plus reconstruction, so one million events
+are 600 core-hours, 400 tasks, half a day to a day of farm time depending on the queue.
+
+\section{Getting results}
+The flat ntuple written by each task has 50 float32 per event: the generated four-vectors of
+$e'$, $p$ and the two photons, and for each of them the reconstructed particle that
+\texttt{MC::GenMatch} assigns (pid, charge, status, match quality, momentum), plus the counts of
+identified electrons, protons and photons. Concatenate and plot on your own machine:
+\begin{lstlisting}
+cat /volatile/clas12/users/$USER/gemc_prod/out/*.f32 > sample.f32
+scp ifarm2402:/volatile/clas12/users/$USER/gemc_prod/sample.f32 .
+python3 production/gemc_check/plot_kinematics.py sample.f32 plots/mysample --ebeam 10.6
+python3 production/gemc_check/boundaries.py plots/mysample mysample=sample.f32@10.6
+\end{lstlisting}
+The first gives generated and reconstructed spectra, efficiencies and the yield table; the second
+the acceptance maps and percentile tables. For any other hipo file (a DST from OSG, an official
+production on \texttt{/cache}) the ntuple is made with
+\begin{lstlisting}
+export PATH=/group/clas12/packages/groovy/4.0.3/bin:$PATH
+/group/clas12/packages/coatjava/9.0.2/bin/run-groovy production/gemc_check/hipo_to_ntuple.groovy file.hipo 10000000 out.f32
+\end{lstlisting}
+which reads about 20\,000 events per second. Reference yields from the official RG-A aao\_norad
+MC at 10.6~GeV: identified $e'p$ in 5.6\,\% of generated events inbending and 41\,\% outbending;
+$e'p\gamma\gamma$ in 0.9\,\% and 3.7\,\%.
+
+\section{Troubleshooting, in the order the problems were met}
+\begin{enumerate}
+\item \texttt{module load} prints \emph{Module ERROR: couldn't create error file \dots\ no space left on
+  device} and \texttt{which gemc} finds nothing. The slurm per-job \texttt{TMPDIR} is not writable
+  for the module system. Fix: \texttt{export TMPDIR=/tmp} before the first \texttt{module} command.
+\item \texttt{module load} inside a pipe (\texttt{module load x | grep \dots}) loads nothing: the
+  environment change dies with the subshell. Never pipe it.
+\item gemc runs for a minute, prints \emph{Exiting}, and \texttt{gemc.hipo} is 5~kB: comment lines in
+  the LUND. Strip \texttt{\#} lines.
+\item recon-util writes nothing when the output file already exists from a previous attempt:
+  \texttt{rm -f recon.hipo} first (the array script does).
+\item \texttt{run-groovy} fails with \emph{Unsupported class file major version 65}: java~21 from the
+  coatjava module is in the PATH. \texttt{module purge} before groovy; the system java~17 is fine.
+\item A job started on the login node dies at 18:29 without a message: the last ssh session
+  closed. Use sbatch.
+\item \emph{No space left on device} when writing in your home: the home quota. Work on
+  \texttt{/volatile}.
+\end{enumerate}
+
+\section{OSG instead of the farm}
+The CLAS12 MC portal (\url{https://gemc.jlab.org/web_interface/}) runs the same gemc and coatjava
+versions from the same configuration files, adds background merging from real data and the
+denoiser, and delivers the DSTs to \texttt{/cache}. It accepts user LUND files. That is the route
+for a physics sample; the farm route above is for tests, acceptance and resolution studies, and
+for anything that must run today. The two produce the same banks, so the ntuple and plotting
+tools apply to both.
+
+\end{document}

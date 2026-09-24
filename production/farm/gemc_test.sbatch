@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=rgk_test
+#SBATCH --job-name=gemc_test
 #SBATCH --account=clas12
 #SBATCH --partition=production
 #SBATCH --time=01:30:00
@@ -21,7 +21,7 @@ which gemc recon-util
 GC=/cvmfs/oasis.opensciencegrid.org/jlab/hallb/clas12/sw/noarch/clas12-config/prod/gemc/5.11/rgk_fall2018_FTOn.gcard
 YAML=/cvmfs/oasis.opensciencegrid.org/jlab/hallb/clas12/sw/noarch/clas12-config/prod/coatjava/11.1.0/rgk_fall2018_FTOn.yaml
 T0=$(date +%s)
-gemc -USE_GUI=0 -NGENP=100 -N=200 -INPUT_GEN_FILE="lund, lund.dat" $GC -SCALE_FIELD="binary_torus, +1.00" -SCALE_FIELD="binary_solenoid, -1.00" -OUTPUT="hipo, gemc.hipo" -INTEGRATEDRAW="*" 2>&1 > gemc.log 2>&1; grep -v "G4Exception|^ *$" gemc.log | tail -8
+gemc -USE_GUI=0 -NGENP=100 -N=200 -INPUT_GEN_FILE="lund, lund.dat" $GC -SCALE_FIELD="binary_torus, +1.00" -SCALE_FIELD="binary_solenoid, -1.00" -OUTPUT="hipo, gemc.hipo" -INTEGRATEDRAW="*" > gemc.log 2>&1; grep -Ev "G4Exception|^ *$" gemc.log | tail -8
 T1=$(date +%s); echo "GEMC seconds: $((T1-T0))"
 recon-util -y $YAML -i gemc.hipo -o recon.hipo 2>&1 | tail -3
 T2=$(date +%s); echo "RECON seconds: $((T2-T1))"
