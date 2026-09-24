@@ -26,6 +26,7 @@ The cards for the CLAS12 pi0 program, fixed with Valery on 2026-09-23:
 | `cards/rad_pi0_rga.txt`, `cards/born_pi0_rga.txt` | RG-A fall 2018 and spring 2019, inbending and outbending | 10.6 | 0.8 - 10 | 0 - 0.90 | -5.5 to -0.5 cm |
 | `cards/rad_pi0_rgk6535.txt`, `cards/born_pi0_rgk6535.txt` | RG-K fall 2018, 6.535 GeV | 6.535 | 0.5 - 10 | 0 - 0.85 | same |
 | `cards/rad_pi0_rgk7546.txt`, `cards/born_pi0_rgk7546.txt` | RG-K fall 2018, 7.546 GeV | 7.546 | 0.5 - 10 | 0 - 0.85 | same |
+| `cards/{rad,born}_{pi0,eta}_rga_sp18.txt` | RG-A spring 2018 | 10.594 | 0.8 - 10 | 0 - 0.90 | -4.44 to +0.56 cm (target at -1.94 cm) |
 | `cards/{rad,born}_eta_{rga,rgk6535,rgk7546}.txt` | the same six for eta (model `eta.amp2609`, otherwise identical) | | | | |
 
 Common to all: W2 3.24 - 16 (W 1.8 - 4.0 GeV), t -5 to -0.001 GeV2, no x_B cut, vcut 0 (the
