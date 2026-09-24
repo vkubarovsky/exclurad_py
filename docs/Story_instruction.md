@@ -48,7 +48,24 @@ PYTHONPATH=. python3 -u -m exclurad_py.run cards/born_pi0_rga.txt --jobs 8
 
 Output: `<outroot>/pi0/<date>_10.6_born_v1/lund/*.lund`, one file per job, plus `inputs/`
 (the card and a JSON report). Born runs at 3 ms per event per core: one million events on
-eight cores in about 15 minutes; `rad` is several times slower. Events are unweighted.
+eight cores in about 15 minutes. Events are unweighted.
+
+**Radiative mode is different.** It must be run with the production environment, otherwise
+the beam-spin asymmetry of the sample is wrong (the generator prints a warning about
+`EXACT_ACCEPT`):
+
+```bash
+export TABLE_SERIAL=1 ETA_PROPOSAL_CAP=5 EXACT_ACCEPT=1 EXPO_TAIL=1 MAJ_SAFETY=4.0
+PYTHONPATH=. python3 -u -m exclurad_py.run cards/rad_pi0_rga.txt --jobs 8
+```
+
+(this is what `production/run_prod_v1.sh` sets).  It is also slow: 1 to 2 seconds per event
+per core on a Mac, about 5 on the JLab farm, i.e. as expensive as GEMC itself, because the
+event is accepted by rejection sampling with a low efficiency.  With the wide 2026-09-23 box
+the generator also warns `eta interpolation rms ... > 0.02`; that means the majorant and
+tables were tuned for the old narrow box.  Until Valery has retuned them (`MAJ_SHAPE`,
+`table_shape`), make radiative samples small and check the health line at the end of the
+run; do all pipeline and acceptance work with Born samples, which cost nothing.
 
 The LUND header is `nPart A Z polTarget polBeam beamPID beamE nucleonPID processID weight`.
 Column 5 carries the beam helicity per event when the card has `ihel = 0`. Lines starting
