@@ -44,13 +44,15 @@ def run(model, fermi, nev, born_only):
 
 
 def main():
-    nev = int(sys.argv[1]) if len(sys.argv) > 1 else 300
-    models_to_try = sys.argv[2:] or ["pi0.amp2609", "pi0n.amp2021",
-                                     "eta.amp2609", "etan.amp2609"]
+    args = [a for a in sys.argv[1:] if a != "--born"]
+    born_modes = (True,) if "--born" in sys.argv else (True, False)
+    nev = int(args[0]) if args else 300
+    models_to_try = args[1:] or ["pi0.amp2609", "pi0n.amp2021",
+                                 "eta.amp2609", "etan.amp2609"]
     bad = 0
     for model in models_to_try:
         for fermi in ("none", "av18"):
-            for born_only in (True, False):
+            for born_only in born_modes:
                 try:
                     sf, g, evs = run(model, fermi, nev, born_only)
                 except Exception as exc:
