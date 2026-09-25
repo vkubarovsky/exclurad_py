@@ -296,6 +296,29 @@ max 1.285, `B = 1.67`, zero points above 1.5 in both -- because it probes
 changes which invariants occur and the per-event beam energy, not `eta` at a
 given point. Use the run-time stage-2 bound instead.
 
+### Cell edges (acceptance criterion 6)
+
+100k deuteron Born against 15k deuteron radiative, both `fermi = av18`,
+`EXACT_ACCEPT=1`. The criterion is that the majorant cell edges be **no more
+significant than the control points**, which are the same windows placed where
+there is no edge.
+
+| | worst at cell edges | worst on controls |
+|---|---|---|
+| **Q2** (unsmeared, the discriminating test) | **1.7 sigma** | 1.2 sigma |
+| W (blunted by the 131 MeV smearing) | 1.4 sigma | 1.8 sigma |
+
+Passed: nothing at the edges stands out against the controls, and in W the
+edges are quieter than the controls. For scale, the stage-2 composition bug
+that `225d4d9` fixed showed **19.2 sigma** at the W = 2.20 edge against
+2.2 sigma on the controls. Nothing of that kind survives here, so the
+per-event boost has not disturbed the two-stage composition.
+
+The null test behind these numbers: the 100k Born sample split in half gives
+1.8 sigma on edges against 1.9 sigma on controls, i.e. the estimator's own
+floor at this statistics is about 2 sigma. Full output in
+`validation/fermi_shape_steps_result.txt`.
+
 ## 7. Known approximations, recorded deliberately
 
 * **The eta table and the tail cells are built at the nominal beam energy.**
