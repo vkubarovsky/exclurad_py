@@ -164,11 +164,57 @@ The one place a mass enters the flux is `kappa = 8 (W2 - M^2)^2 / alpha`, part
 of the *definition* of the structure functions, which were fitted at `M_N`.
 That is `_kin_xsec`, i.e. `M_N`. See §2.
 
-## 6. Cost
+## 6. What it does to the sample, and what it costs
 
-Measured with `production/bound_map.py` and the run reports, flag off and on.
+### The observed W (acceptance criterion 5)
 
-*(to be filled in: B, ms/event, trial efficiency)*
+100k free-nucleon against 100k deuteron, `pi0.amp2609`, Born, box
+`W2 = 4.5..12`, `Q2 = 1..5`, `t = -2.0..-0.10`. W is reconstructed the way an
+analysis does it, from the scattered electron with the target assumed to be a
+proton at rest (`production/lund_kinematics.py`).
+
+| | `<W>` | rms | range |
+|---|---|---|---|
+| free nucleon | 2.5334 | 0.3349 | 2.123 .. 3.465 |
+| deuteron | 2.5569 | 0.3596 | 1.714 .. 4.425 |
+
+    smearing (quadrature difference of the widths)   131 MeV
+    shift of the mean                                +23 MeV
+    below the box edge sqrt(4.5): free 0.0000%, deuteron 4.4320%
+
+131 MeV is inside the 100-150 MeV the brief predicts. The box edge stops being
+an edge, which §6 says to expect: 4.4% of the sample now sits below it and the
+tail reaches W = 1.71. **A card that wants to cover an observed range has to
+generate wider than that range.**
+
+![W smearing](figures/fermi_w_smearing.png)
+
+### A consequence for exclusivity cuts
+
+`v = MX^2(e' p) - m_pi0^2`, reconstructed with the target at rest, is what an
+offline missing-mass cut acts on. In the free sample its median is 0.0012 and
+**no** event exceeds 0.17. In the deuteron sample the median is 0.024 and
+**31.7%** of events are above 0.17. A cut tuned on a free-proton sample removes
+a third of a deuteron sample, and it removes it *non-uniformly* in the Fermi
+momentum. This is not a generator artefact -- it is what the target does -- but
+nobody should meet it for the first time in an analysis.
+
+### Cost
+
+    ms/event, pi0.amp2609 Born, 100k events
+        free nucleon    1.11
+        deuteron        2.38     (factor 2.1)
+
+The measurement was taken with other jobs on the machine, so treat the factor
+as an upper bound until it is repeated on a quiet host. Setup is unchanged
+(~40 s), but the majorant has to be built separately for a deuteron run --
+`fermi` is part of its cache key, and it must be, because the per-event boost
+widens `r` inside every cell.
+
+Trial rejections specific to the deuteron, measured on a real run: about 0.1%
+of trials, split between the `m*` floor and `_pass_fermi_frame`.
+
+Stage-2 global bound on the deuteron radiative run: `B = 1.41`.
 
 ## 7. Known approximations, recorded deliberately
 
