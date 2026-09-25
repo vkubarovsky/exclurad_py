@@ -214,7 +214,33 @@ widens `r` inside every cell.
 Trial rejections specific to the deuteron, measured on a real run: about 0.1%
 of trials, split between the `m*` floor and `_pass_fermi_frame`.
 
-Stage-2 global bound on the deuteron radiative run: `B = 1.41`.
+### B did not grow
+
+§5 of the brief expects it to: "Fermi motion adds spread that the cell cannot
+see, so `r = sigma_exact / (born * eta_table)` widens inside each cell and `B`
+grows." Measured on the same radiative card, 300 stage-2 probes each:
+
+    free nucleon   global B = 1.47
+    deuteron       global B = 1.41
+
+So it did not, at this box. Two caveats before anyone leans on that. `B` is
+`1.3 * max(r)` over 300 probes -- a maximum, so a noisy statistic, and the two
+numbers are within that noise of each other. And the majorant calibration
+raised 0 of 6144 cells in both cases, i.e. neither run was under pressure at
+this box; a tighter box or a coarser table could behave differently.
+
+The conclusion that matters is the weaker and safer one: **the per-event boost
+did not cost accuracy, and it did not visibly cost efficiency either.** Since
+`225d4d9` the proposal carries `B_cell`, so even a `B` that had grown would
+have cost trials rather than correctness.
+
+**`production/bound_map.py` cannot answer this question.** It returns
+bit-identical output for `fermi = none` and `fermi = av18` -- median 0.995,
+max 1.285, `B = 1.67`, zero points above 1.5 in both -- because it probes
+`r` at FIXED `(Q2, W2, t, phi)` grid points at the nominal beam energy, and
+`eta` at fixed invariants does not know what the target is. Fermi motion
+changes which invariants occur and the per-event beam energy, not `eta` at a
+given point. Use the run-time stage-2 bound instead.
 
 ## 7. Known approximations, recorded deliberately
 
