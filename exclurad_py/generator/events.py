@@ -62,6 +62,8 @@ from ..core.rc import rc_factor
 from .breit_wigner import DELTA_WIDTH as BW_DELTA, sample_mass, width as bw_width
 from .tail import TailSampler, choose_vmin, photon_at
 from .frames import assemble_event
+from .fermi import (CONFIG, FermiSampler, split_deuteron,
+                    working_frame, M_D as _M_D)
 from .tables import RCTable
 
 
@@ -109,7 +111,8 @@ class Generator:
                  seed=1234, majorant_shape=(8, 8, 8, 12),
                  table_shape=(5, 5, 5, 8), tail_shape=(2, 2, 2, 2),
                  safety=1.6, cache=None, born_only=False, cuts=None,
-                 v_min=None, maj_cache=None, itarg=0, vz=(0.0, 0.0)):
+                 v_min=None, maj_cache=None, itarg=0, vz=(0.0, 0.0),
+                 fermi="none", fermi_m_star_min=0.30):
         """born_only=True: no radiative corrections at all.
 
         sigma_obs == sigma_Born, eta == 1, no photon is ever emitted, and
@@ -160,7 +163,47 @@ class Generator:
         # free-neutron channels; taken from the model so the whole chain
         # (kinematics, v_max, RC, electron acceptance) uses ONE target mass.
         from ..core.constants import M_P as _MP_T
+        # TWO target masses, and the distinction is the whole Fermi design.
+        #   _mT     -- the ON-SHELL nucleon mass of the model.  Static.  It is
+        #              what the cross section and the radiative corrections
+        #              are evaluated at, exactly as before (VPK 25.09: M_N in
+        #              the RC), so the four rc_factor call sites are untouched.
+        #   _mT_kin -- the mass of the target in the frame the event is BUILT
+        #              in.  With a free nucleon the two are the same.  With a
+        #              deuteron the struck nucleon is off shell, and
+        #              frames.assemble_event can only map its working frame
+        #              onto the laboratory if the working-frame target mass
+        #              equals the lab nucleon's invariant mass m*.  Using _mT
+        #              there would break beam + d = e' + meson + N' + N_s by
+        #              ~20 MeV.  See FERMI_NOTE.md.
         self._mT = float(getattr(self.sf, "mT", _MP_T))
+        self._mT_kin = self._mT
+
+        # ---------------- deuteron target (Fermi motion) ------------------
+        # OFF unless the card asks.  When off, _draw_fermi() returns before
+        # touching the RNG, which is what makes the output byte-identical to
+        # a free-nucleon run for the same seed (acceptance criterion 1).
+        self.fermi = str(fermi or "none")
+        self.fermi_m_star_min = float(fermi_m_star_min)
+        self._fermi = None
+        self._E_lab = self.Ebeam
+        self._spectator = None
+        self._to_lab = None
+        if self.fermi != "none":
+            if abs(float(ptarg)) > 0:
+                raise ValueError(
+                    "fermi != none with ptarg != 0: phase 1 is an UNPOLARISED "
+                    "deuteron, and ptarg is a longitudinal NUCLEON "
+                    "polarisation, which is not what a polarised deuteron "
+                    "means (tensor polarisation is out of scope). Set one of "
+                    "them to zero.")
+            self._fermi = FermiSampler(self.fermi)
+            # Which nucleon is struck is already in the model: the pi0/eta
+            # topologies declare target 'p', the pi0n/etan ones 'n'.  The
+            # spectator is then the other one -- the deuteron has one of each.
+            self._struck = str(getattr(getattr(self.sf, "topology", None),
+                                       "target", "p"))
+        self.n_fermi_reject = 0
         self.bw_channel = None
         if os.environ.get("BW", "1") != "0" and \
                 getattr(getattr(self.sf, "topology", None), "name", "") == \
@@ -331,12 +374,12 @@ class Generator:
         return EventKin(self._E, Q2, W2, t, phi, self._mV,
                         phi_offset=float(getattr(getattr(self.sf, 'topology', None),
                                                  'phi_offset', 0.0)),
-                        v=0.0, mU=self.sf.mU, M=self._mT,
+                        v=0.0, mU=self.sf.mU, M=self._mT_kin,
                         t_kind=self._t_kind)
 
     def _vmax(self, Q2, W2, t):
         vk = EventKin.vmax_kin(self._E, Q2, W2, t, self._mV,
-                               mU=self.sf.mU, M=self._mT,
+                               mU=self.sf.mU, M=self._mT_kin,
                                t_kind=self._t_kind)
         if self.mx2_cut is None:
             return vk
@@ -529,6 +572,13 @@ class Generator:
                     mx2_cut=self.mx2_cut, helicity=self.helicity, ptarg=self.ptarg,
                     shape=list(self.majorant_shape), safety=self.safety,
                     born_only=self.born_only, eta_hi=round(float(eta_hi), 9),
+                    # A deuteron majorant is not a free-nucleon majorant: the
+                    # per-event boost widens r inside every cell, so B_cell is
+                    # calibrated against a different distribution.  Nothing
+                    # else in this key notices -- model, box, shape and safety
+                    # are all identical -- so a free-nucleon majorant would
+                    # load silently against a Fermi run.
+                    fermi=self.fermi,
                     # The cell EDGES are part of what a cached majorant is,
                     # and nothing else in this key notices them: model, box,
                     # shape and safety are all identical between a linear and
@@ -581,7 +631,7 @@ class Generator:
         acc = self._acc_electron
         if acc is None:
             return True
-        nu = (W2 + Q2 - self._mT ** 2) / (2.0 * self._mT)
+        nu = (W2 + Q2 - self._mT_kin ** 2) / (2.0 * self._mT_kin)
         Ep = self._E - nu
         if Ep <= 0.0:
             return False
@@ -634,6 +684,88 @@ class Generator:
             return False
         self._E = self.Ebeam * (1.0 - vloss)
         return True
+
+    def _draw_fermi(self):
+        """Fermi momentum of the struck nucleon, and the frame it implies.
+
+        Drawn on EVERY TRIAL, beside _draw_vertex and for the same reason: it
+        changes the energy that enters the cross section, so it has to be
+        known before the event is weighted.
+
+        When the target is a free nucleon this returns immediately WITHOUT
+        drawing, so the random stream is bit-for-bit the one the free-nucleon
+        run had.  That is acceptance criterion 1 and it is what keeps this
+        branch from disturbing the running campaign.
+
+        What it sets:
+            _E        beam energy in the struck nucleon's rest frame.  The
+                      generator only knows how to work with a target at rest,
+                      so that frame is where the event is built; self._E
+                      already carries a per-event energy for the straggling
+                      radiator, and this composes with it.
+            _mT_kin   the OFF-SHELL mass m*.  The working frame must have the
+                      target at this mass or the map back to the laboratory is
+                      not a Lorentz transformation.
+            _to_lab   that map.
+            _spectator  the on-shell spectator, appended to the final state.
+
+        Returns False -- the whole trial dies, as in _draw_mass -- when the
+        draw cannot produce an event.  It is never RE-drawn: re-drawing would
+        quietly truncate n(k) and the sample would no longer follow the wave
+        function.  Two reasons to reject:
+
+          * s below the box.  A nucleon running away from the beam gives a
+            near-co-moving collision; at p_s = 0.7 GeV/c sqrt(s) falls to
+            0.3 GeV and no final state exists at all.  No proposal from the
+            majorant could be satisfied, so the trial is dead either way.
+          * m* below fermi_m_star_min (default 0.30 GeV).  m* -> 0 at
+            p_s = 0.7025 GeV/c, where the nucleon becomes lightlike and its
+            "rest frame" needs an unbounded boost -- 1151 GeV at the ceiling.
+            PWIA with an on-shell cross section has no meaning there.  Costs
+            0.14% of the distribution and caps the working-frame energy at
+            about 45 GeV.
+        """
+        if self._fermi is None:
+            return True
+        self._E_lab = self._E
+        p_spec = self._fermi.draw(self.rng)
+        struck4, spec4, m_star = split_deuteron(p_spec, self._struck)
+        if m_star < self.fermi_m_star_min:
+            self.n_fermi_reject += 1
+            return False
+        k_lab = np.array([self._E, 0.0, 0.0, self._E])
+        tot = struck4 + k_lab
+        s_inv = tot[0] ** 2 - float(np.dot(tot[1:], tot[1:]))
+        if s_inv <= self.box.W2[0]:
+            self.n_fermi_reject += 1
+            return False
+        self._E, self._to_lab = working_frame(self._E, struck4)
+        self._mT_kin = m_star
+        self._spectator = spec4
+        return True
+
+    def _boost_to_lab(self, ev):
+        """Take one assembled event from the working frame to the laboratory.
+
+        A no-op for a free nucleon.  For a deuteron every four-vector goes
+        through the SAME linear map, so the conservation that
+        assemble_event closed on the recoil survives exactly; adding the
+        spectator then completes beam + d = e' + meson + N' + N_s (+ gamma),
+        because struck + spectator = (M_d, 0, 0, 0) by construction.
+        """
+        if self._to_lab is None:
+            return ev
+        L = self._to_lab
+        for key in ("beam", "target", "scattered", "meson", "photon", "recoil"):
+            v = ev.get(key)
+            if v is not None:
+                ev[key] = L @ np.asarray(v, dtype=float)
+        ev["spectator"] = self._spectator
+        ev["spectator_pid"] = CONFIG[self._struck][2]
+        ev["struck"] = ev["target"]
+        ev["p_fermi"] = float(np.linalg.norm(self._spectator[1:]))
+        ev["m_star"] = float(self._mT_kin)
+        return ev
 
     def _draw_mass(self, Q2, W2, t):
         """Масса мезона для этой пробы, порог по W и границы по t.
@@ -840,6 +972,8 @@ Ebeam=self._E, Q2=cQ2, W2=cW2, t=ct, phi=cph,
         for _ in range(n_probe):
             if not self._draw_vertex():
                 continue
+            if not self._draw_fermi():
+                continue
             Q2, W2, t, phi, M, cell = self._propose()
             if M <= 0 or not self._pass_yxb(Q2, W2):
                 continue
@@ -873,6 +1007,8 @@ Ebeam=self._E, Q2=cQ2, W2=cW2, t=ct, phi=cph,
                 if n_b >= self.n_probe_b:
                     break
                 if not self._draw_vertex():
+                    continue
+                if not self._draw_fermi():
                     continue
                 Q2, W2, t, phi, Mv, cell = self._propose()
                 if Mv <= 0 or not self._pass_yxb(Q2, W2):
@@ -960,6 +1096,8 @@ Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
             # энергия события -- до всего остального: от неё зависят и каты,
             # и сечение, и хвост
             if not self._draw_vertex():
+                continue
+            if not self._draw_fermi():
                 continue
             Q2, W2, t, phi, M, cell = self._propose()
             h = self.helicity if self.helicity != 0 else \
@@ -1161,6 +1299,11 @@ Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
             if not ev["ok"]:
                 self.n_closure_fail += 1
                 continue
+            # LAB vectors from here on: the acceptance cut and the vector-meson
+            # decay below both work on ev["scattered"] / ["recoil"] / ["meson"],
+            # so the boost has to come first or a deuteron run would be cut on
+            # working-frame momenta.
+            ev = self._boost_to_lab(ev)
             ev.update(weight=1.0, Q2=Q2, W2=W2, t=t, phi=phi, helicity=h,
                       eta=eta, radiative=photon4 is not None,
                       # вершина события: при выключенном радиаторе ноль, как

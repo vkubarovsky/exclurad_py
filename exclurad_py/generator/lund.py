@@ -99,6 +99,19 @@ def event_lines(ev, channel, topology=None, target_pid=None,
     if ev.get("photon") is not None:
         parts.append([PID["gamma"], 0.0, ev["photon"], 1, 0, 0])
 
+    # Deuteron target: the spectator nucleon is a REAL final-state particle,
+    # not bookkeeping.  Without it the record does not conserve four-momentum
+    # -- beam + d = e' + meson + N' + N_s (+ gamma) -- and the file would
+    # describe a reaction that did not happen.  Status 1, so gemc tracks it:
+    # for ~97% of events it stops inside the target within a millimetre, but
+    # the 3% above ~300 MeV/c are exactly the ones the CVT could see, and a
+    # sample that silently dropped them could never be used for tagging.
+    # The struck nucleon is NOT written: it is an internal, off-shell line.
+    spec = ev.get("spectator")
+    if spec is not None:
+        parts.append([int(ev.get("spectator_pid", 2112)), mass_of(spec),
+                      spec, 1, 0, 0])
+
     # A decayed vector meson becomes documentation (status 0) pointing at the
     # first daughter, and the two daughters are appended as the tracked
     # particles.  Without this the daughters computed in run.py are silently

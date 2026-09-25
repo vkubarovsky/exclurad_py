@@ -135,6 +135,7 @@ def run_parallel(card_path, jobs, date=None, verbose=True):
                        born_only=bool(cfg["iborn"]),
                        cuts=dict(y=cfg["y"], xB=cfg["xB"], iacc=cfg["iacc"]),
                        itarg=cfg["itarg"], vz=cfg["vz"],
+                       fermi=cfg.get("fermi", "none"),
                        v_min=cfg["vmin"] or None,
                        cache=None if cfg["iborn"] else _cache_paths(d)[0])
         t0 = time.time()
@@ -196,6 +197,7 @@ def run(card_path, date=None, verbose=True, _part=None):
                   born_only=bool(cfg["iborn"]),
                   cuts=dict(y=cfg["y"], xB=cfg["xB"], iacc=cfg["iacc"]),
                   itarg=cfg["itarg"], vz=cfg["vz"],
+                  fermi=cfg.get("fermi", "none"),
                   v_min=cfg["vmin"] or None,
                   maj_cache=_cache_paths(d)[1],
                   cache=None if cfg["iborn"] else _cache_paths(d)[0])
