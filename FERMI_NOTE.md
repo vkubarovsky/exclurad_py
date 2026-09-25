@@ -201,15 +201,23 @@ nobody should meet it for the first time in an analysis.
 
 ### Cost
 
-    ms/event, pi0.amp2609 Born, 100k events
-        free nucleon    1.11
-        deuteron        2.38     (factor 2.1)
+    pi0.amp2609 Born, 50k events, one run at a time on an idle host
 
-The measurement was taken with other jobs on the machine, so treat the factor
-as an upper bound until it is repeated on a quiet host. Setup is unchanged
-(~40 s), but the majorant has to be built separately for a deuteron run --
-`fermi` is part of its cache key, and it must be, because the per-event boost
-widens `r` inside every cell.
+        free nucleon    setup 37 s    generate 51 s    1.02 ms/event
+        deuteron        setup 37 s    generate 89 s    1.78 ms/event
+                                                       factor 1.75
+
+Setup is unchanged. Generation costs 75% more, which buys: one `n(k)` draw and
+three uniforms per trial, the boost of every final-state four-vector, and the
+`_pass_fermi_frame` check -- which runs before the Born evaluation precisely so
+that a trial killed by an unphysical frame does not pay for one.
+
+(An earlier figure of 2.38 ms/event was taken with three other jobs on the
+machine and is an artefact of the contention, not of the deuteron.)
+
+The majorant has to be built separately for a deuteron run: `fermi` is part of
+its cache key, and must be, because nothing else in that key would notice the
+difference.
 
 Trial rejections specific to the deuteron, measured on a real run: about 0.1%
 of trials, split between the `m*` floor and `_pass_fermi_frame`.
