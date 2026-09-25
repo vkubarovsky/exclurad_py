@@ -203,17 +203,40 @@ average** — the load average lags badly on this node (it read 71 while the
 machine was 80 % idle, which is how the first version of this brief got it
 wrong).
 
-100 parallel workers is reasonable here and is what the pi0 production is
-using right now; at ~300 MB each that is 2 % of the node's memory. Check what
-else is running before taking that many, and always set:
+**There is a hard per-user CPU quota: 25.6 cores.** The idle cores are not
+yours to take:
+
+    $ systemctl show user-$(id -u).slice -p CPUQuotaPerSecUSec -p MemoryMax
+    CPUQuotaPerSecUSec=25.600000s
+    MemoryMax=137438953472            # 128 GB
+
+    $ cat /sys/fs/cgroup/user.slice/user-$(id -u).slice/cpu.max
+    2560000 100000                    # 25.6 cores
+
+Starting more than ~24 workers does not raise throughput, it only divides the
+same 25.6 cores among more processes and makes every one of them slower. This
+was measured the hard way on 2026-09-25: 100 workers drew exactly 2543 % CPU
+against the 2560 % ceiling, i.e. 25 % each.
+
+**Use 24 workers.** Note also that one worker shows up as THREE processes
+(`bash -c` -> `bash` -> `python3`), so 24 workers means ~72 entries in `ps` —
+do not be alarmed by the count, and do not let someone else be: only a third
+of them consume anything.
+
+A second trap, hit twice in one day: `pkill -f <pattern>` matches the command
+line of the ssh session running it, so `ssh host 'pkill -f foo.sh'` kills its
+own shell before the next command runs. Put the kill in its own call, or match
+a pattern that cannot appear in your own command line.
+
+Always set:
 
     export OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1
 
 (the generator is single-threaded per worker; without this every worker
 spawns a BLAS thread pool and the node grinds).
 
-As of 2026-09-25 14:00 the pi0 rad production holds 100 of its cores until
-roughly 17:30. Check `pgrep -u vpk -c exclurad_py.run` before adding load.
+The pi0 production does NOT use this node — with a 25.6-core quota it could
+not help against clonfarm11's 100 cores, so ifarm is free for you.
 
 **The farm (slurm) — for big runs only.** Submit from ifarm2402. The template
 is `production/farm/gen_array.sbatch`; note its `R=` path is hardcoded to a
