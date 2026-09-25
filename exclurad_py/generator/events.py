@@ -788,7 +788,7 @@ class Generator:
         ev["m_star"] = float(self._mT_kin)
         return ev
 
-    def _pass_fermi_frame(self, Q2, W2, t):
+    def _pass_fermi_frame(self, Q2, W2, t, phi):
         """Is the proposed point physical in THIS event's frame?
 
         The majorant box is fixed, but with Fermi motion the frame the event
@@ -807,9 +807,15 @@ class Generator:
         if self._fermi is None:
             return True
         try:
+            # BOTH have to be asked.  vmax_kin and EventKin fail on different
+            # conditions -- "Born point itself unphysical at this t" and
+            # "unphysical lepton kinematics (|cos| > 1)" -- and a trial that
+            # clears the first can still die in the second, which is how the
+            # first 100k deuteron run ended after calibration.
             if self._vmax(Q2, W2, t) <= 0:
                 self.n_fermi_unphys += 1
                 return False
+            self._kin(Q2, W2, t, phi)
         except (ValueError, ZeroDivisionError, FloatingPointError):
             self.n_fermi_unphys += 1
             return False
@@ -1169,7 +1175,7 @@ Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
             # сечение выросло бы в полтора раза на пустом месте.
             if not self._draw_mass(Q2, W2, t):
                 continue
-            if not self._pass_fermi_frame(Q2, W2, t):
+            if not self._pass_fermi_frame(Q2, W2, t, phi):
                 continue
 
             b = self._born(Q2, W2, t, phi, h)
