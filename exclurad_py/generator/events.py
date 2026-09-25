@@ -781,6 +781,21 @@ Ebeam=self._E, Q2=cQ2, W2=cW2, t=ct, phi=cph,
         v = float(self._B[self._b_grid_cell(cell)])
         return v if v > 0 else self._B_global
 
+    def _b_full(self, shape):
+        """The stage-2 bound on the MAJORANT grid, cell by cell.
+
+        The same integer mapping as _b_grid_cell, vectorised over each axis:
+        the proposal (_cell_cdf) and the acceptance (_b_cell) have to read the
+        identical bound for every cell, so both go through this one mapping.
+        """
+        if self._B is None:
+            return np.full(shape, self._B_global)
+        if self.b_shape is None:
+            return self._B
+        idx = [np.minimum((np.arange(ms) * bs) // ms, bs - 1)
+               for ms, bs in zip(shape, self.b_shape)]
+        return self._B[np.ix_(*idx)]
+
     def _draw_photon(self, entry, block=4096):
         """One (v, nhat) from a cell's sampler, refilling in blocks.
 
@@ -899,15 +914,33 @@ Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
                 if r > bmax[bc]:
                     bmax[bc] = r
             self._B_global = float(max(bmax.max() * 1.3, 1.05))
-            self._B = np.where(bmax > 0, bmax * 1.3, 0.0)
+            # The global fallback for never-probed cells is BAKED IN here
+            # rather than applied later in _b_cell: the proposal now carries
+            # this same array (see _b_full), and the two must read the
+            # identical number for every cell or the composition breaks again.
+            self._B = np.where(bmax > 0, bmax * 1.3, self._B_global)
             if verbose:
                 print(f" stage-2 bounds: {n_b} probes, global B = "
                       f"{self._B_global:.2f}")
 
         n_bad = int((worst > 1.0).sum())
         s["M"] = s["M"] * np.where(worst > 1.0, worst * margin, 1.0)
-        tot = s["M"].sum()
-        s["cdf"] = _cell_cdf(s["M"], s["edges"])
+        # THE PROPOSAL MUST CARRY B_cell (fixed 2026-09-25).
+        #
+        # Stage 1 accepts with s_obs/M, stage 2 with sigma_exact/(s_obs*B_cell),
+        # so the accepted density is (proposal) * s_obs/M * so/(s_obs*B_cell).
+        # With the cell drawn ~ M that leaves so/B_cell -- the SHAPE of the
+        # sample divided by a piecewise-constant function of the kinematics.
+        # Measured on 400k events each of the 2026-09-24 born and rad samples:
+        # the rad/born ratio stepped by -21.6% (22.5 sigma) across the W2 cell
+        # edge at W = 2.20 and by +21.8% at W = 3.80, with nothing at the
+        # eta-table edges -- which is what identified this grid as the cause.
+        # Drawing the cell ~ M*B_cell cancels the 1/B_cell exactly and keeps
+        # the per-cell tightness that made a per-cell bound worth having; a
+        # single global B would also be unbiased but throws that away.
+        s["Mtot"] = (s["M"] * self._b_full(shape)
+                     if (self.exact_accept and not self.born_only) else s["M"])
+        s["cdf"] = _cell_cdf(s["Mtot"], s["edges"])
         self.n_trials = self.n_accept = 0
         self.n_overweight = 0
         self.max_overweight = 1.0
@@ -1171,6 +1204,17 @@ Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
         dt = np.diff(e["t"])[None, None, :, None]
         dph = np.diff(e["phi"])[None, None, None, :]
         vol = dQ2 * dW2 * dt * dph
+        # With stage 2 on, the sample IS the exact one, so its normalisation
+        # has to come from the same estimator: a trial survives both stages
+        # with (s_obs/M) * (so/(s_obs*B)) = so/(M*B), and the cell is drawn
+        # ~ M*B, hence (n_accept2/n_trials) * integral(M*B) = integral(sigma
+        # exact).  Reporting stage 1 here would give integral(b*eta_capped)
+        # for a sample distributed as sigma_exact -- shape and normalisation
+        # from two different densities.
+        if self.exact_accept and not self.born_only and self.n_accept2 > 0:
+            Mt = self.maj.get("Mtot", self.maj["M"])
+            return float((self.n_accept2 / self.n_trials)
+                         * float((Mt * vol).sum()))
         return float((self.n_accept / self.n_trials)
                      * float((self.maj["M"] * vol).sum()))
 
