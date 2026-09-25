@@ -204,6 +204,7 @@ class Generator:
             self._struck = str(getattr(getattr(self.sf, "topology", None),
                                        "target", "p"))
         self.n_fermi_reject = 0
+        self.n_fermi_unphys = 0
         self.bw_channel = None
         if os.environ.get("BW", "1") != "0" and \
                 getattr(getattr(self.sf, "topology", None), "name", "") == \
@@ -397,10 +398,30 @@ class Generator:
         if hasattr(self.sf, "t_nucl"):
             self.sf.t_nucl = float(t)
 
+    def _kin_xsec(self, Q2, W2, t, phi):
+        """EventKin for the CROSS SECTION, always at the ON-SHELL mass.
+
+        Identical to _kin for a free nucleon.  For a deuteron the two differ,
+        and the difference is not cosmetic: born_H feeds kin.M into the Hand
+        flux factor kappa = 8 (W2 - M^2)^2 / alpha, which is part of the
+        DEFINITION of the structure functions the model returns.  Those were
+        fitted with M = M_N, so evaluating kappa at m* would silently change
+        the cross section -- measured 0.3% at the median Fermi momentum and
+        2.4% at p_s = 300 MeV/c.  VPK's decision of 25.09 is M_N in the cross
+        section, so the cross section is the free-nucleon one at this event's
+        invariants, and m* appears only where the event is BUILT.
+        """
+        return EventKin(self._E, Q2, W2, t, phi, self._mV,
+                        phi_offset=float(getattr(getattr(self.sf, 'topology', None),
+                                                 'phi_offset', 0.0)),
+                        v=0.0, mU=self.sf.mU, M=self._mT,
+                        t_kind=self._t_kind)
+
     def _born(self, Q2, W2, t, phi, h):
         self._set_event_t(t)
         try:
-            return born_xsec(self._kin(Q2, W2, t, phi), self.sf, h, self.ptarg)
+            return born_xsec(self._kin_xsec(Q2, W2, t, phi), self.sf, h,
+                             self.ptarg)
         except (ValueError, ZeroDivisionError, FloatingPointError):
             return None
 
@@ -767,6 +788,33 @@ class Generator:
         ev["m_star"] = float(self._mT_kin)
         return ev
 
+    def _pass_fermi_frame(self, Q2, W2, t):
+        """Is the proposed point physical in THIS event's frame?
+
+        The majorant box is fixed, but with Fermi motion the frame the event
+        is built in is not: a nucleon moving away from the beam sees less
+        energy, and a (Q2, W2, t) that is perfectly physical against a nucleon
+        at rest can be past the kinematic limit against that one.  vmax_kin
+        then raises, and before this guard it raised AFTER n_accept had already
+        been incremented, which would have biased sigma_total as well as
+        crashing the run.
+
+        Rejected here, beside the other cuts and before the Born evaluation:
+        the trial counts in the denominator with zero weight, exactly as a
+        trial whose mass fell outside the t limits does.  A no-op for a free
+        nucleon, so the byte-identity test is unaffected.
+        """
+        if self._fermi is None:
+            return True
+        try:
+            if self._vmax(Q2, W2, t) <= 0:
+                self.n_fermi_unphys += 1
+                return False
+        except (ValueError, ZeroDivisionError, FloatingPointError):
+            self.n_fermi_unphys += 1
+            return False
+        return True
+
     def _draw_mass(self, Q2, W2, t):
         """Масса мезона для этой пробы, порог по W и границы по t.
 
@@ -1120,6 +1168,8 @@ Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
             # нулевым весом.  У rho такие пробы -- 37%, и не считай их,
             # сечение выросло бы в полтора раза на пустом месте.
             if not self._draw_mass(Q2, W2, t):
+                continue
+            if not self._pass_fermi_frame(Q2, W2, t):
                 continue
 
             b = self._born(Q2, W2, t, phi, h)
