@@ -196,15 +196,24 @@ production campaign until roughly 19:20. Ask before starting anything there.
 When it is free: output goes to `/data/vpk` (`/home` is full), there is no
 cvmfs and no gfortran, and the two T4 GPUs have no driver.
 
-**ifarm2402 — shared, be a good citizen.** 256 cores but ~158 interactive
-users and load ~71. There has already been one complaint from the sysadmin
-about memory use. Cap yourself at ~32 parallel workers on the interactive node
-and always set:
+**ifarm2402 — 256 cores and mostly idle.** Measured 2026-09-25: 80-84 % CPU
+idle, 8 running processes, 1355 GB of 1510 GB memory available, despite ~158
+logged-in users. **Read the `%Cpu(s) ... id` line from `top`, not the load
+average** — the load average lags badly on this node (it read 71 while the
+machine was 80 % idle, which is how the first version of this brief got it
+wrong).
+
+100 parallel workers is reasonable here and is what the pi0 production is
+using right now; at ~300 MB each that is 2 % of the node's memory. Check what
+else is running before taking that many, and always set:
 
     export OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1
 
 (the generator is single-threaded per worker; without this every worker
 spawns a BLAS thread pool and the node grinds).
+
+As of 2026-09-25 14:00 the pi0 rad production holds 100 of its cores until
+roughly 17:30. Check `pgrep -u vpk -c exclurad_py.run` before adding load.
 
 **The farm (slurm) — for big runs only.** Submit from ifarm2402. The template
 is `production/farm/gen_array.sbatch`; note its `R=` path is hardcoded to a
