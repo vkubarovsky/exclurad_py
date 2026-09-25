@@ -189,15 +189,61 @@ generate wider than that range.**
 
 ![W smearing](figures/fermi_w_smearing.png)
 
-### A consequence for exclusivity cuts
+### A consequence for exclusivity cuts, and it is the big one
 
-`v = MX^2(e' p) - m_pi0^2`, reconstructed with the target at rest, is what an
-offline missing-mass cut acts on. In the free sample its median is 0.0012 and
-**no** event exceeds 0.17. In the deuteron sample the median is 0.024 and
-**31.7%** of events are above 0.17. A cut tuned on a free-proton sample removes
-a third of a deuteron sample, and it removes it *non-uniformly* in the Fermi
-momentum. This is not a generator artefact -- it is what the target does -- but
-nobody should meet it for the first time in an analysis.
+`v = MX^2(e' p) - m_pi0^2`, with the missing four-vector built the way an
+analysis builds it,
+
+    X = beam + (M_p, 0, 0, 0) - e' - p'        target assumed a proton AT REST
+
+is what an offline exclusivity cut acts on. Both samples below are Born only,
+so for a free nucleon `v = 0` identically.
+
+| | free nucleon | deuteron |
+|---|---|---|
+| median | 0 | **0.0240** |
+| rms | 0 | **0.6236** |
+| min .. max | 0 | **-3.97 .. +10.77** |
+| `v > 0.17` | 0.00% | **31.74%** |
+| `v > 0.20` | 0.00% | 28.88% |
+| `v < 0` | 0.00% | **46.25%** |
+
+(`production/lund_kinematics.py` hardcodes `EB = 10.604` while these cards use
+10.600, which puts a spurious `v ~ 1.2e-3` on the free sample. Reconstructed at
+the right energy it is `-7.9e-8`. The 4 MeV is common-mode and harmless for the
+W comparison, but do not read the free column as a measured width.)
+
+**Why it is so large.** Reconstructing with a proton at rest omits the
+spectator. From `k + p_d = e' + p' + pi0 + n_s`,
+
+    X = pi0 + n_s - (M_d - M_p, 0, 0, 0) = pi0 + (E_s - 0.9373,  p_s)
+
+and `E_s - (M_d - M_p) = 2.2 MeV + p_s^2/2M`, a few MeV. So `X` is the pion
+plus a four-vector carrying **the spectator's three-momentum and almost no
+energy**, giving
+
+    v ~ -2 p_pi . p_s
+
+Verified on 4000 generated events: the correlation between `v` and
+`-2 p_pi . p_s` is **0.983**, and subtracting that term drops the rms from 0.65
+to 0.13. The scale follows, `2 <|p_pi|> <|p_s|> = 2 x 3.71 x 0.089 =
+0.66 GeV^2` against an observed rms of 0.65. The pion's 3.7 GeV/c momentum is
+a **lever arm** that turns a 90 MeV/c Fermi momentum into a 0.65 GeV^2
+missing-mass spread -- which is why this effect is far larger than the 131 MeV
+smearing of W.
+
+**Three things follow.**
+
+* A `vcut = 0.20` tuned on hydrogen keeps 71% of a deuteron sample, and the 29%
+  it removes is not a random 29%: the cut is on `p_pi . p_s`, so it
+  preferentially keeps small `|p_s|` *and* `p_s` perpendicular to the pion. The
+  surviving sample is **biased in the Fermi momentum**, not merely depleted.
+* 46% of events have `v < 0`. A one-sided cut `MX^2 < m^2 + vcut` keeps all of
+  them, so one-sided and symmetric windows -- nearly the same cut on hydrogen --
+  behave very differently here.
+* The deuteron `v` rms of 0.62 is three times the `vcut = 0.20` that radiation
+  is allowed to populate. **For a deuteron target exclusivity is a Fermi-motion
+  problem first and a radiative problem second.**
 
 ### Cost
 
