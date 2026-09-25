@@ -92,9 +92,20 @@ def main():
     if worst_beam > 1e-9 or worst_nucl > 1e-9:
         fail.append("working-frame map is not exact")
 
-    Es = [working_frame(10.6, split_deuteron(x, "p")[0])[0] for x in P[:20_000]]
-    print(f"beam energy in the struck-nucleon frame: "
-          f"{np.min(Es):.3f} .. {np.max(Es):.3f} GeV  (lab 10.600)")
+    # The unguarded range, to show WHY the generator needs a floor on m*:
+    # gamma = E*/m*, so as m* -> 0 the nucleon becomes lightlike and its rest
+    # frame needs an unbounded boost.  Generator.fermi_m_star_min (0.30 GeV by
+    # default) rejects that tail; the second line is what actually reaches the
+    # event loop.
+    mstar = np.array([split_deuteron(x, "p")[2] for x in P[:20_000]])
+    Es = np.array([working_frame(10.6, split_deuteron(x, "p")[0])[0]
+                   for x in P[:20_000]])
+    print(f"beam energy in the struck-nucleon frame, UNGUARDED: "
+          f"{Es.min():.2f} .. {Es.max():.1f} GeV  (lab 10.600)")
+    keep = mstar >= 0.30
+    print(f"  after the generator's m* >= 0.30 GeV floor  : "
+          f"{Es[keep].min():.2f} .. {Es[keep].max():.1f} GeV"
+          f"   (rejects {1 - keep.mean():.2%})")
 
     print()
     if fail:
