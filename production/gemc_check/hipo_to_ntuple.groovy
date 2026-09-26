@@ -1,12 +1,17 @@
 // aao_gen CLAS12 MC -> flat binary ntuple (little-endian float32, fixed record).
-//   run-groovy aao_ntuple.groovy <file.hipo> <max events> <out.f32> [skip]
+//   run-groovy aao_ntuple.groovy <file.hipo> <max events> <out.f32> [skip] [hadron pid]
+// The detected baryon defaults to the proton, 2212.  Pass 2112 for a neutron
+// target: on a deuteron the struck neutron AND the spectator proton are both in
+// the record, so a hardcoded 2212 silently picks the SPECTATOR and the ntuple
+// describes the wrong particle without failing.  Found by the fermi session,
+// 2026-09-26; it affects no proton-target sample, and every neutron one.
 // Record per event (NFLD floats):
 //   [0]      weight (MC::Event)
 //   [1..12]  gen px,py,pz for e, p, g1, g2 (MC::Lund order)
 //   for k in e,p,g1,g2 (block of 8 each, starting at 13):
 //     found(0/1) pid charge status quality px py pz   -- REC::Particle row given by MC::GenMatch
 //                                                       (one row per MC particle; pindex=-1 -> not found)
-//   [45] n_e(rec pid 11)  [46] n_p(rec pid 2212)  [47] n_gamma(rec pid 22)  -- naive counts
+//   [45] n_e(rec pid 11)  [46] n_baryon(rec pid = hadron pid)  [47] n_gamma(rec pid 22)
 //   [48] n_rec rows   [49] flag: MC::Particle row count != MC::Lund row count (status-0 rows in Lund)
 import org.jlab.jnp.hipo4.data.*
 import org.jlab.jnp.hipo4.io.*
@@ -16,6 +21,7 @@ def fname = args[0]
 int maxev = args[1] as int
 def oname = args[2]
 int skip = args.size() > 3 ? args[3] as int : 0
+int hpid = args.size() > 4 ? args[4] as int : 2212   // 2112 for a neutron target
 final int NFLD = 50
 
 def reader = new HipoReader(); reader.open(fname)
@@ -44,7 +50,7 @@ try {
     for (int i = 0; i < src.getRows(); i++) {
       int pid = src.getInt("pid", i)
       if (pid == 11 && ie < 0) ie = i
-      else if (pid == 2212 && ip < 0) ip = i
+      else if (pid == hpid && ip < 0) ip = i
       else if (pid == 22) { if (ig1 < 0) ig1 = i; else if (ig2 < 0) ig2 = i }
     }
     if (ie < 0 || ip < 0 || ig1 < 0 || ig2 < 0) { nbad++; continue }
@@ -70,7 +76,7 @@ try {
       }
     }
     int ne=0, np=0, ng=0
-    for (int i = 0; i < rec.getRows(); i++) { int pid = rec.getInt("pid", i); if (pid==11) ne++; else if (pid==2212) np++; else if (pid==22) ng++ }
+    for (int i = 0; i < rec.getRows(); i++) { int pid = rec.getInt("pid", i); if (pid==11) ne++; else if (pid==hpid) np++; else if (pid==22) ng++ }
     r[45]=ne; r[46]=np; r[47]=ng; r[48]=rec.getRows()
     bb.clear(); for (int k = 0; k < NFLD; k++) bb.putFloat(r[k])
     os.write(bb.array()); nw++
