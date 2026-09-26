@@ -262,12 +262,34 @@ directory only once the DST is written. On 2026-09-25 this recovered 660 core-ho
 that the sqlite failure above would otherwise have cost: the background merge takes 30~seconds
 against gemc's 3.3~hours.
 
-\section{Wall-clock, measured}
-With 50~nA background merged over the eleven detectors, 5000 events per task:
-gemc 11\,945~s, bg-merger 30~s, then reconstruction, ntuple and DST. That is
-\textbf{2.4 core-seconds per event for gemc alone}, so \texttt{--time=05:00:00} is too tight
-and has already killed a set of jobs at the limit; ask for seven hours. One million events is
-200 tasks and roughly 700 core-hours.
+\section{Wall-clock, measured -- and it varies by a factor two}
+With 50~nA background merged over the eleven detectors, 5000 events per task, measured over
+400 tasks on 2026-09-25/26:
+\begin{center}
+\begin{tabular}{lrr}
+\hline
+stage & fastest & slowest \\
+\hline
+gemc                    & 11\,945~s (3.3~h) & 24\,487~s (6.8~h) \\
+bg-merger               & 28~s              & 50~s \\
+reconstruction          & 5946~s (1.65~h)   & 6748~s (1.87~h) \\
+\hline
+full chain              & \multicolumn{2}{c}{5.0 to 8.7 hours} \\
+\hline
+\end{tabular}
+\end{center}
+The gemc time is \textbf{not reproducible to better than a factor two} across farm nodes --
+the same 5000 events took 3.3~h on one and 6.8~h on another. Budget for the slow end:
+\begin{itemize}
+\item full chain (\texttt{sim\_array.sbatch}): \texttt{--time=10:00:00}. Five hours killed 30
+  of 200 jobs \emph{during gemc}, which is the expensive way to lose them; seven hours killed
+  29 of 200 during reconstruction, which is the cheap way, because \texttt{gemc.hipo} survives
+  and \texttt{post\_array.sbatch} finishes them in two hours.
+\item catch-up (\texttt{post\_array.sbatch}): \texttt{--time=04:00:00}. Two hours gave an 8\,\%
+  margin over a 1.9~h reconstruction and lost 41 jobs at the limit.
+\end{itemize}
+Slurm will not extend a running job (\emph{Access/permission denied}), so the limit has to be
+right when you submit. One million events is 200 tasks and roughly 700 to 1400 core-hours.
 
 \section{OSG instead of the farm}
 The CLAS12 MC portal (\url{https://gemc.jlab.org/web_interface/}) runs the same gemc and coatjava
