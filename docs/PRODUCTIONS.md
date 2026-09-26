@@ -80,6 +80,18 @@ rad/born shape test against the majorant cell edges — the test that caught the
   extrapolates there and says so (`sf.out_of_range: report`).
 - About **0.25 % of rad events exceed the stage-2 bound** (worst ×1.55), so
   the sample is not strictly unweighted in that tail.
+- **The step at v = 10⁻⁴ in the radiative-tail panel is `vmin`**, the
+  soft/hard split, not a defect. Below it only the external pre-vertex
+  radiator contributes: born, which has no internal radiation at all, shows
+  the same 0.8 % per decade flat in log v from 10⁻⁶ to 10⁰ — the signature of
+  the straggling law `loss = u^(1/bt)`, whose density goes as `1/loss` for
+  small `bt`. Above 10⁻⁴ the internal hard tail switches on and outweighs it
+  by an order of magnitude (rad/born 0.44 below, 8.9 just above). Internal
+  photons softer than `vmin` are absorbed into the exponentiated soft factor
+  and the event is written with v = 0, which is what makes the edge sharp.
+  It is harmless: 10⁻⁴ GeV² is two to three orders of magnitude below the
+  CLAS12 missing-mass resolution, and the whole region below it holds 1.1 %
+  of radiative events.
 - Reconstructed W and Q² run past the box edges (W to 4.25, Q² to 11.5)
   because `itarg=1` puts a pre-vertex radiator in front of the target and the
   kinematics are reconstructed at the nominal beam energy — which is what a
