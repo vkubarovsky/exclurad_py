@@ -117,9 +117,19 @@ class Topology:
 # --------------------------------------------------------------------------- #
 # factories
 # --------------------------------------------------------------------------- #
-def meson_detected(m_meson, meson="meson", m_recoil=M_P, recoil="p"):
-    """DVMP convention: meson detected, recoil baryon missing."""
+def meson_detected(m_meson, meson="meson", m_recoil=M_P, recoil="p",
+                   m_target=None, target=None):
+    """DVMP convention: meson detected, recoil baryon missing.
+
+    As for baryon_detected, the recoil IS the target nucleon for the elastic
+    channels (gamma* p -> V p, gamma* n -> V n), so the target defaults to
+    the recoil.  A neutron topology therefore gets a neutron initial state
+    -- which is also what decides which nucleon a deuteron target strikes
+    (Generator reads topology.target) and which one becomes the spectator.
+    """
     return Topology(name="meson_detected",
+                    m_target=m_recoil if m_target is None else m_target,
+                    target=recoil if target is None else target,
                     m_detected=m_meson, m_missing=m_recoil,
                     sf_t=KINEMATIC_T, lt_sign=+1.0, phi_offset=0.0,
                     detected=meson, missing=recoil,

@@ -5,6 +5,7 @@ The naming convention is  <channel>.<vintage>  :
 
     pi0.vpk2014     eta.vpk2014      jpsi.diffrad        rho.demo
     pi0.vpk2021     eta.tableB1      jpsi.roberts2026    phi.demo
+                                     jpsin.roberts2026
                     eta.vpk2021      jpsi.diffrad_vm
 
 Usage

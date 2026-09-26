@@ -34,11 +34,18 @@ def run(model, fermi, nev, born_only):
     kw = dict(t_nucl=-0.30) if "pi0" in model or "eta" in model else {}
     sf = models.get(model, **kw)
     sf.Ebeam = 10.6
-    g = Generator(sf, Ebeam=10.6,
-                  box=Box(Q2=(1.0, 5.0), W2=(4.5, 12.0), t=(-2.0, -0.10)),
+    if "jpsi" in model:
+        # near-threshold quasi-real photoproduction box (JPSI_FERMI_BRIEF.md);
+        # the m* floor is the J/psi value, the sub-threshold events need it
+        box = Box(Q2=(0.01, 0.10), W2=(16.29, 30.0), t=(-6.0, -0.001))
+        extra = dict(fermi_m_star_min=0.10, cuts=dict(y=(0.6, 0.95), xB=(0.0, 1.0), iacc="none"))
+    else:
+        box = Box(Q2=(1.0, 5.0), W2=(4.5, 12.0), t=(-2.0, -0.10))
+        extra = {}
+    g = Generator(sf, Ebeam=10.6, box=box,
                   mx2_cut=sf.mU ** 2 + 0.20, helicity=0, seed=4242,
                   born_only=born_only, fermi=fermi,
-                  majorant_shape=(4, 4, 4, 6))
+                  majorant_shape=(4, 4, 4, 6), **extra)
     g.setup()
     return sf, g, g.generate(nev)
 

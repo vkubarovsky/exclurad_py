@@ -28,7 +28,7 @@ import numpy as np
 
 from .base import StructureFunctions
 from .registry import register
-from ..core.constants import M_P, M_RHO, M_PHI, M_JPSI
+from ..core.constants import M_P, M_N, M_RHO, M_PHI, M_JPSI
 from ..core.kinematics import kallen
 from ..topology import meson_detected
 
@@ -37,6 +37,7 @@ _MP = 0.938272          # value used in the ported Fortran
 _RHO_TOPO = meson_detected(M_RHO, meson="rho0")
 _PHI_TOPO = meson_detected(M_PHI, meson="phi")
 _JPSI_TOPO = meson_detected(M_JPSI, meson="J/psi")
+_JPSIN_TOPO = meson_detected(M_JPSI, meson="J/psi", m_recoil=M_N, recoil="n")
 
 
 def tmin_dvmp(W2, Q2, mV, M=M_P, mU=None):
@@ -146,6 +147,31 @@ class Jpsi_Roberts2026(StructureFunctions):
         sL = Q2 / M_JPSI ** 2 * sT
         z = np.zeros_like(sT)
         return {"sT": sT, "sL": sL, "sTT": z, "sLT": z, "sLTp": z}
+
+
+@register
+class Jpsin_Roberts2026(Jpsi_Roberts2026):
+    """gamma* n -> J/psi n: the proton model relabelled, sigma_n = sigma_p.
+
+    Deliberate baseline, not an oversight (JPSI_FERMI_BRIEF.md section 5): the
+    exchange is gluonic and isoscalar, so at leading order the neutron and
+    proton cross sections are equal.  That equality is also the null
+    hypothesis a near-threshold neutron measurement tests, so nothing is
+    invented here that could bury the signal.  What differs is the topology:
+    a neutron initial state (m_T = M_N, threshold 7 MeV lower), a neutron
+    recoil in the LUND, and -- on a deuteron -- a struck neutron with a
+    PROTON spectator.  Everything assumed in the parent (t-slope b, dipole,
+    R) stays assumed here.
+    """
+    name = "jpsin.roberts2026"
+    channel = "jpsin"
+    version = "2026"
+    topology = _JPSIN_TOPO
+    provenance = ("Relabelled jpsi.roberts2026 for a neutron target: sigma_n = "
+                  "sigma_p (isoscalar two-gluon exchange, leading order), same "
+                  "sigma(W) function and threshold constant as the parent; only "
+                  "the topology (neutron target and recoil) differs. "
+                  + Jpsi_Roberts2026.provenance)
 
 
 @register
