@@ -79,23 +79,63 @@ X0_CM = {"LH2": 890.4, "LD2": 769.1}
 # --------------------------------------------------------------------------- #
 # bremsstrahlung
 # --------------------------------------------------------------------------- #
-def brems_shape(k, E0):
-    """(1/k)[4/3 (1-y) + y^2], y = k/E0 -- the thin-target photon spectrum, per unit X/X0."""
+M_E = 0.51099895e-3          # GeV
+
+
+def brems_shape_cs(k, E0):
+    """Complete screening: (1/k)[4/3 (1-y) + y^2], y = k/E0, per unit X/X0.  Finite at the tip."""
     y = k / E0
     return (4.0 / 3.0 * (1.0 - y) + y * y) / k
 
 
-def brems_cdf(k, E0):
-    """Indefinite integral of brems_shape: 4/3 ln k - 4/3 k/E0 + k^2/(2 E0^2)."""
+def brems_cdf_cs(k, E0):
+    """Indefinite integral of brems_shape_cs: 4/3 ln k - 4/3 k/E0 + k^2/(2 E0^2)."""
     return 4.0 / 3.0 * np.log(k) - 4.0 / 3.0 * k / E0 + k * k / (2.0 * E0 * E0)
 
 
+def screening_factor(k, E0, a_s=137.0):
+    """Schiff intermediate-screening spectrum divided by its complete-screening limit.
+
+    Schiff (1951) with a screening radius a_s in units of the electron Compton wavelength
+    (Thomas-Fermi: 111 Z^-1/3; for hydrogen and deuterium the Bohr radius, 137, is the
+    physical one and is the default).  Away from the endpoint the factor is 1; as k -> E0 the
+    minimum momentum transfer m^2 k / (2 E E') outgrows 1/a_s, screening switches off, and the
+    logarithm ln M + 1 - (2/b) arctan b falls through zero: the spectrum goes to zero within a
+    fraction of an MeV of the endpoint, after starting to bend down about 30 MeV below it for
+    a 10.6 GeV beam.  The formula is cut at zero where Schiff's bracket turns negative.
+    """
+    k = np.asarray(k, float)
+    E = E0 / M_E
+    kk = np.clip(k / M_E, 1e-9, E - 1e-9)
+    Ep = E - kk
+    r = Ep / E
+    b = 2.0 * E * Ep / (a_s * kk)
+    Minv = (kk / (2.0 * E * Ep)) ** 2 + 1.0 / a_s ** 2
+    lnM = -np.log(Minv)
+    atb = np.arctan(b)
+    A = 1.0 + r * r - 2.0 / 3.0 * r
+    F = A * (lnM + 1.0 - 2.0 * atb / b) \
+        + r * (2.0 / b ** 2 * np.log1p(b * b) + 4.0 * (2.0 - b * b) / (3.0 * b ** 3) * atb - 8.0 / (3.0 * b * b) + 2.0 / 9.0)
+    Finf = A * (2.0 * np.log(a_s) + 1.0) + 2.0 / 9.0 * r
+    return np.clip(F / Finf, 0.0, None)
+
+
+def brems_shape(k, E0, a_s=137.0):
+    """Thin-target photon spectrum per unit X/X0 with the Schiff endpoint behaviour."""
+    return brems_shape_cs(k, E0) * screening_factor(k, E0, a_s)
+
+
 class BremsSampler:
-    def __init__(self, E0, kmin, kmax):
+    """Draw k from the screened spectrum in [kmin, kmax] by a tabulated cumulative."""
+
+    def __init__(self, E0, kmin, kmax, a_s=137.0, n=20001):
         self.E0, self.kmin, self.kmax = float(E0), float(kmin), float(kmax)
-        self.norm = brems_cdf(self.kmax, self.E0) - brems_cdf(self.kmin, self.E0)   # photons per electron per unit X/X0
-        self._k = np.linspace(self.kmin, self.kmax, 4001)
-        self._c = (brems_cdf(self._k, self.E0) - brems_cdf(self.kmin, self.E0)) / self.norm
+        self._k = np.linspace(self.kmin, self.kmax, n)
+        f = brems_shape(self._k, self.E0, a_s)
+        c = np.concatenate(([0.0], np.cumsum(0.5 * (f[1:] + f[:-1]) * np.diff(self._k))))
+        self.norm = float(c[-1])                   # photons per electron per unit X/X0
+        self.norm_cs = float(brems_cdf_cs(self.kmax, self.E0) - brems_cdf_cs(self.kmin, self.E0))
+        self._c = c / self.norm
 
     def draw(self, rng):
         return float(np.interp(rng.random(), self._c, self._k))

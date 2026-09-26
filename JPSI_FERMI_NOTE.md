@@ -51,8 +51,11 @@ photon energy comes from that process, and what is wanted is the total yield ver
 and the t distribution.  That is a different generator path from electroproduction and was
 written as `generator/photo.py`:
 
-- photon spectrum: thin-target bremsstrahlung, complete screening,
-  n_gamma(k) dk = (X/X0) (1/k) [4/3 (1 - y) + y^2] dk with y = k/E0; the vertex is drawn along the
+- photon spectrum: thin-target bremsstrahlung,
+  n_gamma(k) dk = (X/X0) (1/k) [4/3 (1 - y) + y^2] S(k) dk with y = k/E0, where S(k) is the Schiff
+  intermediate-screening factor (screening radius = Bohr radius for H and D): 1 away from the
+  endpoint, 0.91 at 100 MeV below it, 0.77 at 30 MeV, zero 0.4 MeV below E0 (`docs/jpsi_fermi/
+  jpsi_photo_flux_endpoint.png`); it lowers the photon count in 6.5-10.6 GeV by 1.2 %; the vertex is drawn along the
   cell with density proportional to the upstream thickness and X = L/2 is the cell average
   (5 cm LD2 = 0.0065 X0, LH2 0.0056 X0: thin-target is exact at that level);
 - nucleon: at rest, or the AV18 struck nucleon of `generator/fermi.py` with the same spectator
