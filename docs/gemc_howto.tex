@@ -312,6 +312,18 @@ worst case of 3.77~h --- so a 3~h limit chosen from the censored figure loses 10
 array, not the 2\,\% the censored one implies. A completed-jobs-only distribution says nothing
 about the region beyond the limit, which is the region the decision turns on.
 
+Two distributions of the same chain, measured the same day, agree in shape once the censored
+one is replaced: with bg-merger, median 1.93~h, 95th 3.07, worst 3.77; without it, median 1.80,
+95th 2.72, worst 3.65 over 667 tasks. The extra stage shifts the whole distribution up rather
+than damping its spread.
+
+\textbf{How hard to pull the lever depends on what a failure costs you, not on the
+distribution alone.} The same 3~h limit loses about 10\,\% of one array and 2\,\% of the other,
+but the decision differed for a second reason: one run had a watcher resubmitting failures at
+4~h automatically, so a loss was a delay; the other had none, so every task that died had to be
+noticed and resubmitted by hand. Cut close to the tail when retry is automatic; leave margin
+when it is not.
+
 One million events is 200 tasks and roughly 700 to 1400 core-hours.
 
 \section{OSG instead of the farm}
