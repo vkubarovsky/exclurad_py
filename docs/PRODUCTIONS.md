@@ -32,6 +32,93 @@ rad/born shape test against the majorant cell edges — the test that caught the
 
 ---
 
+## 2026-09-26 — `fermi_cmp` — what Fermi motion does, measured against a control
+
+**Status: born pair done and analysed; the rest queued or prepared.** Made on
+branch `fermi`. Not a physics production: a controlled experiment in which two
+samples differ by **one field of the run card** and nothing else.
+
+| | |
+|---|---|
+| channel, model | π⁰ off the proton, `pi0.amp2609`, `t_nucl` −0.30 |
+| beam, target | 10.6 GeV, **deuteron** in one arm, free nucleon in the other |
+| wave function | AV18 (Wiringa VMC), per nucleon, k ≤ 3.5601 fm⁻¹ |
+| box | identical to `rga_fa18_inb_t2` — W² 3.24–16.0, Q² 0.80–10.0, t −2.00…−0.001, vcut 0 |
+| events | 1 000 000 born `fermi=av18` + 1 000 000 born `fermi=none` |
+| simulated | gemc 5.13 + coatjava 10.0.7, `rga_fall2018`, torus −1.00, **no background merged** |
+| generated on | ifarm2402, 20 workers, 349 s per million (born) |
+| slurm | `fp_av18` 11877841, 666/667 COMPLETED; `fp_none` 11898081, held |
+| output | `/volatile/clas12/users/vpk/fermi_prod_{av18,none}/` |
+| plots | `production/runs/fermi_influence_generator.png`, `production/runs/fp_av18_*.png` |
+
+**Read the caveat before the numbers.** These two samples carry **no merged
+background**, which is now standard for production runs here. For the
+*difference* between the arms that is defensible — background is absent equally
+in both and cancels to first order. Two things it does not buy:
+
+* the **fractional** importance of Fermi motion comes out too large, because
+  with background the detector term grows while the Fermi term does not. "Fermi
+  adds 110 MeV to W in quadrature" is safe; "Fermi dominates the W resolution"
+  would not survive the background being restored;
+* the cancellation is only first order. Background costs efficiency, and if it
+  costs more in the kinematics Fermi motion populates — soft spectator, shifted
+  W — a residual survives in the ratio too.
+
+### The result that reaches beyond this branch
+
+**A missing-mass cut tuned on hydrogen is a different cut on deuterium.**
+Generator level, born, no detector:
+
+| | free nucleon | deuteron |
+|---|---:|---:|
+| `\|v\| < 0.17` keeps | **99.2 %** | **53.5 %** |
+| rms of `v = MX²(e'p) − m_π0²` | 0.108 GeV² | **0.535 GeV²** |
+
+**These are not the 72.8 % quoted for `rga_fa18_inb_t2` above**, and the two
+must not be combined by multiplying. That number is a *radiative* sample at the
+*reconstructed* MX² on hydrogen, where the loss is the radiative tail plus
+detector resolution. The numbers here are *born* at the *generator* level, where
+the only thing acting is Fermi motion. The deuteron radiative reconstructed
+figure will be lower than either and **has not been measured**.
+
+The mechanism is verified, not assumed: `v ≈ −2 p⃗_π · p⃗_s`, correlation 0.983
+over 4000 events, and subtracting that term drops the rms from 0.65 to 0.13.
+The pion's 3.7 GeV/c momentum is a lever arm on a 90 MeV/c Fermi momentum. So
+the cut does not merely thin a deuteron sample — it **biases it in the Fermi
+momentum**, keeping small `\|p_s\|` and `p_s` perpendicular to the pion.
+
+**An RG-B analysis reusing an RG-A cut value inherits a loss it did not
+budget for.**
+
+### The rest of what this sample says
+
+* **W smears by 110 MeV** in quadrature, against **155 MeV** of CLAS12
+  resolution measured on the same sample (rec − gen, e'p detected) — and more
+  once background is merged. **3.35 %** of deuteron events fall below the box
+  edge W = 1.8, against 0.00 % for a free nucleon: the box edge stops being an
+  edge, and a card that must *cover* an observed range has to generate wider.
+* Yields, `fp_av18`, 998 500 events: e'p identified **9.92 %**, e'pγγ **4.46 %**.
+  Higher than the 5.6 % / 0.9 % of the official RG-A `aao_norad` MC because of
+  the box, not the target — and **without background**, so not comparable with
+  a production sample either way.
+* Cost: **1.02 → 1.78 ms/event** to generate (×1.75), and the stage-2 bound did
+  **not** grow (1.47 free against 1.41 deuteron, inside its own noise).
+
+### Still open
+
+`fp_none` is held so the `rga_fa18_inb_t2` production can close; release with
+`scontrol release 11898081`. The radiative twins are prepared but not launched
+— measured **2.74 s/event**, ×450 the born cost. `cards/rad_pi0n_rgb_{none,av18}.txt`
+are ready for the RG-B 10.6 GeV neutron run, where the struck nucleon is the
+neutron and the spectator is a **proton** — the one configuration in which the
+CVT can see the spectator at all.
+
+**`hipo_to_ntuple.groovy` must be fixed before that run:** it selects the hadron
+by `pid == 2212`, which on a `pi0n` sample picks the spectator proton instead of
+the detected neutron.
+
+---
+
 ## 2026-09-25/26 — `rga_fa18_inb_t2` — RG-A fall 2018 inbending, through GEMC
 
 **Status: current.** The first sample with an unbiased radiative shape.

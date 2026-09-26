@@ -43,7 +43,28 @@ def sample(fermi, nev, seed=20260925):
     return hashlib.sha256(path.read_bytes()).hexdigest(), ev, g
 
 
-PRODUCTION = "16412f8"          # the commit this branch forked from
+def _production_head():
+    """Resolve production's head AT RUN TIME.
+
+    It used to be the literal "16412f8", the commit this branch forked from.
+    That rots the moment production moves -- and it rots SILENTLY: the test
+    still passes, against a tree that is no longer what anyone is merging
+    into, so it proves nothing while looking green.  (Suggested by the session
+    running the production branch, 2026-09-26.)
+    """
+    import subprocess
+    root = Path(__file__).resolve().parent.parent
+    for ref in ("origin/production", "production"):
+        try:
+            return subprocess.run(["git", "rev-parse", ref], cwd=root,
+                                  capture_output=True, text=True,
+                                  check=True).stdout.strip()
+        except subprocess.CalledProcessError:
+            continue
+    raise RuntimeError("cannot resolve production's head; is this a git checkout?")
+
+
+PRODUCTION = _production_head()
 
 
 def production_hash(nev):
