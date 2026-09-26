@@ -13,7 +13,10 @@ new is assumed about the hadron side.
 
 Event weight (per incident electron, per target nucleon):
 
-    dN/dk dt = n_gamma(k) * dsigma_T/dt(W2(k, p_N), Q2 = 0, t)
+    dN/dk dt = n_gamma(k) * (k.p_N)/(k E_N) * dsigma_T/dt(W2(k, p_N), Q2 = 0, t)
+
+where (k.p_N)/(k E_N) = 1 - beta_z is the Moller flux factor of the struck nucleon (1 at
+rest; on the deuteron it averages to one but is correlated with W, so it is kept per event),
 
     n_gamma(k) dk = (X/X0) (1/k) [ 4/3 (1 - y) + y^2 ] dk,   y = k / E0        (Tsai, thin target)
 
@@ -227,19 +230,30 @@ class PhotoGenerator:
             ps = 0.99 * P_MAX
             struck4, _, mstar = split_deuteron(np.array([0.0, 0.0, -ps]), self.struck)
             smax = max(smax, mstar ** 2 + 2 * self.kmax * (struck4[0] + ps))
-        # sigma_tot(W2) once, on a grid; per trial it is an interpolation.  The majorant is
-        # taken over W2 reachable with spectator momenta up to p_s = 0.40 GeV/c head-on
-        # (99.9 % of the AV18 weight); rarer configurations beyond it are overweights,
-        # counted and reported, exactly as the main generator does.
+        # sigma_tot(W2) once, on a grid; per trial it is an interpolation.
         self._W2g = np.linspace((self.mV + self.mR) ** 2 * 1.0001, smax, 800)
         self._sigg = np.array([self.sigma_tot(w) for w in self._W2g])
-        s_maj = self.mN ** 2 + 2 * self.kmax * self.mN
+        # Majorant of the per-trial weight sigma_tot(s) (k.p_N)/(k E_N).  For a given |p_s| both
+        # s and the Moller factor are largest head-on (struck nucleon running toward the photon),
+        # so the maximum over the head-on line up to the AV18 ceiling, at the highest k, is a
+        # strict bound: no overweight can occur.  The price is the acceptance efficiency,
+        # sigma_max / <sigma> ~ 35 on the deuteron, ~4 on a free nucleon.
+        s_maj, flux_max, w_max = self.mN ** 2 + 2 * self.kmax * self.mN, 1.0, float(self._sigg.max())
         if self._fermi is not None:
-            struck4, _, mstar = split_deuteron(np.array([0.0, 0.0, -0.40]), self.struck)
-            s_maj = mstar ** 2 + 2 * self.kmax * (struck4[0] + 0.40)
-        inside = self._W2g <= s_maj
-        self.sigma_max = float(self._sigg[inside].max()) * self.safety
-        self._W2_at_max = float(self._W2g[inside][int(self._sigg[inside].argmax())])
+            from .fermi import P_MAX
+            w_max = 0.0
+            for ps in np.linspace(0.0, 0.999 * P_MAX, 1400):
+                struck4, _, mstar = split_deuteron(np.array([0.0, 0.0, -ps]), self.struck)
+                if mstar < self.floor:
+                    continue
+                s_ = mstar ** 2 + 2 * self.kmax * (struck4[0] + ps)
+                fl = (struck4[0] + ps) / struck4[0]
+                w = self.sigma_tot_fast(s_) * fl
+                if w > w_max:
+                    w_max, s_maj, flux_max = w, s_, fl
+        self.flux_max = float(flux_max)
+        self.sigma_max = w_max * self.safety
+        self._W2_at_max = float(s_maj)
         self._s_maj = float(s_maj)
         return self.sigma_max
 
@@ -275,7 +289,13 @@ class PhotoGenerator:
             if sig <= 0:
                 self.n_below += 1
                 continue
-            r = sig / self.sigma_max
+            # Moller flux factor of the moving struck nucleon: the rate per photon and per
+            # nucleon in the lab is sigma(s) (k.p_N)/(k E_N) = sigma(s) (1 - beta_z), the
+            # relative velocity of a massless projectile.  1 for a nucleon at rest; on the
+            # deuteron it averages to 1 over n(k) but is correlated with s (both grow when
+            # the nucleon runs toward the photon), which matters for a rising sigma(W).
+            flux = (k4[0] * N4[0] - k4[3] * N4[3]) / (k4[0] * N4[0])
+            r = sig * flux / self.sigma_max
             if r > 1.0:
                 self.n_over += 1
                 self.max_over = max(self.max_over, r)
