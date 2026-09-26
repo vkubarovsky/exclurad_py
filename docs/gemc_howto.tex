@@ -288,8 +288,31 @@ the same 5000 events took 3.3~h on one and 6.8~h on another. Budget for the slow
 \item catch-up (\texttt{post\_array.sbatch}): \texttt{--time=04:00:00}. Two hours gave an 8\,\%
   margin over a 1.9~h reconstruction and lost 41 jobs at the limit.
 \end{itemize}
-Slurm will not extend a running job (\emph{Access/permission denied}), so the limit has to be
-right when you submit. One million events is 200 tasks and roughly 700 to 1400 core-hours.
+Memory, over 679 steps of the no-background chain and 553 of the chain with bg-merger:
+\textbf{nothing has exceeded 2.7~GB}, median 1.75--1.93~GB. \texttt{--mem=6G} is the number
+this note used to carry from RG-K, and it is nearly a factor three too large. Ask for 4~G.
+That is the bigger backfill lever of the two, because the gap the scheduler has to find scales
+with the request.
+
+A pending job's request can be shrunk in place, which keeps the job id and so the queue
+position, unlike cancel-and-resubmit:
+\begin{lstlisting}
+scontrol update jobid=NNN MinMemoryNode=4096   # MEGABYTES -- "4G" is rejected
+scontrol update jobid=NNN TimeLimit=03:00:00   # reducing is allowed
+\end{lstlisting}
+Slurm will not \emph{extend} a running or pending job (\emph{Access/permission denied}), so the
+time limit has to be right when you submit; memory can be tightened later, once the first tasks
+have finished and \texttt{sacct --format=MaxRSS} has something to say.
+
+\textbf{And when you tighten it, check that your measurement is not censored by the limit you
+are about to change.} On 2026-09-26 the catch-up array's completed tasks topped out at 01:53
+and that looked like the tail; it was the 2~h wall, which had already killed 41 tasks. The
+uncensored sample from the 4~h array has a median of 1.93~h, a 95th percentile of 3.07~h and a
+worst case of 3.77~h --- so a 3~h limit chosen from the censored figure loses 10\,\% of the
+array, not the 2\,\% the censored one implies. A completed-jobs-only distribution says nothing
+about the region beyond the limit, which is the region the decision turns on.
+
+One million events is 200 tasks and roughly 700 to 1400 core-hours.
 
 \section{OSG instead of the farm}
 The CLAS12 MC portal (\url{https://gemc.jlab.org/web_interface/}) runs the same gemc and coatjava
