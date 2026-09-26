@@ -74,4 +74,19 @@ restored and which do not, rather than a blanket disclaimer.
 git checkout production && git merge fermi
 ```
 
+**Check before you trust that line.** Which command is right depends on where
+`production` stands at the time, and this file has already been wrong about it
+once: it said `--ff-only` and was accurate until `production` gained one more
+commit, after which the single instruction the document exists to give was a
+command that fails. So:
+
+```bash
+git merge-base --is-ancestor production fermi && echo "ff-only works" || echo "plain merge"
+```
+
+The same failure mode caught the retention figures in `docs/PRODUCTIONS.md` the
+same day — a number that was true when written and silently stopped being so.
+A document does not announce when reality moves out from under it; only a
+reader who checks does.
+
 Pushing is a separate decision and belongs to Valery.
