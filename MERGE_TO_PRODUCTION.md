@@ -7,11 +7,26 @@ resolve; that situation no longer exists.
 ## State
 
 ```
-production   fa24418
-fermi        rebased onto fa24418, 21 commits, working tree clean
+origin/production   6ce3f03  (moving -- still gains commits)
+origin/fermi        fbb0c0c  24 commits, base b03e5d7, published
 ```
 
-**The integration is now a fast-forward.** There is nothing to resolve.
+**Integrate with a plain merge. There is nothing to resolve** — a trial merge
+of the two trees reports zero conflicts, verified from both sides.
+
+`--ff-only` will fail and that is expected: `production` moved past this
+branch's base. Do **not** rebase to restore it. `FERMI_BRIEF.md` §2 rules out
+merging back and forth *during development*, to stop a feature branch
+accumulating merge commits while it tracks a moving target; it was never about
+the single integration at the end, and the session that wrote it has confirmed
+that reading. Rebasing now would be the worse practice on both counts: `fermi`
+is published, so a force-push invalidates every fetch anyone has made of it,
+and `production` is not frozen — it still owes at least the registry entry for
+its own run, so a rebase timed "just before the merge" goes stale on the last
+commit before the merge.
+
+One merge commit is also the honest record: the two lines were developed in
+parallel and joined at a point, which is what happened.
 
 ## What was done on this branch before handing it over
 
@@ -56,7 +71,7 @@ restored and which do not, rather than a blanket disclaimer.
 ## To integrate
 
 ```bash
-git checkout production && git merge --ff-only fermi
+git checkout production && git merge fermi
 ```
 
 Pushing is a separate decision and belongs to Valery.
