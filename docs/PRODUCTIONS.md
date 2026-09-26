@@ -4,6 +4,19 @@ One entry per production campaign, newest first. Every number here is read
 from the samples themselves (LUND headers, `config.json`, the wd_14tb
 catalogue), never typed from memory.
 
+**A document is a measurement with no timestamp on it.** Two entries in this
+file went stale within a day of being written on 2026-09-26, both in the same
+shape: true when written, silently false afterwards, and repeated in good
+faith by the next reader. The retention figures in §3 of the current run read
+as reconstructed because they sat next to a sentence about the reconstructed
+cut; the integration command in the fermi branch's handover said `--ff-only`
+and stopped working the moment `production` moved. Neither failed loudly.
+
+So: when a statement here depends on something that can move — a branch head,
+a queue, a file on `/volatile`, a number someone else measured — say what it
+depended on, or write the check instead of the answer. `git merge-base
+--is-ancestor production fermi` does not rot; "it is a fast-forward" does.
+
 **Adding an entry is part of finishing a run.** The recipe:
 
 ```bash
