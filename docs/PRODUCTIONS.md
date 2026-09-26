@@ -65,8 +65,16 @@ rad/born shape test against the majorant cell edges — the test that caught the
    0.125–1.758 with nothing above 2.0, and amp2609 stops being valid at 1.8.
 3. **vcut = 0 with the tail kept**, so the missing-mass cut is applied after
    GEMC on the *reconstructed* MX². Resolution migration across the cut is
-   then simulated rather than assumed. A cut at v < 0.17 keeps 72.8 % of
-   events; v < 0.05 keeps 65.3 %.
+   then simulated rather than assumed.
+   **The retention figures below are generator level** — read from the LUND
+   files by `production/lund_kinematics.py`, with nothing through a detector.
+   A cut at v < 0.17 keeps 72.8 % of events, v < 0.05 keeps 65.3 %; the
+   corresponding reconstructed numbers will be lower, because resolution
+   moves events across the cut in both directions and the migration is the
+   whole reason for generating at vcut = 0. They have not been measured yet.
+   (This paragraph used to put the generator-level figures immediately after
+   the sentence about the reconstructed cut with nothing between them, and a
+   careful reader duly joined the two.)
 4. **σ reported from stage 2.** It used to be a stage-1 quantity
    (∫ b·η_capped) for a sample distributed as σ_exact. **`sigma_nb` of this
    run is therefore not directly comparable with earlier runs.**

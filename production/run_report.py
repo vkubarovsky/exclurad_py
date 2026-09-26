@@ -79,7 +79,8 @@ def main():
         a.text(0.03, 0.95, "kept by $v<v_{\\rm cut}$:\n" +
                "\n".join(f"  {c:.2f}: {k:.0f}\\%" for c, k in keep),
                transform=a.transAxes, va="top", fontsize=9, color="0.3")
-        a.set_title("radiative tail (generated with vcut = 0)", fontsize=10.5, loc="left")
+        a.set_title("radiative tail, generator level (generated with vcut = 0)",
+                    fontsize=10.5, loc="left")
 
     # rad/born in Q2 -- physics, should be smooth
     for a, key, bins, rng, xl in ((ax[1, 1], "Q2", 40, (0.8, 10.0), "$Q^2$  [GeV$^2$]"),):
