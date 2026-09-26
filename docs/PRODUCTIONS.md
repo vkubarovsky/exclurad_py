@@ -52,7 +52,10 @@ samples differ by **one field of the run card** and nothing else.
 | plots | `production/runs/fermi_influence_generator.png`, `production/runs/fp_av18_*.png` |
 
 **Read the caveat before the numbers.** These two samples carry **no merged
-background**, which is now standard for production runs here. For the
+background**, which is now standard for production runs here. VPK decided on
+2026-09-26 that they belong in this registry anyway: a sample missing from the
+registry is not missing from the disk, and someone finding it in six months
+with no caveat attached is the worse failure. For the
 *difference* between the arms that is defensible — background is absent equally
 in both and cancels to first order. Two things it does not buy:
 
@@ -67,19 +70,30 @@ in both and cancels to first order. Two things it does not buy:
 ### The result that reaches beyond this branch
 
 **A missing-mass cut tuned on hydrogen is a different cut on deuterium.**
-Generator level, born, no detector:
+The rms of `v = MX²(e'p) − m_π0²` goes from **0.108** to **0.535 GeV²**, and
+**none of the four numbers below has seen a detector** — all are generator
+level, read from the LUND with `production/lund_kinematics.py`:
 
-| | free nucleon | deuteron |
+| `\|v\| < 0.17` keeps | hydrogen | deuteron |
 |---|---:|---:|
-| `\|v\| < 0.17` keeps | **99.2 %** | **53.5 %** |
-| rms of `v = MX²(e'p) − m_π0²` | 0.108 GeV² | **0.535 GeV²** |
+| **born** | **99.18 %** / **99.2 %** | **53.5 %** |
+| **rad** | 72.84 % | **not measured** |
 
-**These are not the 72.8 % quoted for `rga_fa18_inb_t2` above**, and the two
-must not be combined by multiplying. That number is a *radiative* sample at the
-*reconstructed* MX² on hydrogen, where the loss is the radiative tail plus
-detector resolution. The numbers here are *born* at the *generator* level, where
-the only thing acting is Fermi motion. The deuteron radiative reconstructed
-figure will be lower than either and **has not been measured**.
+The two hydrogen born numbers are the same quantity measured twice, on samples
+generated independently (different seeds, different machines — clonfarm11 and
+ifarm2402) and reduced separately: 99.18 % for `rga_fa18_inb_t2`, 99.2 % here.
+They agree to the third digit. That is a reproducibility check of the generator
+and the box across machines, not of two independent implementations — the
+reduction tool is the same — but it is what makes the 53.5 % credible to
+someone with no reason to trust either sample on its own.
+
+Read the table by column, not by row: **the radiative tail costs 26 points on
+hydrogen; Fermi motion costs 46 on the deuteron.** They are separate losses and
+must not be multiplied.
+
+**The empty cell is the number an RG-B analysis actually faces** — deuteron,
+radiative — and it is lower than either loss alone. It has not been measured,
+and measuring it is the open item this branch leaves behind.
 
 The mechanism is verified, not assumed: `v ≈ −2 p⃗_π · p⃗_s`, correlation 0.983
 over 4000 events, and subtracting that term drops the rms from 0.65 to 0.13.
