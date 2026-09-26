@@ -213,7 +213,61 @@ $e'p\gamma\gamma$ in 0.9\,\% and 3.7\,\%.
   closed. Use sbatch.
 \item \emph{No space left on device} when writing in your home: the home quota. Work on
   \texttt{/volatile}.
+\item \textbf{bg-merger and recon-util die with \emph{No native library found for
+  os.name=Linux, os.arch=x86\_64}} (2026-09-25, cost: 200 jobs that had already spent
+  3.3~hours each in gemc). \texttt{/tmp} is mounted \texttt{noexec} on the compute nodes.
+  sqlite-jdbc unpacks \texttt{libsqlitejdbc.so} into \texttt{java.io.tmpdir} and
+  \texttt{dlopen}s it; the unpacking succeeds and the load does not. \textbf{This does not
+  reproduce on ifarm2402}, where the identical command with the identical modules works --
+  debugging it on the login node only misleads; test with a short sbatch job. Fix: give the
+  JVM a temp directory on \texttt{/volatile}. \texttt{bg-merger} and \texttt{recon-util} are
+  wrappers that call \texttt{java} with hard-coded flags and honour no \texttt{JAVA\_OPTS},
+  so \texttt{JDK\_JAVA\_OPTIONS} (Java~9+) is the only way in:
+\begin{lstlisting}
+export TMPDIR=$W
+export JDK_JAVA_OPTIONS="-Djava.io.tmpdir=$W -Dorg.sqlite.tmpdir=$W"
+...
+unset JDK_JAVA_OPTIONS   # before run-groovy, which uses its own java
+\end{lstlisting}
+\item \textbf{\texttt{[ -s merged.hipo ]} is not a guard.} A header-only hipo is 336~kB and
+  passes it. The job then feeds garbage to recon-util and reports a reconstruction failure
+  for what was a merge failure. Every stage wants a real threshold:
+  \texttt{[ \$(stat -c \%s f) -lt 10000000 ] \&\& exit 1}.
+\item \textbf{Do not delete \texttt{gemc.hipo} until the DST exists.} Three hours of gemc must
+  never be thrown away by a failure in a step that takes seconds. On failure the work
+  directory survives and \texttt{post\_array.sbatch} resumes from it.
+\item \textbf{Never reuse a staging directory between campaigns.} On 2026-09-25 a transfer
+  through \texttt{/tmp/radstage} -- the same path an earlier campaign had used, with the same
+  file names -- left 63 of 200 files from the previous day. The event count matched exactly
+  (both campaigns were a million), and only sha256 showed it. Verify a transfer by checksum
+  against the source, never by event count alone, and \texttt{rm -rf} the staging directory
+  first.
+\item A transfer that runs at 0~kB/s is hung, not slow. On 2026-09-25 an rsync sat for
+  2~h~14~min having moved 865 of 869~MB, while the link measured 97~MB/s; killing it and
+  starting over took 8~seconds. Sample the destination size twice before waiting on it.
 \end{enumerate}
+
+\section{Two stages, and how to resume the second}
+Generation and simulation are separate arrays on purpose (\texttt{gen\_array.sbatch} then
+\texttt{sim\_array.sbatch}): a 12-hour job waits for a rare gap in a backfill queue full of
+2--5 hour jobs, and a gemc crash should not throw away two hours of generated events.
+
+\texttt{sim\_array.sbatch} keeps its work directory when a post-gemc stage fails, so
+\texttt{post\_array.sbatch} can redo only the cheap part from the existing \texttt{gemc.hipo}:
+\begin{lstlisting}
+sbatch --array=1-200 --job-name=post_born --time=02:00:00 post_array.sbatch born
+\end{lstlisting}
+It refuses to start without a \texttt{gemc.hipo} of at least 1~MB, and deletes the work
+directory only once the DST is written. On 2026-09-25 this recovered 660 core-hours of gemc
+that the sqlite failure above would otherwise have cost: the background merge takes 30~seconds
+against gemc's 3.3~hours.
+
+\section{Wall-clock, measured}
+With 50~nA background merged over the eleven detectors, 5000 events per task:
+gemc 11\,945~s, bg-merger 30~s, then reconstruction, ntuple and DST. That is
+\textbf{2.4 core-seconds per event for gemc alone}, so \texttt{--time=05:00:00} is too tight
+and has already killed a set of jobs at the limit; ask for seven hours. One million events is
+200 tasks and roughly 700 core-hours.
 
 \section{OSG instead of the farm}
 The CLAS12 MC portal (\url{https://gemc.jlab.org/web_interface/}) runs the same gemc and coatjava
