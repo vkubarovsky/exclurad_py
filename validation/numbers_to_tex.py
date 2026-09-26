@@ -14,8 +14,9 @@ def m(name, val, fmt="%.4f"):
 r = n["ratio"]
 m("nD", n["d2"]["n"], "%d"); m("nN", n["n"]["n"], "%d"); m("nP", n["p"]["n"], "%d")
 m("nDM", n["d2"]["n"] / 1e6, "%.0f")
-m("fitAt", r["fit_at_9p5"]); m("fitErr", r["fit_err"]); m("fitSlope", r["slope_per_GeV"]); m("fitSlopeErr", r["slope_err"])
-m("fitChi", r["chi2"], "%.1f"); m("fitNdf", r["ndf"], "%d")
+m("meanHi", r["mean_above_8p6"]); m("meanHiErr", r["mean_err"])
+m("minLo", r["min_bin"]["lo"], "%.1f"); m("minHi", r["min_bin"]["hi"], "%.1f"); m("minRat", r["min_bin"]["ratio"]); m("minErr", r["min_bin"]["err"])
+m("maxLo", r["max_bin"]["lo"], "%.1f"); m("maxHi", r["max_bin"]["hi"], "%.1f"); m("maxRat", r["max_bin"]["ratio"]); m("maxErr", r["max_bin"]["err"])
 m("totalRatio", r["total_ratio"]); m("noFluxTotal", r["noflux_total"]); m("meanFlux", r["mean_flux_factor"])
 for key, tag in (("8.2-8.4", "A"), ("8.4-8.6", "B"), ("8.6-9.0", "C"), ("9.0-9.5", "D"), ("9.5-10.0", "E"), ("10.0-10.6", "F")):
     b = r[key]

@@ -60,6 +60,17 @@ written as `generator/photo.py`:
   (5 cm LD2 = 0.0065 X0, LH2 0.0056 X0: thin-target is exact at that level);
 - nucleon: at rest, or the AV18 struck nucleon of `generator/fermi.py` with the same spectator
   prescription and the same m* floor;
+- **event weight (26.09, evening): sigma_tot(s) x (k.p_N)/(k E_N)**, the Moller flux factor
+  1 - beta_z of the moving struck nucleon.  It is 1 at rest and averages to 1 over the isotropic
+  n(k), but it is correlated with s (a nucleon running toward the photon has both a larger flux
+  factor and a larger cross section); for the steeply rising J/psi sigma(W) the correlation is
+  worth +4 % on the deuteron yield, i.e. the same size as the binding deficit.  The first samples
+  (photo/, photo2M/) were made WITHOUT it and gave a Fermi on/off ratio of 0.96 above 9 GeV; with
+  it (photo20M/) the ratio is 1.00 within 0.2 %.  The majorant is now the strict maximum of
+  sigma_tot(s)(1 - beta_z) along the head-on line up to the AV18 ceiling: no overweights, at the
+  price of ~36x rejection on the deuteron (0.65 ms/event).  The same factor is missing in the
+  electroproduction Fermi path (`events.py` working in the struck-nucleon rest frame); there the
+  pi0/eta cross sections vary slowly with W and the effect is small, but it should be added.
 - hadron side: the electroproduction model at Q2 = 0.  The Hand-convention sigma_T IS the
   real-photon dsigma/dt (the Hand flux is the real-photon energy), so nothing new is assumed:
   for `jpsi.roberts2026` this is sigma_tot(W) b exp(b t');
@@ -135,28 +146,33 @@ Figures and tables in `docs/jpsi_fermi/`; samples on wd_14tb under `aao_norad_ki
 
 ### 5a. Untagged bremsstrahlung photoproduction, 10.6 GeV electrons on the 5 cm cell
 
-Yield per incident electron and per target nucleon, nb x (photons per electron), 200 000 events
-per sample (the free proton carries the LH2 radiation length, the two neutron samples LD2):
+**Final numbers (26.09 evening, photo20M/: 20 M events per sample, WITH the Moller flux factor,
+strict majorant, zero overweights; full write-up `docs/jpsi_fermi/report/jpsi_fermi_photoproduction.pdf`).**
+Yield per incident electron per neutron, deuteron / free neutron at rest, 100 MeV bins:
 
-| E_gamma bin [GeV] | deuteron, gamma n | free proton | free neutron |
-|---|---|---|---|
-| 6.5-7.5 | 9.6e-7 (480 ev) | 0 | 0 |
-| 7.5-8.0 | 3.5e-6 (1773 ev) | 0 | 0 |
-| 8.0-8.2 | 4.0e-6 (1996 ev) | 0 | 0 |
-| 8.2-9.0 | 5.43e-5 | 4.52e-5 | 5.33e-5 |
-| 9.0-10.6 | 3.35e-4 | 2.99e-4 | 3.48e-4 |
-| total | 3.98e-4 | 3.44e-4 | 4.01e-4 |
+| E_gamma [GeV] | ratio (full) | ratio without flux factor (binding only) |
+|---|---|---|
+| 8.2-8.4 | 1.776 +- 0.005 | 1.62 |
+| 8.4-8.6 | 1.088 +- 0.002 | 1.015 |
+| 8.6-9.0 | 0.999 +- 0.001 | 0.949 |
+| 9.0-9.5 | 0.990 +- 0.001 | 0.952 |
+| 9.5-10.0 | 0.993 +- 0.001 | 0.961 |
+| 10.0-10.6 | 0.996 +- 0.001 | 0.968 |
+| mean 8.6-10.6 | 0.9944 +- 0.0003 | |
+| all 6.5-10.6 | 1.032 | 0.992 |
 
-- **2.1 % of the deuteron events lie below the free-neutron threshold of 8.20 GeV**, none of
-  the free-nucleon events; 0.24 % below 7.5 GeV.  The per-nucleon total is 0.6 % lower than on
-  the free neutron: Fermi motion moves yield from the steeply rising region just above
-  threshold to below it, and the two nearly cancel in the integral.
-- The sub-threshold spectators are hard, exactly as the kinematics require: <|p_s|> = 209 MeV/c
-  below 8.2 GeV (21 % above 300 MeV/c), 257 MeV/c below 8.0, **382 MeV/c below 7.5 GeV with 62 %
-  above 300 MeV/c**, against 93 MeV/c and 3.3 % above threshold.  The struck neutron's m* falls
-  from 0.92 GeV above threshold to 0.73 GeV below 7.5 GeV.
-- The t distributions of the three samples are indistinguishable in shape (same b; the Fermi
-  boost changes t only through W).
+Above 8.6 GeV the ratio never leaves 0.99-1.00: binding (struck neutron carries M_D - E_s < M_n and
+m* < M_n, so <s> is lower by ~0.16 GeV2, i.e. W by 18 MeV, with dln sigma/dW = 2.7/GeV -> -4..-5 %)
+and the flux-factor correlation (+4 %) cancel.  **VPK's observation of 26.09 ("Fermi motion does not
+change the result above 8.5 GeV") holds at the 1 % level.**  Sub-threshold: 2.55 % of the deuteron
+yield below 8.20 GeV (1.41 % below 8.0, 0.33 % below 7.5); counts 13282 / 52273 / 216927 / 227595 in
+6.5-7.0 / 7.0-7.5 / 7.5-8.0 / 8.0-8.2.  Spectators: <p_s> 99 MeV/c above threshold (4.4 % > 300),
+229 below (26 %), 278 below 8.0 (36 %), 400 below 7.5 (68 %); <m*> 0.915 / 0.840 / 0.807 / 0.706 GeV.
+Photons per electron (LD2, L/2): 1.439e-3 in 6.5-10.6, 0.768e-3 above threshold; endpoint factor
+removes 1.24 % of them.  Yields per e per nucleon: d2 4.005e-4, n 3.881e-4, p 3.328e-4 nb x photons/e.
+
+Earlier numbers from photo/ and photo2M/ (ratio 0.96 above 9 GeV) were made without the flux factor
+and are superseded; see section 2b.
 
 ### 5b. Quasi-real electroproduction, Q2 0.01-0.1, 100 000 events per sample
 

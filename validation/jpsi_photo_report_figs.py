@@ -150,7 +150,7 @@ def main():
     ax[0].step(cen, Yd, where="mid", color=C["d2"], label=r"deuteron, $\gamma n \to J/\psi\, n$ with Fermi motion (AV18)")
     ax[0].step(cen, Yn, where="mid", color=C["n"], label="neutron at rest, same photon flux")
     ax[0].axvline(E_TH, color=C["grey"], ls=":", lw=1.2); ax[0].set_yscale("log")
-    ax[0].set_xlabel(r"$E_\gamma$ [GeV]"); ax[0].set_ylabel(r"yield per 100 MeV [nb $\times$ photons/e]"); ax[0].legend(loc="lower right")
+    ax[0].set_xlabel(r"$E_\gamma$ [GeV]"); ax[0].set_ylabel(r"yield per 100 MeV [nb $\times$ photons/e]"); ax[0].legend(loc="upper left")
     ax[0].text(E_TH + 0.05, 2e-8, "free-neutron\nthreshold\n8.20 GeV", fontsize=10, color=C["grey"])
     sel = cen > 8.5
     ax[1].errorbar(cen[sel], r[sel], yerr=er[sel], fmt="o", ms=4, color=C["d2"], capsize=2, label="Fermi on / Fermi off, 100 MeV bins")
@@ -163,21 +163,19 @@ def main():
     with np.errstate(invalid="ignore", divide="ignore"):
         r_nf = np.where(hn > 0, Yd_nf / Yn, np.nan)
     ax[1].plot(cen[sel], r_nf[sel], "s", ms=4, mfc="none", color=C["p"], label=r"same, without the flux factor $(1-\beta_z)$: binding only")
-    # linear fit above 8.6 GeV: r = a + b (E - 9.5)
+    # the ratio above 8.6 GeV: its mean (yield ratio 8.6-10.6), and its extreme bins
     m9 = cen > 8.6
-    wts = 1 / er[m9] ** 2
-    A_ = np.vstack([np.ones(m9.sum()), cen[m9] - 9.5]).T
-    cov = np.linalg.inv(A_.T @ (A_ * wts[:, None])); coef = cov @ (A_.T @ (r[m9] * wts))
-    chi2 = float((((r[m9] - A_ @ coef) / er[m9]) ** 2).sum()); ndf = int(m9.sum() - 2)
-    xx = np.linspace(8.6, 10.6, 50)
-    ax[1].plot(xx, coef[0] + coef[1] * (xx - 9.5), color=C["acc"], ls="--", lw=1.6,
-               label=r"fit above 8.6 GeV: $%.4f + %.4f\,(E_\gamma - 9.5)$, $\chi^2$/ndf = %.0f/%d" % (coef[0], coef[1], chi2, ndf))
-    c9, ec9 = float(coef[0]), float(np.sqrt(cov[0, 0])); slope, eslope = float(coef[1]), float(np.sqrt(cov[1, 1]))
+    on86, off86 = hd[m9].sum() * d2["yield_nb"] / d2["n"], hn[m9].sum() * n["yield_nb"] / n["n"]
+    c9 = float(on86 / off86); ec9 = float(c9 * np.sqrt(1 / hd[m9].sum() + 1 / hn[m9].sum()))
+    imin, imax = int(np.nanargmin(np.where(m9, r, np.nan))), int(np.nanargmax(np.where(m9, r, np.nan)))
+    ax[1].axhspan(0.99, 1.01, color=C["grey"], alpha=0.12, lw=0, label=r"$\pm 1\,\%$")
+    ax[1].axhline(c9, color=C["acc"], ls="--", lw=1.4, label=r"mean above 8.6 GeV: $%.4f \pm %.4f$" % (c9, ec9))
     ax[1].axhline(1, color=C["grey"], lw=0.8); ax[1].set_ylim(0.90, 1.12); ax[1].set_xlim(8.5, 10.6)
     ax[1].set_xlabel(r"$E_\gamma$ [GeV]"); ax[1].set_ylabel("yield ratio  Fermi on / Fermi off"); ax[1].grid(alpha=0.3); ax[1].legend(loc="upper right")
     save(fig, out, "fig_yield_ratio")
     num["ratio"] = dict(bins=[dict(lo=round(float(edges[i]), 2), hi=round(float(edges[i + 1]), 2), ratio=float(r[i]), err=float(er[i])) for i in range(len(cen)) if cen[i] > 8.2],
-                        fit_at_9p5=c9, fit_err=ec9, slope_per_GeV=slope, slope_err=eslope, chi2=chi2, ndf=ndf,
+                        mean_above_8p6=c9, mean_err=ec9, min_bin=dict(lo=round(float(edges[imin]), 2), hi=round(float(edges[imin + 1]), 2), ratio=float(r[imin]), err=float(er[imin])),
+                        max_bin=dict(lo=round(float(edges[imax]), 2), hi=round(float(edges[imax + 1]), 2), ratio=float(r[imax]), err=float(er[imax])),
                         total_ratio=d2["yield_nb"] / n["yield_nb"],
                         noflux_bins=[dict(lo=round(float(edges[i]), 2), hi=round(float(edges[i + 1]), 2), ratio=float(r_nf[i])) for i in range(len(cen)) if cen[i] > 8.2],
                         noflux_total=float(inv_flux.sum() * d2["yield_nb"] / d2["n"] / n["yield_nb"]),
