@@ -120,7 +120,32 @@ rad/born shape test against the majorant cell edges — the test that caught the
   6144 cells) because `B_SHAPE` is unset, while `B_PROBES` is 300 — so under
   5 % of cells are ever measured and the rest take the global fallback. `_B`
   is also rebuilt per job and is not stored in `majorant.npz`, so all 200
-  jobs repeat the same 300-probe lottery independently. Not yet fixed.
+  jobs repeat the same 300-probe lottery independently.
+
+  **Fixed 2026-09-27** (`30a10c7`, `da664cc`). The lottery, measured: 100
+  workers of 200 probes each returned worst-cell bounds from 2.01 to 8.67
+  against a true maximum of 8.67. `_B` is now stored in `majorant.npz` and
+  restored instead of re-probed; the grid is sized from the probe budget
+  rather than defaulting to the 6144-cell majorant grid; and
+  `production/build_bound.py` builds it once, probing **every cell uniformly**
+  instead of drawing from the proposal — which never reaches the tail cells
+  however many probes it is given. Weighted by the proposal the bound is
+  1.67, against 10.05 for the global alternative: tight where the events are,
+  large only in the corner carrying 0.4 % of the majorant mass.
+
+  Measured on 9600 events of the same box, old against new:
+
+  | | lottery | cached, stratified |
+  |---|---:|---:|
+  | violations | 131 | **9** |
+  | worst excess | ×3.23 | **×1.41** |
+  | chunks with none | 0 of 24 | **16 of 24** |
+  | ms/event | 1800 | **1596** |
+
+  Not zero, and it cannot be: a bound is a max over probes and a rare point
+  will always exceed it. The residual bias is of order 0.01 % against 0.3 %
+  before. **The 2026-09-25 sample was generated before this fix** and carries
+  the numbers above it.
 - **The step at v = 10⁻⁴ in the radiative-tail panel is `vmin`**, the
   soft/hard split, not a defect. Below it only the external pre-vertex
   radiator contributes: born, which has no internal radiation at all, shows
