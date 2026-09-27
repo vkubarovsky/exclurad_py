@@ -99,8 +99,28 @@ rad/born shape test against the majorant cell edges — the test that caught the
 - The box exceeds amp2609's validity (Q² 1.15–8.31, |t| ≤ 1.8): **47 % of
   events have Q² < 1.15**, below the lowest point of Igor's data. The model
   extrapolates there and says so (`sf.out_of_range: report`).
-- About **0.25 % of rad events exceed the stage-2 bound** (worst ×1.55), so
-  the sample is not strictly unweighted in that tail.
+- **0.56 % of stage-2 evaluations exceed the bound, worst ×3.35, in 198 of
+  the 200 chunks.** (This entry first said 0.25 % and ×1.55 — figures from
+  the 84k validation run, quoted as if they described the production. The
+  production numbers above are from the 200 chunk logs.) Where the bound is
+  exceeded the event is accepted with probability 1 instead of r, so the
+  accepted density is min(σ_exact, B·s_obs) and those points are
+  **under-represented by 1/r**, by up to a factor 3.3.
+
+  This is not evenly spread. `production/bound_map.py` on this box puts the
+  large-r region at high Q² and high W — the same corner where the rad/born
+  ratio climbs to 4 — and it carries under 1 % of the Born cross section. So
+  the integrated cross section is affected at the few-tenths-of-a-percent
+  level, while a differential result in that corner can be off by tens of
+  percent. `events.py:1258` records the precedent: a 2026-08-18 run that
+  broke the bound by up to ×45 came out 17–29 % low at high W, and
+  normalisation mirrored that into a 20 % excess at low W, 9 σ.
+
+  Cause: the stage-2 bound grid defaults to the majorant grid (8,8,8,12 =
+  6144 cells) because `B_SHAPE` is unset, while `B_PROBES` is 300 — so under
+  5 % of cells are ever measured and the rest take the global fallback. `_B`
+  is also rebuilt per job and is not stored in `majorant.npz`, so all 200
+  jobs repeat the same 300-probe lottery independently. Not yet fixed.
 - **The step at v = 10⁻⁴ in the radiative-tail panel is `vmin`**, the
   soft/hard split, not a defect. Below it only the external pre-vertex
   radiator contributes: born, which has no internal radiation at all, shows
