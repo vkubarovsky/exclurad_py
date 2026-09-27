@@ -218,6 +218,7 @@ class Generator:
         _bs = os.environ.get("B_SHAPE", "")
         self.b_shape = tuple(int(x) for x in _bs.split(",")) if _bs else None
         self.n_probe_b = int(os.environ.get("B_PROBES", "300"))
+        self.b_from_cache = False
         _ts = os.environ.get("TABLE_SHAPE", "")
         if _ts:
             table_shape = tuple(int(x) for x in _ts.split(","))
@@ -425,8 +426,14 @@ class Generator:
                                 M=d["M"], shape=tuple(d["shape"]),
                                 cdf=d["cdf"], eta_hi=float(d["eta_hi"]))
                 self.maj_from_cache = True
+                if "B" in d.files and not self.born_only:
+                    self._B = d["B"]
+                    self._B_global = float(d["B_global"])
+                    self.b_shape = tuple(int(x) for x in d["b_shape"])
+                    self.b_from_cache = True
                 if verbose:
-                    print(f" majorant loaded from {os.path.basename(self.maj_cache)}")
+                    print(f" majorant loaded from {os.path.basename(self.maj_cache)}"
+                          + (" (with stage-2 bound)" if self.b_from_cache else ""))
                 return self
 
         nQ, nW, nt, nph = self.majorant_shape
@@ -552,9 +559,17 @@ class Generator:
     def save_majorant(self, path):
         """Persist the CALIBRATED majorant so parallel workers can share it."""
         s = self.maj
+        extra = {}
+        if self._B is not None:
+            # The stage-2 bound belongs in here.  It was rebuilt by every job
+            # from 300 fresh probes, so 200 jobs ran 200 independent lotteries
+            # for a quantity that is a property of the box, not of the job.
+            extra = dict(B=self._B, B_global=self._B_global,
+                         b_shape=np.array(self.b_shape))
         np.savez_compressed(path, M=s["M"], cdf=s["cdf"],
                             shape=np.array(s["shape"]), eta_hi=s["eta_hi"],
                             key=json.dumps(self._maj_key(s["eta_hi"])),
+                            **extra,
                             **{"e_" + k: v for k, v in s["edges"].items()})
         return path
 
@@ -762,6 +777,31 @@ Ebeam=self._E, Q2=cQ2, W2=cW2, t=ct, phi=cph,
             self._tail_cache[key] = None
         return self._tail_cache[key]
 
+    def _resolve_b_shape(self, shape, per_cell=20):
+        """A bound grid the probe budget can actually measure.
+
+        Unset, `b_shape` fell back to the MAJORANT grid -- 6144 cells against
+        300 probes, so under 5 % of cells were ever measured and the rest took
+        the global fallback.  That is how the 2026-09-25 production came out
+        with the bound exceeded in 198 of 200 chunks, worst x3.35: the bound
+        was a lottery of 300 draws, redrawn independently by every job.
+
+        Coarsen every axis by a common factor until the grid fits the budget
+        at `per_cell` probes each.  Keeping the majorant's aspect matters: the
+        large-r region sits at high Q2 and high W, and a grid that collapses
+        those axes puts a bound sized for that corner onto the whole box.
+        """
+        if self.b_shape is not None:
+            return tuple(self.b_shape)
+        budget = max(1, self.n_probe_b // per_cell)
+        best = tuple(1 for _ in shape)
+        for f in range(1, max(shape) + 1):
+            cand = tuple(max(1, -(-m // f)) for m in shape)
+            if int(np.prod(cand)) <= budget:
+                best = cand
+                break
+        return best
+
     def _b_grid_cell(self, cell):
         """Map a fine majorant cell onto the (coarser) stage-2 bound grid.
 
@@ -865,8 +905,14 @@ Ebeam=self._E, Q2=cQ2, W2=cW2, t=ct, phi=cph,
         # Never hit before because run_production_100k.sh only ever exports
         # EXACT_ACCEPT=1 for the rad cards -- iborn=1 with the production
         # environment first happened on 2026-08-17.
-        if self.exact_accept and not self.born_only:
-            bshape = self.b_shape or shape
+        if self.exact_accept and not self.born_only and self.b_from_cache:
+            if verbose:
+                print(f" stage-2 bound from cache: shape {self.b_shape}, "
+                      f"B {self._B.min():.2f}-{self._B.max():.2f}, "
+                      f"global {self._B_global:.2f}")
+        elif self.exact_accept and not self.born_only:
+            self.b_shape = self._resolve_b_shape(shape)
+            bshape = self.b_shape
             bmax = np.zeros(bshape)
             n_b = 0
             for _ in range(max(n_probe, self.n_probe_b)):
