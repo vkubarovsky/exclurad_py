@@ -254,6 +254,36 @@ def main():
     ax[1].set_xlabel(r"$-t$ [GeV$^2$]"); ax[1].set_ylabel("probability density"); ax[1].legend(title="deuteron"); ax[0].set_ylim(1e-3, 3); ax[1].set_ylim(1e-3, 3)
     save(fig, out, "fig_t")
 
+    # ---------- Fig 7: photon energy reconstructed from the J/psi alone (target assumed at rest) ----------
+    E, px, py, pz = d2["V"][:, 0], d2["V"][:, 1], d2["V"][:, 2], d2["V"][:, 3]
+    Erec = (2 * M_N * E - M_JPSI ** 2) / (2 * (M_N - E + pz))
+    dE = Erec - d2["k"]
+    trec = (Erec - E) ** 2 - px ** 2 - py ** 2 - (Erec - pz) ** 2
+    ttrue = (d2["k"] - E) ** 2 - px ** 2 - py ** 2 - (d2["k"] - pz) ** 2
+    fig, ax = plt.subplots(1, 2, figsize=(12, 4.6))
+    for (lo, hi), col in (((8.2, 8.6), C["p"]), ((8.6, 9.5), C["acc"]), ((9.5, 10.6), C["d2"])):
+        m = (d2["k"] >= lo) & (d2["k"] < hi)
+        ax[0].hist(dE[m], bins=120, range=(-1.0, 1.0), histtype="step", color=col, density=True, lw=2,
+                   label=r"$E_\gamma$ in [%.1f, %.1f] GeV: rms %.0f MeV" % (lo, hi, 1e3 * dE[m].std()))
+    ax[0].axvline(0, color=C["grey"], lw=0.8); ax[0].set_xlabel(r"$E_\gamma^{\rm rec} - E_\gamma^{\rm true}$ [GeV]"); ax[0].set_ylabel("probability density")
+    ax[0].legend(fontsize=9, loc="upper left"); ax[0].set_title(r"$E_\gamma$ from the J/$\psi$ alone, neutron assumed at rest", fontsize=12)
+    eb = np.arange(8.2, 10.61, 0.1); cb2 = 0.5 * (eb[1:] + eb[:-1])
+    bias = np.array([dE[(d2["k"] >= a) & (d2["k"] < b)].mean() for a, b in zip(eb[:-1], eb[1:])])
+    rms = np.array([dE[(d2["k"] >= a) & (d2["k"] < b)].std() for a, b in zip(eb[:-1], eb[1:])])
+    mig = np.array([(np.abs(dE[(d2["k"] >= a) & (d2["k"] < b)]) > 0.15).mean() for a, b in zip(eb[:-1], eb[1:])])
+    ax[1].plot(cb2, 1e3 * rms, color=C["d2"], label="rms [MeV]"); ax[1].plot(cb2, 1e3 * bias, color=C["p"], label="mean shift [MeV]")
+    ax[1].set_ylim(0, 800); ax[1].set_xlabel(r"true $E_\gamma$ [GeV]"); ax[1].set_ylabel(r"$E_\gamma^{\rm rec} - E_\gamma^{\rm true}$ [MeV]", color=C["d2"])
+    axb = ax[1].twinx(); axb.plot(cb2, 100 * mig, color=C["n"], ls="--", label="moved by more than 150 MeV [%]"); axb.set_ylim(0, 100)
+    axb.set_ylabel("fraction moved by more than 150 MeV [%]", color=C["n"])
+    h1, l1 = ax[1].get_legend_handles_labels(); h2, l2 = axb.get_legend_handles_labels(); ax[1].legend(h1 + h2, l1 + l2, fontsize=9, loc="upper right")
+    ax[1].grid(alpha=0.3); fig.subplots_adjust(wspace=0.35)
+    save(fig, out, "fig_ereco")
+    num["ereco"] = {}
+    for lo, hi in ((8.2, 8.6), (8.6, 9.0), (9.0, 9.5), (9.5, 10.0), (10.0, 10.6), (8.6, 10.6)):
+        m = (d2["k"] >= lo) & (d2["k"] < hi)
+        num["ereco"]["%.1f-%.1f" % (lo, hi)] = dict(bias_MeV=float(1e3 * dE[m].mean()), rms_MeV=float(1e3 * dE[m].std()),
+                                                   frac_gt150=float((np.abs(dE[m]) > 0.15).mean()), t_rms=float((trec - ttrue)[m].std()))
+
     json.dump(num, open(os.path.join(out, "numbers.json"), "w"), indent=1, default=float)
     print(json.dumps(num, indent=1, default=float)[:4000])
 

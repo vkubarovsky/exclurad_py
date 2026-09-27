@@ -46,7 +46,11 @@ number: the binding of the struck neutron lowers the available $\gamma n$ energy
 by about 4\,\%, and the M\o{}ller flux factor of the moving neutron, correlated with the steeply
 rising cross section, raises it by about the same amount.  Fermi motion is therefore negligible for the
 yield above 8.6\,GeV, but the shape of the ratio near the free threshold at 8.20\,GeV and the yield
-below it, $\fracBelow\,\%$ of the total, are entirely due to it.
+below it, $\fracBelow\,\%$ of the total, are entirely due to it.  It also dominates the resolution of
+every quantity reconstructed with the target assumed at rest: the photon energy obtained from the
+$\jpsi$ alone is smeared by $\erRH$\,MeV rms and shifted by up to $\erBB$\,MeV near threshold.  The
+conclusion (Section~\ref{sec:need}) is that the Monte Carlo has to include Fermi motion for any
+analysis on deuterium, although the generated yield per neutron above 8.6\,GeV does not require it.
 \end{abstract}
 
 \tableofcontents
@@ -527,6 +531,64 @@ not hold for a different $\alpha$ or for a target with larger binding.
 from one by tens of percent and below 8.20\,GeV the whole yield is a Fermi-motion effect.  The
 $\Eg$-dependence of a threshold measurement on deuterium must be unfolded with this response, and the
 spectator proton, when detected, tags the events that carry it.
+
+\subsection{Do we need a Monte Carlo with Fermi motion?}
+\label{sec:need}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{fig_ereco}
+\caption{Photon energy reconstructed from the $\jpsi$ four-vector alone with the target neutron
+assumed at rest, as an untagged analysis does it, minus the true photon energy, on the deuteron.
+Left: distributions in three ranges of true $\Eg$.  Right: rms and mean shift, and the fraction of
+events displaced by more than 150\,MeV, against the true $\Eg$.  On a free neutron all three are zero.}
+\label{fig:ereco}
+\end{figure}
+
+The answer has two parts, and they point in different directions.
+
+\emph{For the yield per neutron at the true photon energy, no.}  Above 8.6\,GeV a free-neutron
+generator reproduces the deuteron yield to better than 1\,\% in every 100\,MeV bin
+(Table~\ref{tab:ratio}), and the $t$ distribution at the true $s$ is the same.  If the analysis knew
+the photon energy and the momentum transfer event by event, Fermi motion could be switched off.
+
+\emph{For everything an analysis actually measures on deuterium, yes.}  An untagged analysis does
+not know $\Eg$; it reconstructs it from the final state with the target at rest, and Fermi motion
+enters that reconstruction at full strength.  Figure~\ref{fig:ereco} and Table~\ref{tab:ereco} show
+the photon energy obtained from the $\jpsi$ alone, $\Eg^{\rm rec}=(2M_nE_{\jpsi}-M_{\jpsi}^2)/
+2(M_n-E_{\jpsi}+p_{z,\jpsi})$: it is smeared by $\erRH$\,MeV rms above 8.6\,GeV, shifted upward by
+$\erBB$\,MeV in 8.6--9.0\,GeV and by $\erBA$\,MeV in the bins next to threshold, and
+$\erMH\,\%$ of the events move by more than 150\,MeV, i.e.\ out of a typical energy bin.  The
+momentum transfer computed with the reconstructed photon is smeared by $\erTH\GeV^2$, comparable to
+$1/b$.  A free-neutron Monte Carlo has none of this: it would give the wrong bin migration, the wrong
+$t$ resolution, the wrong efficiency of any exclusivity or coplanarity cut, and no events below the
+free threshold or with a fast spectator.  The near-threshold region, where the ratio is 1.09 and
+1.78 and where the physics interest lies, is entirely a Fermi-motion effect.
+
+Since the deuteron generator costs 0.65\,ms per event and passes every acceptance test, there is
+no reason to generate deuterium without it.  The free-neutron sample keeps one role: the cross-check
+that isolates the Fermi-motion effect, as in this report.
+
+\begin{table}[htbp]
+\centering
+\caption{Resolution of the photon energy reconstructed from the $\jpsi$ alone on the deuteron
+(neutron assumed at rest): mean shift, rms, fraction of events moved by more than 150\,MeV, and the
+rms of the momentum transfer computed with the reconstructed photon minus the true one.}
+\label{tab:ereco}
+\begin{tabular}{lcccc}
+\toprule
+true $\Eg$ [GeV] & shift [MeV] & rms [MeV] & moved $>150$\,MeV & $\Delta t$ rms [GeV$^2$] \\
+\midrule
+8.2--8.6   & \erBA & \erRA & \erMA\,\% & \erTA \\
+8.6--9.0   & \erBB & \erRB & \erMB\,\% & \erTB \\
+9.0--9.5   & \erBC & \erRC & \erMC\,\% & \erTC \\
+9.5--10.0  & \erBD & \erRD & \erMD\,\% & \erTD \\
+10.0--10.6 & \erBE & \erRE & \erME\,\% & \erTE \\
+\midrule
+8.6--10.6  & \erBH & \erRH & \erMH\,\% & \erTH \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \paragraph{Limits of the model.}  The calculation is plane-wave impulse approximation with a
 spectator on shell and the cross section evaluated at the free-nucleon mass.  Not included: final-state

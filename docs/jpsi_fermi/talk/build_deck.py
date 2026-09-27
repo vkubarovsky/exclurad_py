@@ -286,19 +286,20 @@ card(s, 6.3, 5.15, 6.55, 1.8, "3 · The actual CLAS12 configuration: electroprod
     "for the Fermi-motion ratio it is irrelevant: the flux cancels. photo.py remains the right tool for the bremsstrahlung part and for tagged real-photon beams"], size=11, head_color=GREEN)
 footer(s, 9)
 
-# ------------------------------------------------------------------ 10 summary
-s = prs.slides.add_slide(BLANK); bg(s, NAVY)
-text(s, 0.7, 0.5, 12, 0.8, ["Summary and next steps"], size=34, font=HEAD, bold=True, color=WHITE)
-items = [
-    [("New photoproduction mode of exclurad_py:", {"bold": True, "color": ICE}), (" bremsstrahlung beam with the correct endpoint, AV18 spectator deuteron, exact kinematics, strict majorant; 0.65 ms per event on the deuteron.", {})],
-    [("The flux factor (1 − β_z) of the moving nucleon is essential:", {"bold": True, "color": ICE}), (" +4 %, and it cancels the −4 % binding effect. The same factor is missing in the electroproduction Fermi path (π⁰: 0.2 % on the yield, 1–3 % tilt in W_obs and y, 9 % in the tail below the box edge).", {})],
-    [("Above 8.6 GeV Fermi motion changes the yield per neutron by less than 1 %", {"bold": True, "color": ICE}), (" (mean 0.9944 ± 0.0003, every 100 MeV bin within 0.99–1.00).", {})],
-    [("Near and below threshold it is everything:", {"bold": True, "color": ICE}), (" 1.09 and 1.78 in the two bins above 8.20 GeV, 2.55 % of the yield below it, spectator protons of 230–400 MeV/c that CLAS12 can see.", {})],
-    [("roberts2026 vs CLAS12:", {"bold": True, "color": ICE}), (" agrees to 9.6 GeV, 20–30 % low above; the t slope holds to 2 GeV². Refit A, α, B, b to the CLAS12 tables.", {})],
-    [("Radiative corrections:", {"bold": True, "color": ICE}), (" none for the real-photon process itself; J/ψ → e⁺e⁻γ decay radiation (15–20 % below 3.0 GeV) must be added; for absolute CLAS12 yields the quasi-real electro path with RC is the right generator.", {})],
-]
-text(s, 0.7, 1.5, 12.0, 4.6, [dict(runs=r, bullet=True) for r in items], size=14, color=WHITE, space_after=9)
-text(s, 0.7, 6.35, 12.0, 0.7, ["Report: docs/jpsi_fermi/report/jpsi_fermi_photoproduction.pdf (branch jpsi-fermi)  ·  OneDrive Work/2026_Jpsi_Fermi_photoproduction  ·  samples /Volumes/wd_14tb/aao_norad_kin/jpsi_fermi/photo20M"], size=11, color=ICE)
-footer(s, 10, dark=True)
+# ------------------------------------------------------------------ 10 conclusion
+s = prs.slides.add_slide(BLANK); bg(s, WHITE)
+title(s, "Conclusion: do we need a Monte Carlo with Fermi motion?")
+image(s, R + "/fig_ereco.png", 0.4, 1.15, w=7.9)
+card(s, 8.6, 1.15, 4.25, 1.55, "No, for the yield at the true E_γ", [
+    "above 8.6 GeV a free-neutron generator gives the yield per neutron to better than 1 % in every bin, and the same t distribution at the true s"], size=11, head_color=GREEN)
+card(s, 8.6, 2.85, 4.25, 3.0, "Yes, for everything an analysis measures", [
+    "E_γ from the J/ψ alone (neutron at rest): smeared by 196 MeV rms above 8.6 GeV, shifted +120 MeV in 8.6–9.0 and +250 MeV next to threshold; 23–45 % of events move by more than 150 MeV",
+    "t from the reconstructed photon: 0.24 GeV² rms, comparable to 1/b",
+    "threshold region (ratio 1.09 and 1.78), the 2.55 % below it, spectator protons, exclusivity-cut efficiencies: all Fermi motion"], size=11, head_color=ORANGE)
+text(s, 0.5, 4.75, 7.8, 1.05, [dict(runs="Bottom line", bold=True, color=BLUE, size=14),
+     "Generate deuterium with Fermi motion always: it costs 0.65 ms per event and passes every acceptance test. The free-neutron sample keeps one role, the cross-check that isolates the effect. In the E_γ bins of the CLAS12 analysis (150–450 MeV wide) the migration from Fermi motion is larger than the detector resolution."], size=12)
+card(s, 0.5, 5.9, 12.35, 1.05, "Next steps", [
+    "J/ψ → e⁺e⁻γ decay radiation in the generator (15–20 % of decays below 3.0 GeV)  ·  flux factor (1 − β_z) in the electroproduction Fermi path  ·  refit A, α, B, b to the CLAS12 tables  ·  quasi-real electroproduction twin with RC for absolute CLAS12 yields"], size=11)
+footer(s, 10)
 
 prs.save(OUT); print("wrote", OUT)

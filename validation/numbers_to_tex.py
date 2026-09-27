@@ -38,5 +38,8 @@ for key, tag in (("above", "Ab"), ("below", "Be"), ("below_8.0", "Ei"), ("below_
     m("nsp" + tag, sp[key]["n"], "%d")
 for x, tag in (("d2", "D"), ("n", "N"), ("p", "P")):
     m("yield" + tag, n[x]["yield_nb"] * 1e6, "%.2f"); m("sig" + tag, n[x]["sigma_flux_weighted_nb"], "%.4f")
+er = n["ereco"]
+for key, tag in (("8.2-8.6", "A"), ("8.6-9.0", "B"), ("9.0-9.5", "C"), ("9.5-10.0", "D"), ("10.0-10.6", "E"), ("8.6-10.6", "H")):
+    m("erB" + tag, er[key]["bias_MeV"], "%+.0f"); m("erR" + tag, er[key]["rms_MeV"], "%.0f"); m("erM" + tag, 100 * er[key]["frac_gt150"], "%.0f"); m("erT" + tag, er[key]["t_rms"], "%.2f")
 open(sys.argv[2], "w").write("\n".join(out) + "\n")
 print("wrote", sys.argv[2], len(out), "macros")
