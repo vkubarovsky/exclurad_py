@@ -34,6 +34,16 @@ MEASURED 2026-09-27, Born, AV18, 10.6 GeV:
     pi0.amp2609    Q2 0.8-10,  W2 3.24-16    +0.20 +- 0.04 %
     jpsi.roberts   Q2 .01-2.0, W2 16.5-20.0  +1.10 +- 0.04 %
 
+CROSS-CHECKED against the thing it estimates.  Running both arms for real,
+pi0, 4 x 15000 each, gave -0.66 +- 0.49 %, which is 1.8 sigma from the +0.20 %
+above and settles nothing by itself -- that is the point.  Its four per-seed
+ratios were 1.0023, 1.0012, 0.9867, 0.9832: a single seed anywhere in that
+spread can read -1.9 %, which is exactly what the first attempt did.  Note the
+per-seed pairing does NOT cancel the noise, although both arms start from the
+same seed: with the rejection live the thinned draws consume uniforms, so the
+two streams diverge on the first rejected draw and the seeds are common in name
+only.
+
 Positive in both, and that is forced: E* = E F E_N / m*, so a larger F is a
 larger collision energy, and both cross sections rise with it.  The size
 follows how steeply sigma depends on s -- slowly over the pi0 W range, steeply
