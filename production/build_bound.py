@@ -60,7 +60,10 @@ def make(seed, probes, tmp):
 
 def one(i):
     t0 = time.time()
-    tmp = f"{OUT}.w{i:03d}"
+    # np.savez_compressed appends .npz unless the name already ends in it,
+    # so the temp name has to carry the suffix or the file is written next to
+    # where it is looked for.
+    tmp = f"{OUT}.w{i:03d}.npz"
     make(900000 + i * 7919, max(1, NPROBE // NW), tmp)
     return tmp, time.time() - t0
 
