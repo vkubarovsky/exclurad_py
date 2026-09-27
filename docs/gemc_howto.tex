@@ -245,6 +245,14 @@ unset JDK_JAVA_OPTIONS   # before run-groovy, which uses its own java
 \item A transfer that runs at 0~kB/s is hung, not slow. On 2026-09-25 an rsync sat for
   2~h~14~min having moved 865 of 869~MB, while the link measured 97~MB/s; killing it and
   starting over took 8~seconds. Sample the destination size twice before waiting on it.
+\item \textbf{The timing budget below is for RG-K at 6.5 GeV.} Measured on
+  RG-A fall 2018 at 10.6 GeV with a deuteron target (one extra nucleon to
+  track): GEMC \textbf{5 to 6 s per event}, not 1.4 to 1.9, so a task is about
+  \textbf{2000 core-hours per million events}, not 600. At 1500 events a task
+  runs 1.9 h; the 2500 of the RG-K recipe wants 3.9 h against a 4 h wall clock
+  and loses tasks to \texttt{TIMEOUT}. Measure the rate on a live task
+  (\texttt{grep "Begin of event" gemc.log}) before sizing an array; it also
+  varies by a factor two with farm load.
 \end{enumerate}
 
 \section{Two stages, and how to resume the second}

@@ -58,12 +58,19 @@ FIELDS = [
     ("itarg", int, "1 = pre-vertex external radiator (target straggling)"),
     ("vz", "pair", "vertex z range (cm) -- the target cell"),
     ("ptarg", float, "ptarg   longitudinal target polarisation, -1..+1; 0 = unpolarised"),
+    ("fermi", str, "fermi   deuteron target: none | av18"),
 ]
 N_REQUIRED = 13          # fields up to and including outroot
 # itarg defaults OFF and vz to a point target: a card written before the
 # radiator existed keeps producing exactly what it produced before.
+# `fermi` defaults to "none", so a card written before the deuteron target
+# existed produces exactly what it produced before -- byte for byte, because
+# the Fermi momentum is then never drawn and the RNG stream is untouched.
+# A string, not an integer: the wave function is a physics input that belongs
+# in the card and in the LUND header in a form a reader understands, as with
+# `iacc none`.
 DEFAULT_OPT = dict(y=(0.0, 1.0), xB=(0.0, 1.0), iacc="none", vmin=0.0,
-                   itarg=0, vz=(0.0, 0.0), ptarg=0.0)
+                   itarg=0, vz=(0.0, 0.0), ptarg=0.0, fermi="none")
 
 
 def _num(tok):
@@ -149,6 +156,14 @@ def _validate(cfg, path):
     if cfg["iacc"] not in ("none",) + tuple(ACCEPTANCE):
         raise ValueError(f"{path}: unknown acceptance preset {cfg['iacc']!r}; "
                          f"use 'none' or one of {sorted(ACCEPTANCE)}")
+    # Caught here rather than deep in the generator: a typo in the wave
+    # function silently falling back to a free nucleon would produce a sample
+    # that looks fine and is not the one that was asked for.
+    from .generator.fermi import WAVEFUNCTIONS
+    if cfg["fermi"] not in ("none",) + tuple(WAVEFUNCTIONS):
+        raise ValueError(f"{path}: unknown deuteron wave function "
+                         f"{cfg['fermi']!r}; use 'none' or one of "
+                         f"{sorted(WAVEFUNCTIONS)}")
 
 
 def echo(cfg, fh=sys.stdout):
@@ -182,6 +197,10 @@ TEMPLATE = """! exclurad_py run card -- plain text, one value per line, ! starts
 {xB:<34} ! xB range          -- match the reference generator's cut
 {iacc:<34} ! iacc    acceptance preset: none | jpsi  (|p|,theta on e',p',daughters)
 {vmin:<34} ! vmin    soft/hard split (GeV^2); 0 = auto.  exclugen uses 1.0d-4
+{itarg:<34} ! itarg   1 = pre-vertex external radiator (target straggling)
+{vz:<34} ! vz      vertex z range (cm) -- the target cell
+{ptarg:<34} ! ptarg   longitudinal target polarisation, -1..+1; 0 = unpolarised
+{fermi:<34} ! fermi   deuteron target: none | av18  (Fermi motion + spectator)
 """
 
 
@@ -190,7 +209,8 @@ def write_template(path, **kw):
              W2="4.5 12.0", Q2="1.0 5.0", t="-2.0 -0.10", vcut="0.20",
              t_nucl="-0.30", ihel="0", seed="20260813", idecay="1",
              outroot="/Volumes/wd_14tb/mc/exclurad_py",
-             y="0.0 1.0", xB="0.0 1.0", iacc="none", vmin="0.0")
+             y="0.0 1.0", xB="0.0 1.0", iacc="none", vmin="0.0",
+             itarg="0", vz="0.0 0.0", ptarg="0.0", fermi="none")
     d.update({k: str(v) for k, v in kw.items()})
     with open(path, "w") as fh:
         fh.write(TEMPLATE.format(**d))

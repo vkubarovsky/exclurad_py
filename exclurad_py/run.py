@@ -39,6 +39,15 @@ from .generator.tables import RCTable
 from .runcard import parse, echo
 
 
+_FERMI_WF = {
+    "none": None,
+    # Wiringa's variational Monte Carlo deuteron momentum distribution,
+    # rho(k)/(2 pi)^3 from phy.anl.gov/theory/research/momenta (h2.momentum),
+    # normalised per nucleon.  Cite Wiringa et al., Phys. Rev. C 89, 024305.
+    "av18": "AV18 (Wiringa VMC), per-nucleon, k <= 3.5601 fm^-1",
+}
+
+
 def _cache_paths(d):
     """Where this run reads/writes its eta table and majorant.
 
@@ -135,6 +144,7 @@ def run_parallel(card_path, jobs, date=None, verbose=True):
                        born_only=bool(cfg["iborn"]),
                        cuts=dict(y=cfg["y"], xB=cfg["xB"], iacc=cfg["iacc"]),
                        itarg=cfg["itarg"], vz=cfg["vz"],
+                       fermi=cfg.get("fermi", "none"),
                        v_min=cfg["vmin"] or None,
                        cache=None if cfg["iborn"] else _cache_paths(d)[0])
         t0 = time.time()
@@ -196,6 +206,7 @@ def run(card_path, date=None, verbose=True, _part=None):
                   born_only=bool(cfg["iborn"]),
                   cuts=dict(y=cfg["y"], xB=cfg["xB"], iacc=cfg["iacc"]),
                   itarg=cfg["itarg"], vz=cfg["vz"],
+                  fermi=cfg.get("fermi", "none"),
                   v_min=cfg["vmin"] or None,
                   maj_cache=_cache_paths(d)[1],
                   cache=None if cfg["iborn"] else _cache_paths(d)[0])
@@ -261,6 +272,16 @@ def run(card_path, date=None, verbose=True, _part=None):
                               box=box.as_dict(), vcut=cfg["vcut"],
                               mx2_cut=mx2, Ebeam=cfg["ebeam"],
                               ihel=cfg["ihel"], ptarg=cfg.get("ptarg", 0.0),
+                              # The target is part of what a sample IS.  A
+                              # deuteron file and a free-nucleon file are
+                              # otherwise indistinguishable from their
+                              # contents -- same channel, same box, same
+                              # model -- except for one extra particle per
+                              # event.  Record the flag AND the wave
+                              # function; "none" for a free nucleon.
+                              fermi=cfg.get("fermi", "none"),
+                              fermi_wavefunction=(
+                                  _FERMI_WF.get(cfg.get("fermi", "none"))),
                               # the machine is provenance: once files are merged
                               # across hosts only the header can still say
                               host=socket.gethostname().split(".")[0],
@@ -275,8 +296,15 @@ def run(card_path, date=None, verbose=True, _part=None):
                               eta_interp=interp))
     lund = os.path.join(d, "lund",
                         f"{ch}_exclurad_py_{mode}_{cfg['ebeam']:g}GeV{part_tag}.lund")
+    # Header column 8 is the TARGET.  With Fermi motion the target is the
+    # deuteron, not the nucleon the reaction happened on: the file already
+    # carries the struck nucleon's partner as a particle line, and a header
+    # saying 2212 would contradict it.  PDG nuclear code for the deuteron is
+    # 1000010020 (10LZZZAAAI with Z = 1, A = 2).
     n = write_lund(lund, ev, channel=ch, topology=sf.topology, stamp=st,
                    beam_energy=float(cfg["ebeam"]),   # header column 7; was the 10.6 default for every run
+                   target_pid=(1000010020 if cfg.get("fermi", "none") != "none"
+                               else None),
                    pol_target=float(cfg.get("ptarg", 0.0)))   # header column 4; was 0.000 for every run
 
     shutil.copyfile(card_path, os.path.join(d, "inputs", "gen_input.txt"))
