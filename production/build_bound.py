@@ -36,6 +36,23 @@ CARD, OUT, NW, NPROBE = sys.argv[1], sys.argv[2], int(sys.argv[3]), int(sys.argv
 BSHAPE = sys.argv[5] if len(sys.argv) > 5 else ""
 
 
+def _grid_for(total, shape, per_cell=20):
+    """Size the grid from the TOTAL probe budget, not one worker's share.
+
+    First run of this script got (1,1,1,2): each worker sized the grid from
+    its own 200 probes instead of the 20000 the run had between them, so the
+    combination was a two-cell bound -- correct, but throwing away the whole
+    point of a per-cell bound, which is to keep B = 8.7 in the corner that
+    needs it instead of over the whole box.
+    """
+    budget = max(1, total // per_cell)
+    for f in range(1, max(shape) + 1):
+        cand = tuple(max(1, -(-m // f)) for m in shape)
+        if int(np.prod(cand)) <= budget:
+            return cand
+    return tuple(1 for _ in shape)
+
+
 def make(seed, probes, tmp):
     os.environ["B_PROBES"] = str(probes)
     if BSHAPE:
@@ -69,6 +86,12 @@ def one(i):
 
 
 if __name__ == "__main__":
+    if not BSHAPE:
+        cfg0 = parse(CARD)
+        _ms = os.environ.get("MAJ_SHAPE", "")
+        mshape = tuple(int(x) for x in _ms.split(",")) if _ms else (8, 8, 8, 12)
+        BSHAPE = ",".join(str(x) for x in _grid_for(NPROBE, mshape))
+        print(f"  grid sized from the TOTAL budget: {BSHAPE}")
     print(f"  {NW} workers x {max(1, NPROBE//NW)} probes = {NW*max(1, NPROBE//NW)} total")
     with ProcessPoolExecutor(NW) as pool:
         res = list(pool.map(one, range(NW)))
