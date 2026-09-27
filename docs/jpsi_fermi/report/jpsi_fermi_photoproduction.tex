@@ -297,13 +297,27 @@ is what makes the deuteron yield sensitive to shifts of $s$ of a few $10^{-2}$\,
 generated is $-6\le t\le-0.001\GeV^2$, cut to the physical range at each $W$; $|t|_{\min}$ is 1.8,
 0.62 and 0.36\,GeV$^2$ at 8.5, 9.5 and 10.5\,GeV.
 
+Figure~\ref{fig:model} compares the parametrisation with the CLAS12 measurement on the proton
+\cite{clas12jpsi} (Tables~V and VI of its Appendix~A).  The total cross section is described within
+the errors from threshold to 9.6\,GeV; above 9.7\,GeV the data lie 20--30\,\% above the curve, one to
+two standard deviations per point.  The $t$ dependence of the data is compatible with the single
+exponential in $t'$ at $|t|\lesssim2\GeV^2$; the points beyond, at 3--4\,GeV$^2$, sit above the
+exponential by a factor two to three.  Neither deviation matters for the Fermi-motion ratio of
+Section~\ref{sec:ratio}, which depends on the slope of $\sigma(W)$ near threshold and on nothing
+else; it would matter for absolute yields, and a refit of $A$, $\alpha$, $B$ and $b$ to these data is
+the natural next step.
+
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=0.95\textwidth]{fig_model}
-\caption{The elementary cross section used.  Left: $\sigma_{\rm tot}(\gamma N\to\jpsi N)$ of the
-\texttt{roberts2026} parametrisation against the photon energy on a nucleon at rest.  Right:
-$d\sigma/dt$ at three photon energies; the forward limit $|t|_{\min}$ moves from 1.8\,GeV$^2$ at
-8.5\,GeV to 0.36\,GeV$^2$ at 10.5\,GeV.}
+\caption{The elementary cross section used, compared with the CLAS12 measurement on the proton
+(Chatagnon et al.\ 2026, Appendix~A tables).  Left: $\sigma_{\rm tot}(\gamma p\to\jpsi\,p)$ of the
+\texttt{roberts2026} parametrisation against the photon energy on a nucleon at rest, with the CLAS12
+total cross section in ten energy bins; the inner bar is the statistical error, the outer one
+statistical and systematic added in quadrature, the horizontal bar the rms of the photon energy in
+the bin.  Right: $d\sigma/dt$ of the model at the mean photon energy of the three CLAS12 energy bins,
+with the CLAS12 differential cross sections of those bins (errors as on the left, horizontal bars the
+rms of $-t$ in the bin).}
 \label{fig:model}
 \end{figure}
 
@@ -523,6 +537,12 @@ deuteron, any modification of the elementary amplitude off shell, the $D$-wave t
 before radiation or the beam energy spread, each of order 1\,MeV at the endpoint.  The elementary cross
 section is one parametrisation, \texttt{roberts2026}, with $b=1.67\GeV^{-2}$ independent of $W$; the
 ratio of Section~\ref{sec:ratio} depends on its slope near threshold, not on its normalisation.
+
+\begin{thebibliography}{9}
+\bibitem{clas12jpsi} P.~Chatagnon et al.\ (CLAS Collaboration), \emph{Measurement of the
+near-threshold $J/\psi$ photoproduction cross section with the CLAS12 experiment},
+arXiv:2602.22128 [hep-ex] (2026), JLAB-PHY-26-4605, submitted to Phys.\ Rev.\ C.
+\end{thebibliography}
 
 \appendix
 

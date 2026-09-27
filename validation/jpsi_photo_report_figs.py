@@ -19,6 +19,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 from exclurad_py.generator.photo import (brems_shape, brems_shape_cs, screening_factor,   # noqa: E402
                                          BremsSampler, PhotoGenerator)
 from exclurad_py import models                                                            # noqa: E402
+from clas12_jpsi_data import TOTAL as C12_TOTAL, DSDT as C12_DSDT, LABEL as C12_LABEL, total_errors as c12_errors  # noqa: E402
 
 M_P, M_N, M_D, M_JPSI = 0.93827208816, 0.93956542, 1.87561294, 3.0969
 E_TH = ((M_N + M_JPSI) ** 2 - M_N ** 2) / (2 * M_N)
@@ -122,21 +123,32 @@ def main():
                        endpoint_reduction_6p5_10p6=1 - bs.norm / bs.norm_cs,
                        S_at=dict((str(d), float(screening_factor(E0 - d * 1e-3, E0))) for d in (300, 100, 30, 10, 3, 1)))
 
-    # ---------- Fig 2: sigma_tot(E_gamma) of the model and dsigma/dt ----------
+    # ---------- Fig 2: sigma_tot(E_gamma) of the model and dsigma/dt, with the CLAS12 data ----------
     sf = models.get("jpsin.roberts2026")
     g = PhotoGenerator(sf, E0, 6.5, E0, (-6.0, -0.001)); g.setup()
     Egm = np.linspace(E_TH + 1e-4, 10.6, 300)
     W2 = M_N ** 2 + 2 * M_N * Egm
     sig = np.array([g.sigma_tot(w) for w in W2])
-    fig, ax = plt.subplots(1, 2, figsize=(11, 4.6))
-    ax[0].plot(Egm, sig, color=C["n"]); ax[0].set_xlabel(r"$E_\gamma$ [GeV]"); ax[0].set_ylabel(r"$\sigma_{\rm tot}(\gamma N \to J/\psi\, N)$ [nb]")
-    ax[0].axvline(E_TH, color=C["grey"], ls=":", lw=1.2); ax[0].text(0.05, 0.9, r"$\sigma = A\,(W-W_{\rm th})^{\alpha}\,e^{-B(W-W_{\rm th})}$", transform=ax[0].transAxes)
-    ax[0].text(0.05, 0.82, r"$A = 1.018$ nb, $\alpha = 0.707$, $B = -0.928$ GeV$^{-1}$", transform=ax[0].transAxes, fontsize=10)
-    for Egv, col in ((8.5, C["acc"]), (9.5, C["d2"]), (10.5, C["n"])):
-        w2 = M_N ** 2 + 2 * M_N * Egv; lo, hi = g.t_limits(w2); t = np.linspace(lo, hi, 300)
-        ax[1].plot(-t, g.dsigma_dt(w2, t), color=col, label=r"$E_\gamma$ = %.1f GeV, $|t|_{\min}$ = %.2f GeV$^2$" % (Egv, -hi))
-    ax[1].set_yscale("log"); ax[1].set_xlabel(r"$-t$ [GeV$^2$]"); ax[1].set_ylabel(r"$d\sigma/dt$ [nb/GeV$^2$]"); ax[1].legend(); ax[1].set_xlim(0, 4)
-    ax[1].text(0.35, 0.9, r"$d\sigma/dt = \sigma_{\rm tot}\, b\, e^{b\,t'}$, $b = 1.67$ GeV$^{-2}$", transform=ax[1].transAxes)
+    fig, ax = plt.subplots(1, 2, figsize=(12, 4.8))
+    ax[0].plot(Egm, sig, color=C["n"], label=r"model: $\sigma = A\,(W-W_{\rm th})^{\alpha}\,e^{-B(W-W_{\rm th})}$", zorder=1)
+    est, etot = c12_errors()
+    ax[0].errorbar(C12_TOTAL[:, 2], C12_TOTAL[:, 4], xerr=C12_TOTAL[:, 3], yerr=etot, fmt="s", ms=5, color=C["p"], ecolor=C["p"],
+                   elinewidth=0.9, capsize=0, alpha=0.55, zorder=2)
+    ax[0].errorbar(C12_TOTAL[:, 2], C12_TOTAL[:, 4], yerr=est, fmt="s", ms=5, color=C["p"], capsize=2, zorder=3,
+                   label=C12_LABEL + ", stat and stat$\\oplus$syst")
+    ax[0].axvline(E_TH, color=C["grey"], ls=":", lw=1.2)
+    ax[0].set_xlabel(r"$E_\gamma$ [GeV]"); ax[0].set_ylabel(r"$\sigma_{\rm tot}(\gamma p \to J/\psi\, p)$ [nb]")
+    ax[0].set_xlim(8.0, 10.7); ax[0].set_ylim(0, 1.75); ax[0].legend(loc="upper left", fontsize=9)
+    ax[0].text(0.05, 0.70, r"$A = 1.018$ nb, $\alpha = 0.707$, $B = -0.928$ GeV$^{-1}$", transform=ax[0].transAxes, fontsize=9)
+    for (lo, hi), col in zip(sorted(C12_DSDT), (C["acc"], C["d2"], C["n"])):
+        d = C12_DSDT[(lo, hi)]; Egv = float(np.average(d[:, 4]))
+        w2 = M_N ** 2 + 2 * M_N * Egv; tlo, thi = g.t_limits(w2); t = np.linspace(tlo, thi, 300)
+        ax[1].plot(-t, g.dsigma_dt(w2, t), color=col, label=r"model at $\langle E_\gamma\rangle$ = %.2f GeV" % Egv)
+        ax[1].errorbar(d[:, 2], d[:, 6], xerr=d[:, 3], yerr=np.hypot(d[:, 7], d[:, 8]), fmt="s", ms=4, color=col, alpha=0.5, elinewidth=0.9, capsize=0)
+        ax[1].errorbar(d[:, 2], d[:, 6], yerr=d[:, 7], fmt="s", ms=4, color=col, capsize=2, label=r"CLAS12, $E_\gamma$ in [%.1f, %.2f] GeV" % (lo, hi))
+    ax[1].set_yscale("log"); ax[1].set_xlabel(r"$-t$ [GeV$^2$]"); ax[1].set_ylabel(r"$d\sigma/dt$ [nb/GeV$^2$]"); ax[1].set_xlim(0, 4.6); ax[1].set_ylim(6e-3, 4)
+    ax[1].legend(fontsize=8, loc="upper right", ncol=1)
+    ax[1].text(0.03, 0.05, r"$d\sigma/dt = \sigma_{\rm tot}\, b\, e^{b\,t'}$, $b = 1.67$ GeV$^{-2}$", transform=ax[1].transAxes, fontsize=9)
     save(fig, out, "fig_model")
 
     # ---------- Fig 3: yield vs E_gamma, D vs free n, and precise ratio ----------
