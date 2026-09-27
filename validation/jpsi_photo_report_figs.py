@@ -162,8 +162,8 @@ def main():
     ax[0].step(cen, Yd, where="mid", color=C["d2"], label=r"deuteron, $\gamma n \to J/\psi\, n$ with Fermi motion (AV18)")
     ax[0].step(cen, Yn, where="mid", color=C["n"], label="neutron at rest, same photon flux")
     ax[0].axvline(E_TH, color=C["grey"], ls=":", lw=1.2); ax[0].set_yscale("log")
-    ax[0].set_xlabel(r"$E_\gamma$ [GeV]"); ax[0].set_ylabel(r"yield per 100 MeV [nb $\times$ photons/e]"); ax[0].legend(loc="upper left")
-    ax[0].text(E_TH + 0.05, 2e-8, "free-neutron\nthreshold\n8.20 GeV", fontsize=10, color=C["grey"])
+    ax[0].set_xlabel(r"$E_\gamma$ [GeV]"); ax[0].set_ylabel(r"yield per 100 MeV [nb $\times$ photons/e]"); ax[0].legend(loc="lower right")
+    ax[0].text(E_TH - 0.08, 6e-6, "free-neutron\nthreshold\n8.20 GeV", fontsize=10, color=C["grey"], ha="right")
     sel = cen > 8.5
     ax[1].errorbar(cen[sel], r[sel], yerr=er[sel], fmt="o", ms=4, color=C["d2"], capsize=2, label="Fermi on / Fermi off, 100 MeV bins")
     # the same ratio without the Moller flux factor (1 - beta_z) of the struck nucleon: each
