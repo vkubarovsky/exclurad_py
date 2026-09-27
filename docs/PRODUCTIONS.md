@@ -80,6 +80,21 @@ in both and cancels to first order. Two things it does not buy:
   costs more in the kinematics Fermi motion populates — soft spectator, shifted
   W — a residual survives in the ratio too.
 
+**A second caveat of the same shape, found after these samples were made.**
+Both were generated before the stage-2 bound fix (`30a10c7`, `da664cc`), so
+they carry the under-representation Story's array exposed: `B_SHAPE` unset put
+the bound on the 6144-cell majorant grid with 300 probes and `_B` was rebuilt
+per job, so 100 workers returned bounds from 2.01 to 8.67 against a true
+maximum of 8.67. About **0.3 % integrated**, concentrated at high Q² and high
+W. The Fermi-versus-no-Fermi ratio survives it for the same reason it survives
+the missing background — both arms carry it equally — but the absolute yields
+do not. If these are ever regenerated, `majorant_v2.npz` on clonfarm11 has the
+fixed bound.
+
+**And a third, which is physics rather than sampling.** These samples do not
+carry the Møller flux factor `(1 − β_z)` for a moving target; see the entry
+below.
+
 ### The result that reaches beyond this branch
 
 **A missing-mass cut tuned on hydrogen is a different cut on deuterium.**
