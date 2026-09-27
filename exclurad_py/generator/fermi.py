@@ -133,6 +133,58 @@ class FermiSampler:
 
 
 # --------------------------------------------------------------------------- #
+def flux_factor(struck4):
+    """Moller flux factor for a massless beam along +z on a moving nucleon.
+
+        F = sqrt((k.p)^2 - m_k^2 m_N^2) / (E_k E_N)  ->  (E_N - p_N,z) / E_N
+          = 1 - beta_z
+
+    It is the relative velocity of the two colliding particles: the rate per
+    beam particle per nucleon in the laboratory is sigma * F, not sigma alone.
+    A nucleon running toward the beam meets more beam particles per unit time.
+    For a nucleon at rest F is identically 1, which is why a free-nucleon run
+    is untouched -- and why acceptance criterion 1 still holds.
+
+    Why it cannot be dropped although <F> = 1 exactly over an isotropic
+    distribution: F is strongly correlated with the collision energy, through
+
+        s - m*^2 = 2 E_beam E* F                     (exact)
+
+    so F enters s linearly -- measured correlation +0.947 over AV18 at
+    10.6 GeV.  A nucleon moving toward the beam has both a larger F and a
+    larger s, hence a larger sigma wherever sigma rises with s, and
+    <F sigma> != <F> <sigma>.  Reported from branch jpsi-fermi on 2026-09-26,
+    where near the J/psi threshold sigma(W) is steep and the correction is
+    +4% on the deuteron yield; at the pi0/eta W of 2-3 GeV sigma varies slowly
+    and the effect is at the per-cent level, concentrated in the tail where
+    F departs most from 1.
+    """
+    a = np.atleast_2d(np.asarray(struck4, dtype=float))
+    out = (a[..., 0] - a[..., 3]) / a[..., 0]
+    return out[0] if np.ndim(struck4) == 1 else out
+
+
+def flux_max(m_star_min, struck="p"):
+    """Largest F reachable with m* >= m_star_min -- the rejection ceiling.
+
+    F is maximal head on (spectator downstream, struck nucleon against the
+    beam) and grows as m* falls, because beta -> 1.  With no floor on m* it
+    reaches exactly 2 at the spacelike limit; with the generator's default
+    floor of 0.30 GeV it is 1.911.  The ceiling matters because the flux
+    factor is applied by rejection: too low silently truncates the tail, too
+    high only costs draws.
+    """
+    _, m_spec, _ = CONFIG[struck]
+    lo, hi = 0.0, spectator_limit(m_spec)
+    for _ in range(80):
+        mid = 0.5 * (lo + hi)
+        if split_deuteron([0.0, 0.0, mid], struck)[2] > m_star_min:
+            lo = mid
+        else:
+            hi = mid
+    return float(flux_factor(split_deuteron([0.0, 0.0, lo], struck)[0]))
+
+
 def split_deuteron(p_spec, struck="p"):
     """(struck4, spectator4, m_star) from the spectator three-momentum.
 

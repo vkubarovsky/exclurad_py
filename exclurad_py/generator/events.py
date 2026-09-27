@@ -62,8 +62,8 @@ from ..core.rc import rc_factor
 from .breit_wigner import DELTA_WIDTH as BW_DELTA, sample_mass, width as bw_width
 from .tail import TailSampler, choose_vmin, photon_at
 from .frames import assemble_event
-from .fermi import (CONFIG, FermiSampler, split_deuteron,
-                    working_frame, M_D as _M_D)
+from .fermi import (CONFIG, FermiSampler, flux_factor, flux_max,
+                    split_deuteron, working_frame, M_D as _M_D)
 from .tables import RCTable
 
 
@@ -198,6 +198,10 @@ class Generator:
                     "means (tensor polarisation is out of scope). Set one of "
                     "them to zero.")
             self._fermi = FermiSampler(self.fermi)
+            # Moller flux factor ceiling, for the rejection below.  Computed
+            # once from the m* floor, since that is what bounds it.
+            self._flux_max = flux_max(self.fermi_m_star_min, struck=str(
+                getattr(getattr(self.sf, "topology", None), "target", "p")))
             # Which nucleon is struck is already in the model: the pi0/eta
             # topologies declare target 'p', the pi0n/etan ones 'n'.  The
             # spectator is then the other one -- the deuteron has one of each.
@@ -205,6 +209,9 @@ class Generator:
                                        "target", "p"))
         self.n_fermi_reject = 0
         self.n_fermi_unphys = 0
+        self.n_fermi_flux = 0     # draws thinned by the flux factor
+        self.sum_flux = 0.0       # running <F> over draws that passed the guards
+        self.n_flux_drawn = 0
         self.bw_channel = None
         if os.environ.get("BW", "1") != "0" and \
                 getattr(getattr(self.sf, "topology", None), "name", "") == \
@@ -775,9 +782,32 @@ class Generator:
         if s_inv <= self.box.W2[0]:
             self.n_fermi_reject += 1
             return False
+        # ---- Moller flux factor, by rejection ---------------------------
+        # The rate per beam particle per nucleon is sigma * F, not sigma, with
+        # F = 1 - beta_z.  Applying it as a WEIGHT would force the majorant to
+        # bound sigma*F, i.e. to be raised by F_max = 1.91 everywhere -- and a
+        # 1.91x looser bound costs 1.91x more FULL trials, each of which has
+        # already paid for _propose, the cuts and _born.  Applying it here, as
+        # a rejection on the draw itself, costs 1.91x more draws of three
+        # uniforms and nothing else, and leaves the majorant untouched: the
+        # accepted spectator distribution is n(k)*F rather than n(k), which is
+        # the physical one.
+        #
+        # <F> = 1 exactly over an isotropic distribution, so this reweights the
+        # shape without changing the normalisation; the guards above correlate
+        # weakly with F and leave <F> = 1.0002, which is tracked in sum_flux and
+        # reported by health() rather than assumed.
+        flux = float(flux_factor(struck4))
+        self.n_flux_drawn += 1
+        self.sum_flux += flux
+        if self.rng.random() * self._flux_max > flux:
+            self.n_fermi_flux += 1
+            return False
+
         self._E, self._to_lab = working_frame(self._E, struck4)
         self._mT_kin = m_star
         self._spectator = spec4
+        self._flux = flux
         return True
 
     def _boost_to_lab(self, ev):
@@ -1497,6 +1527,15 @@ Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
         if r["closure_failures"]:
             msgs.append(f"{r['closure_failures']} events failed four-momentum "
                         f"closure and were discarded")
+        # <F> = 1 exactly over an isotropic distribution, so the flux rejection
+        # reweights the shape and leaves the normalisation alone.  The guards
+        # correlate weakly with F, so report the measured value rather than
+        # assert the identity: sigma_total is low by this factor.
+        if self.n_flux_drawn:
+            mf = self.sum_flux / self.n_flux_drawn
+            if abs(mf - 1.0) > 0.005:
+                msgs.append(f"<flux factor> = {mf:.4f}, not 1 -- sigma_total is "
+                            f"low by that factor; the guards are biting F")
         if r["efficiency"] < 0.01:
             msgs.append(f"unweighting efficiency {r['efficiency']:.4f} is low "
                         f"-- refine majorant_shape")
