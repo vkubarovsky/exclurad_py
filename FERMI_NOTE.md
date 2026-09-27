@@ -164,6 +164,71 @@ The one place a mass enters the flux is `kappa = 8 (W2 - M^2)^2 / alpha`, part
 of the *definition* of the structure functions, which were fitted at `M_N`.
 That is `_kin_xsec`, i.e. `M_N`. See §2.
 
+### The Moller flux factor, which is a different object and WAS missing
+
+The paragraphs above are about the *virtual photon* flux, `K`, inside the cross
+section. There is a second flux, in the laboratory and outside the cross
+section: the rate per beam particle per nucleon carries the relative velocity
+of the two colliding particles,
+
+    F = sqrt((k.p)^2 - m_k^2 m_N^2) / (E_k E_N)  ->  (E_N - p_N,z) / E_N = 1 - beta_z
+
+A nucleon running toward the beam meets more beam particles per unit time. For
+a target at rest `F = 1` identically, which is why nothing about the free-proton
+runs changes and acceptance criterion 1 still holds. It was reported from the
+J/psi photoproduction branch on 2026-09-26; the word "flux" did not occur in
+`events.py` at all before `f48a473`.
+
+It is applied **by rejection inside `_draw_fermi`, not as a weight**. As a
+weight the majorant would have to bound `sigma * F`, i.e. be raised by
+`F_max = 1.911` everywhere, and 1.91x more *full* trials each pay for
+`_propose`, the cuts and `_born`. As a rejection it costs 1.91x more draws of
+three uniforms and nothing else, and `calibrate`, `_b_full`, `_b_cell`,
+`_cell_cdf` and `sigma_total` are not touched — which is what §5 of the brief
+demands. The accepted spectator distribution becomes `n(k) F` instead of
+`n(k)`: the magnitude is unchanged (`<|p_s|>` 91.82 -> 91.59 MeV/c, +-0.18) and
+only the direction is reweighted (`<cos theta_s>` -0.0010 -> +0.0341, 26 sigma,
+the spectator goes downstream).
+
+**How much it moves `sigma_total`** (`validation/fermi_flux_effect.py`, Born,
+AV18, 10.6 GeV):
+
+| channel | box | `sigma(on)/sigma(off)` |
+|---|---|---|
+| `pi0.amp2609` | `Q2 0.8-10`, `W2 3.24-16` | **+0.20 +- 0.04 %** |
+| `jpsi.roberts2026` | `Q2 0.01-2.0`, `W2 16.5-20.0` | **+1.10 +- 0.04 %** |
+
+Read it as a mean, not as a difference of two runs. The rejection returns
+before `n_trials += 1`, so a thinned draw enters neither side of
+`sigma = (n_accept/n_trials) * I_maj`, and
+
+    sigma_on / sigma_off = <eps F> / (<F> <eps>) = <F>_accepted / <F>_drawn
+
+exactly. One run measures both, with an error of `rms(F)/sqrt(N_acc)` — 0.04 %
+here, twenty times better than differencing two Monte Carlo integrals, which is
+what the numbers above needed: **the first attempt at this, a single seed with
+no error bar, returned -1.9 % and that was noise.** Nothing is double counted;
+there was never an effect of that size to explain.
+
+The sign is positive in both channels and had to be. `<F> = 1` over an
+isotropic distribution, so a careless reading says it cancels; it does not,
+because F is correlated with the collision energy through the exact identity
+
+    s - m*^2 = 2 E_beam E* F ,     E* = E_beam F E_N / m*
+
+(measured correlation +0.947 over AV18 at 10.6 GeV). A larger F is a larger
+beam energy in the nucleon rest frame, hence more reach and a larger cross
+section, in any channel whose sigma rises with s. The magnitude follows how
+steeply it rises: slowly over the pi0 W range, steeply at the J/psi threshold,
+a factor 5.5 between the two. **A future channel that comes out negative is a
+bookkeeping error, not a new effect**, and the validation script says so.
+
+One trap worth keeping. Normalise by `<F>_drawn`, not by 1. For pi0 the
+measured `<F>` over draws is 0.99997 and it makes no difference; near the J/psi
+threshold it is **1.0055**, because the `m*` and `s` guards cut exactly the
+directions with the smallest F and the isotropic identity stops holding where
+the guards bite. Dividing by 1 there reports +1.65 % instead of +1.10 %.
+
 ## 6. What it does to the sample, and what it costs
 
 ### The observed W (acceptance criterion 5)

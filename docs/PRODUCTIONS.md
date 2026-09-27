@@ -92,8 +92,14 @@ do not. If these are ever regenerated, `majorant_v2.npz` on clonfarm11 has the
 fixed bound.
 
 **And a third, which is physics rather than sampling.** These samples do not
-carry the Møller flux factor `(1 − β_z)` for a moving target; see the entry
-below.
+carry the Møller flux factor `(1 − β_z)` for a moving target (`f48a473`).
+Measured afterwards with `validation/fermi_flux_effect.py`: it raises
+`σ_total` by **+0.20 ± 0.04 %** over this box, positive because a nucleon
+moving toward the beam has both a larger flux and a larger `s`. That is small
+against the 0.3 % above and far below the ratio this sample was made to
+measure, so **the Fermi-versus-no-Fermi comparison stands as published**; only
+the absolute deuteron normalisation is low by two parts in a thousand. (An
+earlier single-seed probe said −1.9 %; it had no error bar and was noise.)
 
 ### The result that reaches beyond this branch
 
