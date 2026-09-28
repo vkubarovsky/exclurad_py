@@ -3,6 +3,16 @@
 
     python3 production/build_bound.py card.txt out.npz <workers> <probes per cell>
 
+The MODE comes from the card (`iborn`), not from an argument, because it is
+part of the majorant's identity: `_maj_key` carries `born_only`, so a born run
+CANNOT use a rad majorant.  It does not say so -- the majorant cache falls
+through silently on a key mismatch and rebuilds, unlike the eta table, which
+raises.  Pointing both modes at one file therefore costs 25 s in every one of
+200 born jobs and nothing warns you.  Build one file per mode.
+
+For a born card the stage-2 probing is skipped: stage 2 IS the RC rejection,
+and `B` is not read when `born_only` is set.
+
 Why stratified.  calibrate() probes the bound by drawing from the PROPOSAL,
 which is concentrated where the cross section is.  Cells in the tail are
 therefore never probed however many probes you buy: 20000 draws over 384
@@ -42,18 +52,49 @@ BSHAPE = sys.argv[5] if len(sys.argv) > 5 else ""
 MARGIN = 1.3
 
 
+MAXCELL = int(os.environ.get("B_MAXCELL", "400"))
+
+
+def b_shape_for_budget(shape, maxcell):
+    """The finest bound grid, at the majorant's aspect, within `maxcell` cells.
+
+    NOT `Generator._resolve_b_shape`.  That one sizes the grid from the
+    GENERATOR's probe budget (B_PROBES, default 300, at 20 probes per cell =
+    15 cells) and, worse, calibrate() has already called it by the time this
+    script asks -- so it returns the cached answer and ignores the per_cell
+    we pass.  On the production box that gave (1,1,1,2): two cells, which is
+    a global bound wearing a grid's clothes.
+
+    This script's budget is its own: `ncell x PER` probes over NW workers,
+    both given on the command line.  So the grid is chosen here, from the
+    number of cells we are willing to probe, and written into the npz -- the
+    jobs restore it from there and never re-resolve it.
+    """
+    for f in range(1, max(shape) + 1):
+        cand = tuple(max(1, -(-m // f)) for m in shape)
+        if int(np.prod(cand)) <= maxcell:
+            return cand
+    return tuple(1 for _ in shape)
+
+
 def build(seed, maj_cache=None):
     cfg = parse(CARD)
     kw = dict(t_nucl=cfg["t_nucl"]) if _needs_t_nucl(cfg["model"]) else {}
     sf = models.get(cfg["model"], **kw)
     sf.Ebeam = float(cfg["ebeam"])
     mx2 = cfg["vcut"] + sf.mU ** 2 if cfg["vcut"] > 0 else None
+    # theta_e and fermi are NOT decoration here.  Both are in _maj_key or
+    # change what the majorant describes, and neither was passed: a majorant
+    # built without `fermi` is a free-nucleon majorant, and a deuteron run
+    # would have rejected it on the key and rebuilt silently -- 200 times.
     g = Generator(sf, Ebeam=cfg["ebeam"],
                   box=Box(Q2=cfg["Q2"], W2=cfg["W2"], t=cfg["t"]),
                   mx2_cut=mx2, helicity=cfg["ihel"], ptarg=cfg.get("ptarg", 0.0),
-                  seed=seed, born_only=False,
-                  cuts=dict(y=cfg["y"], xB=cfg["xB"], iacc=cfg["iacc"]),
+                  seed=seed, born_only=bool(cfg["iborn"]),
+                  cuts=dict(y=cfg["y"], xB=cfg["xB"], iacc=cfg["iacc"],
+                            theta_e=cfg.get("theta_e", (0.0, 180.0))),
                   itarg=cfg["itarg"], vz=cfg["vz"], v_min=cfg["vmin"] or None,
+                  fermi=cfg.get("fermi", "none"),
                   maj_cache=maj_cache, cache=os.environ.get("ETA_TABLE"))
     g.setup(verbose=False)
     return g
@@ -115,10 +156,15 @@ if __name__ == "__main__":
     t0 = time.time()
     g0 = build(950001)
     g0.calibrate(n_probe=30000, margin=2.0, verbose=False)
+    if g0.born_only:
+        g0.save_majorant(OUT)
+        print(f"  born majorant {g0.majorant_shape} -> {OUT}"
+              f"   {time.time()-t0:.0f} s   (no stage-2 bound: born has no stage 2)")
+        sys.exit(0)
     g0.save_majorant(OUT + ".maj.npz")
     ms = g0.majorant_shape
     bshape = (tuple(int(x) for x in BSHAPE.split(",")) if BSHAPE
-              else g0._resolve_b_shape(ms, per_cell=1))
+              else b_shape_for_budget(ms, MAXCELL))
     ncell = int(np.prod(bshape))
     print(f"  majorant {ms} built in {time.time()-t0:.0f} s")
     print(f"  bound grid {bshape} = {ncell} cells x {PER} probes = {ncell*PER} total")

@@ -31,7 +31,10 @@
 #    failure the work directory survives and post_array.sbatch resumes from it.
 set -u
 MODE=${1:?born or rad}
-R=/volatile/clas12/vpk/prod_pi0_rga_fa18_inb_t2_20260925
+# ONE production directory for all three stages.  Until 2026-09-28 this
+# script said 20260924 while sim_array.sbatch said t2_20260925: stage A
+# wrote where stage B did not look.  Set PROD_DIR once and export it.
+R=${PROD_DIR:-/volatile/clas12/vpk/prod_pi0_rga_fa18_inb_t2_20260925}
 I=$(printf "%03d" "$SLURM_ARRAY_TASK_ID")
 W=$R/$MODE/work/w_$I
 BGDIR=/cache/clas12/rg-a/production/background/rga_fall2018/tor-1.00_sol-1.00/50nA_10604MeV/10k

@@ -25,6 +25,68 @@ high W: our production million is 14 % low in its last W bin (3.95–4.00,
 
 `git pull` gets both, plus the deuteron work merged from the `fermi` branch.
 
+## Rebuild the tables first — the box changed
+
+On 2026-09-28 the `t` box went to **−2.50 … −t_min** (`d581c5c`). The eta
+table, the majorant and the stage-2 bound are all properties of the box, so
+**everything in `tables/` from before that date is for a different box.**
+
+There is one script now, and it did not exist when you started:
+
+```bash
+export PROD_DIR=/volatile/clas12/vpk/prod_pi0_rga_fa18_inb_<your date>
+mkdir -p $PROD_DIR/cards
+cp ~/exclurad_py/cards/born_pi0_rga.txt $PROD_DIR/cards/rga_born.txt
+cp ~/exclurad_py/cards/rad_pi0_rga.txt  $PROD_DIR/cards/rga_rad.txt
+bash ~/exclurad_py/production/farm/build_tables.sh
+```
+
+Minutes on an interactive ifarm node, not hours. It writes into
+`$PROD_DIR/tables/`:
+
+| file | what | needed by |
+|---|---|---|
+| `etatable.npz` | eta on a (5,5,5,8) grid | rad |
+| `majorant_rad.npz` | majorant **+ stratified stage-2 bound** | rad |
+| `majorant_born.npz` | majorant only — born has no stage 2 | born |
+| `build.log` | what was built, and the bound's spread | you |
+
+Then submit `gen_array.sbatch` with the same `PROD_DIR` exported. It reads
+`$R/tables/majorant_$MODE.npz`, so the two modes no longer collide.
+
+**Read two numbers out of `build.log` before you submit 200 jobs.** On the
+new box, with the defaults (`NW=32`, `PER=400`):
+
+```
+bound grid (4, 4, 4, 6) = 384 cells x 400 probes
+B: min 0.85  median 1.70  ...  max 12.72
+cells with no usable probe: <should be a handful, not 150>
+```
+
+A **median far above ~1.7** or **many unprobed cells** means the probes did
+not reach; raise `PER`. A grid of `(1,1,1,2)` means you are back to a global
+bound wearing a grid's clothes — that is the shape the old code produced, and
+it is what the fixed script exists to avoid. Note the maximum is **12.72** on
+the −2.5 box against 8.67 on the old −2.0 one: widening `t` added a harder
+corner, which is exactly why the tables cannot be carried over.
+
+### Why you cannot skip this, and why nothing will warn you
+
+The two caches behave differently on a stale file:
+
+- **`etatable.npz` raises.** `RCTable.load` compares a key that carries the
+  model, version, beam energy, cut, shape, box, `t_nucl`, and the phi
+  convention. A mismatch is a `ValueError` and the job dies. Good.
+- **`majorant*.npz` does not.** On a key mismatch it falls through and
+  rebuilds inside the job — silently, 200 times. It costs 25 s per born job
+  and tells you nothing.
+
+So the rule is by hand, not by error message. **Rebuild when any of these
+changes:** model, `ebeam`, `W2`/`Q2`/`t` box, `vcut`, `ihel`, `ptarg`,
+`t_nucl`, `fermi`. **Do not rebuild for:** `nev`, `seed`, `outroot`,
+`theta_e`, `y`, `xB`, `iacc`, `vz`, `itarg` — those are cuts and bookkeeping,
+and the tables do not depend on them.
+
 ## What to produce
 
 Four samples: **born and rad, inbending and outbending.** The generator card is
