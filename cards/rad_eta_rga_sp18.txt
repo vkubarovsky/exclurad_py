@@ -24,7 +24,7 @@ none                               ! iacc   no generator-level acceptance; GEMC 
 -4.44 0.56                         ! vertex z range, cm -- 5 cm LH2 cell centred at -1.94 cm (rga_spring2018 gcard: BEAM_V -1.94, SPREAD_V 2.5)
 0.0                                ! ptarg  unpolarised target
 none                               ! fermi    deuteron target: none | av18
-6.0 180.0                          ! theta_e  scattered-electron polar angle window, deg
+5.0 180.0                          ! theta_e  scattered-electron polar angle window, deg
 !   MEASURED on the 2026-09-25 born million, INBENDING (torus -1.00): a negative track
 !   matched to the generated electron exists in 0.3 % of events at theta 5-6 deg and
 !   3.5 % at 6-7, against 44 % at 9-10 and 74 % at 15-20 -- below 6 deg the drift
