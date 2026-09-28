@@ -15,7 +15,10 @@
 # config.json, which carries sigma_nb.
 set -u
 MODE=${1:?born or rad}
-R=/volatile/clas12/vpk/prod_pi0_rga_fa18_inb_20260924
+# ONE production directory for all three stages.  Until 2026-09-28 this
+# script said 20260924 while sim_array.sbatch said t2_20260925: stage A
+# wrote where stage B did not look.  Set PROD_DIR once and export it.
+R=${PROD_DIR:-/volatile/clas12/vpk/prod_pi0_rga_fa18_inb_t2_20260925}
 V=/volatile/clas12/vpk/exclurad_py
 I=$(printf "%03d" "$SLURM_ARRAY_TASK_ID")
 W=$R/$MODE/gen/w_$I
@@ -31,7 +34,11 @@ export TABLE_SERIAL=1 ETA_PROPOSAL_CAP=5 EXACT_ACCEPT=1 EXPO_TAIL=1 MAJ_SAFETY=4
 # built once in tables/ and shared: 200 jobs each rebuilding the eta table is
 # what cost ten hours of idle farm on 2026-09-20
 [ "$MODE" = rad ] && export ETA_TABLE=$R/tables/etatable.npz
-export MAJ_TABLE=$R/tables/majorant.npz
+# ONE MAJORANT PER MODE.  _maj_key carries born_only, so a born job cannot
+# use the rad majorant -- and the cache does not say so: unlike the eta
+# table, which raises on a key mismatch, the majorant falls through
+# silently and rebuilds.  Measured: 25 s in each of 200 born jobs.
+export MAJ_TABLE=$R/tables/majorant_$MODE.npz
 
 rm -rf "$W"; mkdir -p "$W"
 # Substitute by FIELD, not by pattern.  's|^5000$|$NEV|' looked right and did
