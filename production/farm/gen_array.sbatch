@@ -80,7 +80,12 @@ echo "events written: $(grep -c '^ *[0-9]* *1 *1 ' "$SRC" 2>/dev/null || echo '?
 # The LUND is already clean: exclurad_py stopped writing '#' comments on
 # 2026-09-24 precisely because gemc -- and the OSG portal, which runs the same
 # gemc -- exits silently on the first one.  Nothing to strip.
-NAME=excluradpy_pi0_${MODE}_fa18_inb_$I
+# NO polarity in the name.  The generator knows nothing about the torus --
+# one LUND feeds both the inbending and the outbending simulation, and
+# sim_array.sbatch puts the polarity into ITS output names, where it is
+# true.  Until 2026-09-28 this said "inb", so every outbending sample would
+# have been built from a file whose name claimed otherwise.
+NAME=excluradpy_pi0_${MODE}_fa18_$I
 cp "$SRC" "$R/$MODE/lund_osg/$NAME.lund"
 ln -sf "$R/$MODE/lund_osg/$NAME.lund" "$R/$MODE/chunks/lund_$I.dat"
 
