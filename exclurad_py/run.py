@@ -210,6 +210,22 @@ def run(card_path, date=None, verbose=True, _part=None):
                   v_min=cfg["vmin"] or None,
                   maj_cache=_cache_paths(d)[1],
                   cache=None if cfg["iborn"] else _cache_paths(d)[0])
+    # Announce the soft/hard split MODE, not just its value.  A card with
+    # vmin = 0 -- or with the field omitted, which is the DEFAULT_OPT -- puts
+    # the generator into per-event selection by choose_vmin, and nothing said
+    # so anywhere: not the log, not the LUND header.  Story's 2026-09-28
+    # diagnostic sample had no step at 1e-4 in its v spectrum and a pile-up at
+    # 2.5e-3 instead, which is the smeared boundary, and the only way to find
+    # out was to plot the spectrum and notice.  A mode switch that a sample
+    # cannot report about itself is not a setting, it is a trap.
+    if not cfg["iborn"]:
+        if cfg["vmin"]:
+            print(f" soft/hard split: FIXED at vmin = {cfg['vmin']:.3g} GeV^2")
+        else:
+            print(" soft/hard split: PER EVENT (vmin = 0 in the card, so "
+                  "choose_vmin picks it per event, targeting soft_frac 0.35 "
+                  "within 1e-5..0.1 of v_max).  The v spectrum will have no "
+                  "step: set vmin explicitly if you want one.")
     t0 = time.time()
     g.setup(verbose=verbose)
     t_setup = time.time() - t0
@@ -292,6 +308,12 @@ def run(card_path, date=None, verbose=True, _part=None):
                               # the CARD's t_nucl -- sf.t_nucl in the stamp is
                               # the live attribute, i.e. the last event's t
                               t_nucl_card=cfg.get("t_nucl"),
+                              # the MODE, not the card value: "fixed" or
+                              # "per-event".  A sample has to be able to say
+                              # which soft/hard split made it, or two samples
+                              # get compared in the soft region without anyone
+                              # knowing they were sliced differently.
+                              vmin_mode=("fixed" if cfg["vmin"] else "per-event"),
                               n_events=len(ev), seed=cfg["seed"],
                               eta_interp=interp))
     lund = os.path.join(d, "lund",
