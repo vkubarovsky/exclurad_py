@@ -24,7 +24,12 @@ jpsi.diffrad_vm                    ! model  <channel>.<vintage>   (--models to l
 0                                  ! ihel    +1, -1, or 0 = helicity-averaged
 333522                             ! seed
 1                                  ! idecay  1 = decay vector meson to h+h- isotropically, 0 = no decay
-/Volumes/wd_14tb/mc/exclurad_py    ! output root (<channel>/<date>_<E>_<mode>_v1/ created under it)
+./exclurad_out                     ! output root -- RELATIVE on purpose.
+!   The production wrappers substitute this field with the job's own work
+!   directory (gen_array.sbatch, field 13), so in production the card value
+!   is never used.  It used to read /Volumes/wd_14tb/... -- one Mac's external
+!   disk, in a card shared through git -- and anyone running the card directly
+!   on Linux got PermissionError from os.makedirs before anything else happened.
 0.79 0.99                          ! y range  (nu/E)   -- match the reference generator's cut
 0.00001 0.016                      ! xB range          -- match the reference generator's cut
 jpsi                               ! iacc    acceptance preset: none | jpsi  (|p|,theta on e',p',daughters)

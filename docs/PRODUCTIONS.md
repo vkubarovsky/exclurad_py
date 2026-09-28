@@ -4,6 +4,19 @@ One entry per production campaign, newest first. Every number here is read
 from the samples themselves (LUND headers, `config.json`, the wd_14tb
 catalogue), never typed from memory.
 
+**A document is a measurement with no timestamp on it.** Two entries in this
+file went stale within a day of being written on 2026-09-26, both in the same
+shape: true when written, silently false afterwards, and repeated in good
+faith by the next reader. The retention figures in §3 of the current run read
+as reconstructed because they sat next to a sentence about the reconstructed
+cut; the integration command in the fermi branch's handover said `--ff-only`
+and stopped working the moment `production` moved. Neither failed loudly.
+
+So: when a statement here depends on something that can move — a branch head,
+a queue, a file on `/volatile`, a number someone else measured — say what it
+depended on, or write the check instead of the answer. `git merge-base
+--is-ancestor production fermi` does not rot; "it is a fast-forward" does.
+
 **Adding an entry is part of finishing a run.** The recipe:
 
 ```bash
@@ -143,6 +156,7 @@ the detected neutron.
 | beam, target | 10.604 GeV, LH2, vertex z −5.5…−0.5 cm |
 | box | W² 3.24–16.0, Q² 0.80–10.0, t −2.00…−0.001, vcut **0** |
 | events | 1 000 000 born + 1 000 000 rad, 200 chunks × 5000 each |
+| through GEMC | **complete 2026-09-28: born 200/200, rad 200/200 DST** |
 | σ | born **0.8804 nb**, obs **1.0798 nb** → ⟨η⟩ = **1.226** over the box |
 | code | born `225d4d9`, rad `291fe5f` (the difference is the cards commit; the physics code is identical and carries the stage-2 fix) |
 | generated on | clonfarm11, 100 workers, born 8 min, rad 9 h 21 min |
@@ -187,8 +201,74 @@ the detected neutron.
 - The box exceeds amp2609's validity (Q² 1.15–8.31, |t| ≤ 1.8): **47 % of
   events have Q² < 1.15**, below the lowest point of Igor's data. The model
   extrapolates there and says so (`sf.out_of_range: report`).
-- About **0.25 % of rad events exceed the stage-2 bound** (worst ×1.55), so
-  the sample is not strictly unweighted in that tail.
+- **0.56 % of stage-2 evaluations exceed the bound, worst ×3.35, in 198 of
+  the 200 chunks.** (This entry first said 0.25 % and ×1.55 — figures from
+  the 84k validation run, quoted as if they described the production. The
+  production numbers above are from the 200 chunk logs.) Where the bound is
+  exceeded the event is accepted with probability 1 instead of r, so the
+  accepted density is min(σ_exact, B·s_obs) and those points are
+  **under-represented by 1/r**, by up to a factor 3.3.
+
+  This is not evenly spread. `production/bound_map.py` on this box puts the
+  large-r region at high Q² and high W — the same corner where the rad/born
+  ratio climbs to 4 — and it carries under 1 % of the Born cross section. So
+  the integrated cross section is affected at the few-tenths-of-a-percent
+  level, while a differential result in that corner can be off by tens of
+  percent. `events.py:1258` records the precedent: a 2026-08-18 run that
+  broke the bound by up to ×45 came out 17–29 % low at high W, and
+  normalisation mirrored that into a 20 % excess at low W, 9 σ.
+
+  Cause: the stage-2 bound grid defaults to the majorant grid (8,8,8,12 =
+  6144 cells) because `B_SHAPE` is unset, while `B_PROBES` is 300 — so under
+  5 % of cells are ever measured and the rest take the global fallback. `_B`
+  is also rebuilt per job and is not stored in `majorant.npz`, so all 200
+  jobs repeat the same 300-probe lottery independently.
+
+  **Fixed 2026-09-27** (`30a10c7`, `da664cc`). The lottery, measured: 100
+  workers of 200 probes each returned worst-cell bounds from 2.01 to 8.67
+  against a true maximum of 8.67. `_B` is now stored in `majorant.npz` and
+  restored instead of re-probed; the grid is sized from the probe budget
+  rather than defaulting to the 6144-cell majorant grid; and
+  `production/build_bound.py` builds it once, probing **every cell uniformly**
+  instead of drawing from the proposal — which never reaches the tail cells
+  however many probes it is given. Weighted by the proposal the bound is
+  1.67, against 10.05 for the global alternative: tight where the events are,
+  large only in the corner carrying 0.4 % of the majorant mass.
+
+  Measured on 9600 events of the same box, old against new:
+
+  | | lottery | cached, stratified |
+  |---|---:|---:|
+  | violations | 131 | **9** |
+  | worst excess | ×3.23 | **×1.41** |
+  | chunks with none | 0 of 24 | **16 of 24** |
+  | ms/event | 1800 | **1596** |
+
+  Not zero, and it cannot be: a bound is a max over probes and a rare point
+  will always exceed it. **The 2026-09-25 sample was generated before this
+  fix**, so the question is what it costs, and that is now measured rather
+  than estimated: 240k events regenerated with the fixed bound, compared
+  against the production million.
+
+  | | production (lottery) | fixed bound |
+  |---|---:|---:|
+  | violations per 100 events | 1.52 | **0.0096** |
+  | worst excess | ×3.35 | ×1.76 |
+
+  The shapes agree everywhere except the top of the W range:
+
+  | | χ²/ndf | worst bin |
+  |---|---:|---|
+  | W | 2.33 | **W 3.95–4.00: +13.7 %, 5.2 σ** (0.87 % of the sample) |
+  | Q² | 1.04 | 2.2 σ — consistent with no difference |
+  | −t | 0.81 | 1.5 σ — consistent with no difference |
+
+  **So: use the sample as it stands below W = 3.9, and do not use its last
+  W bin.** Integrated over the whole sample the deficit is 0.12 %; in the
+  last bin it is 14 %, which is not a caveat but an error. Note that
+  rad/born climbs to 4–5 in exactly that region, so whether this matters
+  depends entirely on whether the analysis goes there. Plot:
+  `docs/plots/20260928_bound_effect.png`.
 - **The step at v = 10⁻⁴ in the radiative-tail panel is `vmin`**, the
   soft/hard split, not a defect. Below it only the external pre-vertex
   radiator contributes: born, which has no internal radiation at all, shows

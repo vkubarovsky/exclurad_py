@@ -27,4 +27,5 @@ none                               ! iacc
 -5.5 -0.5                          ! vertex z range, cm
 0.0                                ! ptarg
 none                               ! fermi   deuteron target: none | av18
+0.0 180.0                          ! theta_e  scattered-electron polar angle window, deg (whole range: the electron is not detected)
 0.10                               ! fermi_mstar_min  m* floor (GeV): 0.10 keeps 99.85 % of the kinematically allowed configurations at E_gamma = 7.0 (0.30 would drop 2.2 %)

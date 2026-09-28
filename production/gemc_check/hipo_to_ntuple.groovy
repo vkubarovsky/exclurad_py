@@ -1,12 +1,17 @@
 // aao_gen CLAS12 MC -> flat binary ntuple (little-endian float32, fixed record).
-//   run-groovy aao_ntuple.groovy <file.hipo> <max events> <out.f32> [skip]
+//   run-groovy aao_ntuple.groovy <file.hipo> <max events> <out.f32> [skip] [hadron pid]
+// The detected baryon defaults to the proton, 2212.  Pass 2112 for a neutron
+// target: on a deuteron the struck neutron AND the spectator proton are both in
+// the record, so a hardcoded 2212 silently picks the SPECTATOR and the ntuple
+// describes the wrong particle without failing.  Found by the fermi session,
+// 2026-09-26; it affects no proton-target sample, and every neutron one.
 // Record per event (NFLD floats):
 //   [0]      weight (MC::Event)
 //   [1..12]  gen px,py,pz for e, p, g1, g2 (MC::Lund order)
 //   for k in e,p,g1,g2 (block of 8 each, starting at 13):
 //     found(0/1) pid charge status quality px py pz   -- REC::Particle row given by MC::GenMatch
 //                                                       (one row per MC particle; pindex=-1 -> not found)
-//   [45] n_e(rec pid 11)  [46] n_p(rec pid 2212)  [47] n_gamma(rec pid 22)  -- naive counts
+//   [45] n_e(rec pid 11)  [46] n_baryon(rec pid = hadron pid)  [47] n_gamma(rec pid 22)
 //   [48] n_rec rows   [49] flag: MC::Particle row count != MC::Lund row count (status-0 rows in Lund)
 import org.jlab.jnp.hipo4.data.*
 import org.jlab.jnp.hipo4.io.*
@@ -16,6 +21,7 @@ def fname = args[0]
 int maxev = args[1] as int
 def oname = args[2]
 int skip = args.size() > 3 ? args[3] as int : 0
+int hpid = args.size() > 4 ? args[4] as int : 2212   // 2112 for a neutron target
 final int NFLD = 50
 
 def reader = new HipoReader(); reader.open(fname)
@@ -40,12 +46,56 @@ try {
     // propagated (status 1) particles -- a LUND with a status-0 pi0 row (exclurad_py) has 5 Lund rows
     // but 4 MC::Particle rows.  So indices AND momenta are taken from MC::Particle; Lund is the fallback.
     def src = mcp.getRows() > 0 ? mcp : lund
+
+    // WHICH TWO PHOTONS ARE THE PI0's.  Taking the first two in MC::Particle
+    // order is wrong for a radiative sample: the LUND carries THREE photons --
+    // the radiated one, written before the decay pair -- so the first two are
+    // the radiated photon and one decay photon, and the other decay photon is
+    // dropped.  Measured on the 2026-09-25 rad million: 56.7 % of events have
+    // three photons, and the pair was wrong in 26.8 % of the sample, which put
+    // the "g1" efficiency at 39 % against 70 % for born.
+    //
+    // Taking the two HARDEST is no better -- 52.8 % correct -- because the pi0
+    // decay is asymmetric: one photon can be 11 MeV while the radiated one is
+    // 0.93 GeV.  The truth is in MC::Lund's parent column, which survives GEMC:
+    // decay photons carry the pi0's 1-based row index, the radiated one carries
+    // 0.  Match those back to MC::Particle by momentum, since MC::Particle drops
+    // the status-0 pi0 row and the indices do not line up.
+    double[][] pi0gam = new double[2][3]
+    int npi0gam = 0
+    if (lund.getRows() > 0) {
+      int pi0row = -1
+      for (int i = 0; i < lund.getRows(); i++) if (lund.getInt("pid", i) == 111) { pi0row = i + 1; break }
+      if (pi0row > 0) {
+        for (int i = 0; i < lund.getRows() && npi0gam < 2; i++) {
+          if (lund.getInt("pid", i) == 22 && lund.getInt("parent", i) == pi0row) {
+            pi0gam[npi0gam][0] = lund.getFloat("px", i)
+            pi0gam[npi0gam][1] = lund.getFloat("py", i)
+            pi0gam[npi0gam][2] = lund.getFloat("pz", i)
+            npi0gam++
+          }
+        }
+      }
+    }
+
     int ie=-1, ip=-1, ig1=-1, ig2=-1
     for (int i = 0; i < src.getRows(); i++) {
       int pid = src.getInt("pid", i)
       if (pid == 11 && ie < 0) ie = i
-      else if (pid == 2212 && ip < 0) ip = i
-      else if (pid == 22) { if (ig1 < 0) ig1 = i; else if (ig2 < 0) ig2 = i }
+      else if (pid == hpid && ip < 0) ip = i
+      else if (pid == 22) {
+        int which = -1
+        if (npi0gam == 2) {
+          // keep only the photons the pi0 actually produced
+          double px = src.getFloat("px", i), py = src.getFloat("py", i), pz = src.getFloat("pz", i)
+          for (int j = 0; j < 2; j++) {
+            if (Math.abs(px - pi0gam[j][0]) < 1e-5 && Math.abs(py - pi0gam[j][1]) < 1e-5
+                && Math.abs(pz - pi0gam[j][2]) < 1e-5) { which = j; break }
+          }
+          if (which < 0) continue                 // the radiated photon: skip it
+        }
+        if (ig1 < 0) ig1 = i; else if (ig2 < 0) ig2 = i
+      }
     }
     if (ie < 0 || ip < 0 || ig1 < 0 || ig2 < 0) { nbad++; continue }
     gi[0]=ie; gi[1]=ip; gi[2]=ig1; gi[3]=ig2
@@ -70,7 +120,7 @@ try {
       }
     }
     int ne=0, np=0, ng=0
-    for (int i = 0; i < rec.getRows(); i++) { int pid = rec.getInt("pid", i); if (pid==11) ne++; else if (pid==2212) np++; else if (pid==22) ng++ }
+    for (int i = 0; i < rec.getRows(); i++) { int pid = rec.getInt("pid", i); if (pid==11) ne++; else if (pid==hpid) np++; else if (pid==22) ng++ }
     r[45]=ne; r[46]=np; r[47]=ng; r[48]=rec.getRows()
     bb.clear(); for (int k = 0; k < NFLD; k++) bb.putFloat(r[k])
     os.write(bb.array()); nw++

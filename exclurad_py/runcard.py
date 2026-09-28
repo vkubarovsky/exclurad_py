@@ -59,6 +59,7 @@ FIELDS = [
     ("vz", "pair", "vertex z range (cm) -- the target cell"),
     ("ptarg", float, "ptarg   longitudinal target polarisation, -1..+1; 0 = unpolarised"),
     ("fermi", str, "fermi   deuteron target: none | av18"),
+    ("theta_e", "pair", "scattered-electron polar angle window, degrees"),
     ("fermi_mstar_min", float, "fermi_mstar_min  floor on the struck nucleon's off-shell mass m* (GeV); 0.30 for pi0/eta, 0.10 for near-threshold J/psi"),
 ]
 N_REQUIRED = 13          # fields up to and including outroot
@@ -70,9 +71,20 @@ N_REQUIRED = 13          # fields up to and including outroot
 # A string, not an integer: the wave function is a physics input that belongs
 # in the card and in the LUND header in a form a reader understands, as with
 # `iacc none`.
-DEFAULT_OPT = dict(y=(0.0, 1.0), xB=(0.0, 1.0), iacc="none", vmin=0.0,
+# vmin DEFAULTS TO A FIXED SPLIT.  It used to default to 0, which does not
+# mean zero -- the soft/hard integral diverges there -- it means "choose one
+# per event".  A card that simply omitted the field therefore got a boundary
+# that moved from event to event, and nothing said so.  0 still selects the
+# automatic mode, but now only when it is asked for explicitly.
+# theta_e defaults to the whole range, so a card written before this field
+# existed keeps producing exactly what it produced before.  It is applied in
+# _pass_electron_acc, BEFORE the Born cross section and the radiative
+# correction, because theta of the scattered electron follows from Q2 and W2
+# alone -- so a rejected event costs three arithmetic operations, not a
+# radiative integral.
+DEFAULT_OPT = dict(y=(0.0, 1.0), xB=(0.0, 1.0), iacc="none", vmin=1.0e-4,
                    itarg=0, vz=(0.0, 0.0), ptarg=0.0, fermi="none",
-                   fermi_mstar_min=0.30)
+                   theta_e=(0.0, 180.0), fermi_mstar_min=0.30)
 
 
 def _num(tok):
@@ -205,6 +217,7 @@ TEMPLATE = """! exclurad_py run card -- plain text, one value per line, ! starts
 {vz:<34} ! vz      vertex z range (cm) -- the target cell
 {ptarg:<34} ! ptarg   longitudinal target polarisation, -1..+1; 0 = unpolarised
 {fermi:<34} ! fermi   deuteron target: none | av18  (Fermi motion + spectator)
+{theta_e:<34} ! theta_e  scattered-electron polar angle window, deg
 {fermi_mstar_min:<34} ! fermi_mstar_min  m* floor (GeV)
 """
 
@@ -214,8 +227,9 @@ def write_template(path, **kw):
              W2="4.5 12.0", Q2="1.0 5.0", t="-2.0 -0.10", vcut="0.20",
              t_nucl="-0.30", ihel="0", seed="20260813", idecay="1",
              outroot="/Volumes/wd_14tb/mc/exclurad_py",
-             y="0.0 1.0", xB="0.0 1.0", iacc="none", vmin="0.0",
-             itarg="0", vz="0.0 0.0", ptarg="0.0", fermi="none")
+             y="0.0 1.0", xB="0.0 1.0", iacc="none", vmin="1.0e-4",
+             itarg="0", vz="0.0 0.0", ptarg="0.0", fermi="none",
+             theta_e="0.0 180.0", fermi_mstar_min="0.30")
     d.update({k: str(v) for k, v in kw.items()})
     with open(path, "w") as fh:
         fh.write(TEMPLATE.format(**d))

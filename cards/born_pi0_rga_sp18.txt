@@ -9,13 +9,25 @@ pi0.amp2609                        ! model  <channel>.<vintage>  (pi0.vpk2021 fo
 1                                  ! iborn   1 = Born only, 0 = full RC   (rad twin: 0, all else identical)
 3.24 16.00                         ! W2 range (GeV^2): W 1.8 - 4.0; nothing is accepted above W = 3.95
 0.80 10.00                         ! Q2 range (GeV^2): outbending acceptance reaches the aao edge 0.9; amp2609 extrapolates below 1.15 and reports
--2.00 -0.001                       ! t range (GeV^2): narrowed from -5.0 on 2026-09-25.  Igor's CLAS12 pi0 grid spans |t| = 0.125-1.758 with NOTHING above 2.0 in 6192 points, and amp2609's validity ends at |t| = 1.8, so the -5.0 box spent statistics where there is neither data nor a model.
+-2.50 -0.001                       ! t range (GeV^2): -2.50 since 2026-09-28 (VPK).  The UPPER edge -0.001 is nominal:
+!   EventKin.t_limits rejects anything outside the kinematic [t_min, t_max] per event,
+!   so the effective edge is -t_min (the sample's smallest |t| is 0.0027, not 0.001).
+!   The lower edge went -5.0 -> -2.0 on 2026-09-25 and -2.0 -> -2.5 on 2026-09-28:
+!   generate WIDER than you analyse, so resolution migration across the analysis cut
+!   at |t| = 2 is simulated.  The band 2.0-2.5 costs +2.3 % of events.  Note amp2609's
+!   validity ends at |t| = 1.8: above that the sample is the model EXTRAPOLATED, kept
+!   as feed-in across the cut, not as a prediction.  Originally narrowed from -5.0:  Igor's CLAS12 pi0 grid spans |t| = 0.125-1.758 with NOTHING above 2.0 in 6192 points, and amp2609's validity ends at |t| = 1.8, so the -5.0 box spent statistics where there is neither data nor a model.
 0                                  ! vcut  0 = no missing-mass cut; the MX^2 cut is an analysis cut, apply it offline
 -0.30                              ! t_nucl (GeV^2) for the pi0/eta models
 0                                  ! ihel   0 = helicity-averaged (use +1/-1 twins for BSA samples)
 20260924                           ! seed   (unique per run/cycle)
 1                                  ! idecay (irrelevant for pi0)
-/Volumes/wd_14tb/exclurad_py       ! output root
+./exclurad_out                     ! output root -- RELATIVE on purpose.
+!   The production wrappers substitute this field with the job's own work
+!   directory (gen_array.sbatch, field 13), so in production the card value
+!   is never used.  It used to read /Volumes/wd_14tb/... -- one Mac's external
+!   disk, in a card shared through git -- and anyone running the card directly
+!   on Linux got PermissionError from os.makedirs before anything else happened.
 0.00 0.90                          ! y range: NO lower cut. y_min = 0.25 removed 20 % (inb) / 51 % (out) of accepted events; W and Q2 bound y from below
 0.00 1.00                          ! xB range: NO cut. xB <= 0.60 removed 4 % inbending at high Q2 / low W
 none                               ! iacc   no generator-level acceptance; GEMC does that
@@ -23,3 +35,12 @@ none                               ! iacc   no generator-level acceptance; GEMC 
 1                                  ! itarg  pre-vertex external radiator ON (aao lacks it; keep the difference visible)
 -4.44 0.56                         ! vertex z range, cm -- 5 cm LH2 cell centred at -1.94 cm (rga_spring2018 gcard: BEAM_V -1.94, SPREAD_V 2.5)
 0.0                                ! ptarg  unpolarised target
+none                               ! fermi    deuteron target: none | av18
+5.0 180.0                          ! theta_e  scattered-electron polar angle window, deg
+!   MEASURED on the 2026-09-25 born million, INBENDING (torus -1.00): a negative track
+!   matched to the generated electron exists in 0.3 % of events at theta 5-6 deg and
+!   3.5 % at 6-7, against 44 % at 9-10 and 74 % at 15-20 -- below 6 deg the drift
+!   chambers do not find the track at all.  Cutting there drops 22 % of the generation
+!   and loses ZERO reconstructed events: 38530 before and 38530 after.
+!   OUTBENDING bends the electron AWAY from the beamline and accepts smaller angles.
+!   This number is not measured there and must not be carried across.
