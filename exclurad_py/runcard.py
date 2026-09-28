@@ -69,7 +69,12 @@ N_REQUIRED = 13          # fields up to and including outroot
 # A string, not an integer: the wave function is a physics input that belongs
 # in the card and in the LUND header in a form a reader understands, as with
 # `iacc none`.
-DEFAULT_OPT = dict(y=(0.0, 1.0), xB=(0.0, 1.0), iacc="none", vmin=0.0,
+# vmin DEFAULTS TO A FIXED SPLIT.  It used to default to 0, which does not
+# mean zero -- the soft/hard integral diverges there -- it means "choose one
+# per event".  A card that simply omitted the field therefore got a boundary
+# that moved from event to event, and nothing said so.  0 still selects the
+# automatic mode, but now only when it is asked for explicitly.
+DEFAULT_OPT = dict(y=(0.0, 1.0), xB=(0.0, 1.0), iacc="none", vmin=1.0e-4,
                    itarg=0, vz=(0.0, 0.0), ptarg=0.0, fermi="none")
 
 
