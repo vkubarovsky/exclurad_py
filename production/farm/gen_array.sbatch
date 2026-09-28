@@ -28,7 +28,11 @@ W=$R/$MODE/gen/w_$I
 NEV=${NEV:-5000}
 # seeds: disjoint between modes and across tasks, and far from the September
 # campaign's 3-9 x 10^7
-SEEDBASE=$([ "$MODE" = born ] && echo 610000000 || echo 620000000)
+# Overridable, and it MUST be overridden per campaign.  The base was baked
+# in, so the 2026-09-28 reference would have reused the 2026-09-25 seeds
+# exactly: a different box makes different events, but two samples whose
+# random streams coincide cannot be combined or compared as independent.
+SEEDBASE=${SEEDBASE:-$([ "$MODE" = born ] && echo 610000000 || echo 620000000)}
 SEED=$(( SEEDBASE + SLURM_ARRAY_TASK_ID * 10000 ))
 
 export TMPDIR=/tmp
