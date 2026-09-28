@@ -22,7 +22,12 @@ eta.amp2609                        ! model  <channel>.<vintage>  (eta.vpk2021 fo
 0                                  ! ihel   0 = helicity-averaged (use +1/-1 twins for BSA samples)
 20260924                           ! seed   (unique per run/cycle)
 1                                  ! idecay (eta -> gamma gamma in the generator; GEMC needs the photons)
-/Volumes/wd_14tb/exclurad_py       ! output root
+./exclurad_out                     ! output root -- RELATIVE on purpose.
+!   The production wrappers substitute this field with the job's own work
+!   directory (gen_array.sbatch, field 13), so in production the card value
+!   is never used.  It used to read /Volumes/wd_14tb/... -- one Mac's external
+!   disk, in a card shared through git -- and anyone running the card directly
+!   on Linux got PermissionError from os.makedirs before anything else happened.
 0.00 0.90                          ! y range: NO lower cut. y_min = 0.25 removed 20 % (inb) / 51 % (out) of accepted events; W and Q2 bound y from below
 0.00 1.00                          ! xB range: NO cut. xB <= 0.60 removed 4 % inbending at high Q2 / low W
 none                               ! iacc   no generator-level acceptance; GEMC does that
