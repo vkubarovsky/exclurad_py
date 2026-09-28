@@ -1,9 +1,18 @@
 #!/bin/bash
 # Stage B: GEMC, background merge, reconstruction, ntuple and DST, for one chunk.
 #
-#   sbatch --array=1-200 --job-name=sim_rad --time=07:00:00 sim_array.sbatch rad
+#   sbatch --array=1-200 --job-name=sim_rad_inb  --time=10:00:00 sim_array.sbatch rad inb
+#   sbatch --array=1-200 --job-name=sim_rad_outb --time=10:00:00 sim_array.sbatch rad outb
 #
-# Configuration: rga_fall2018, inbending (torus -1.00), beam 10604 MeV,
+# POLARITY is the second argument, added 2026-09-28 (VPK: inbending AND
+# outbending).  Only three things depend on it -- the torus scale, the
+# background directory, and the output names -- and the gcard and yaml do
+# NOT: the yaml names only the SYMMETRIC field maps, and recon takes the
+# sign from RUN::config, which gemc writes from -SCALE_FIELD.  Both
+# polarities share one generated LUND, because the generator knows nothing
+# about the torus.
+#
+# Configuration: rga_fall2018, beam 10604 MeV,
 # gemc 5.13 + coatjava 10.0.7 -- the pass-2 pair from clas12-config setup.json.
 # Background: 50 nA over the eleven detectors the official production merges;
 # bg-merger's own default is DC,FTOF only, which would leave the calorimeter
@@ -31,13 +40,23 @@
 #    failure the work directory survives and post_array.sbatch resumes from it.
 set -u
 MODE=${1:?born or rad}
+POL=${2:?inb or outb}
+case "$POL" in
+  inb)  TORUS=-1.00; BGPOL=tor-1.00_sol-1.00 ;;
+  outb) TORUS=+1.00; BGPOL=tor+1.00_sol-1.00 ;;
+  *)    echo "FATAL: polarity must be inb or outb, got '$POL'"; exit 1 ;;
+esac
 # ONE production directory for all three stages.  Until 2026-09-28 this
 # script said 20260924 while sim_array.sbatch said t2_20260925: stage A
 # wrote where stage B did not look.  Set PROD_DIR once and export it.
 R=${PROD_DIR:-/volatile/clas12/vpk/prod_pi0_rga_fa18_inb_t2_20260925}
 I=$(printf "%03d" "$SLURM_ARRAY_TASK_ID")
-W=$R/$MODE/work/w_$I
-BGDIR=/cache/clas12/rg-a/production/background/rga_fall2018/tor-1.00_sol-1.00/50nA_10604MeV/10k
+W=$R/$MODE/work_$POL/w_$I
+# The 50 nA files live on TAPE and are evicted from /cache.  On 2026-09-28
+# both polarities' directories were empty and `jcache get` had to stage 100
+# files each, which is why the guard below exists: it turns a cold cache
+# into one line instead of 200 jobs dying inside gemc three hours in.
+BGDIR=/cache/clas12/rg-a/production/background/rga_fall2018/$BGPOL/50nA_10604MeV/10k
 # 100 background files for 200 tasks: each is used by two tasks, whose
 # generated events are independent, so no correlation is introduced
 BG=$(printf "%s/%05d.hipo" "$BGDIR" $(( (SLURM_ARRAY_TASK_ID - 1) % 100 + 1 )))
@@ -45,8 +64,9 @@ DET='DC,FTOF,ECAL,HTCC,LTCC,BST,BMT,CND,CTOF,FTCAL,FTHODO'
 CFG=/cvmfs/oasis.opensciencegrid.org/jlab/hallb/clas12/sw/noarch/clas12-config/prod
 GC=$CFG/gemc/5.13/rga_fall2018.gcard
 YAML=$CFG/coatjava/10.0.7/rga_fall2018.yaml
-OUTTAG=excluradpy_pi0_${MODE}_fa18_inb_bg50nA_$I
+OUTTAG=excluradpy_pi0_${MODE}_fa18_${POL}_bg50nA_$I
 
+mkdir -p "$R/$MODE/out_$POL" "$R/$MODE/dst_$POL"
 rm -rf "$W"; mkdir -p "$W"; cd "$W"
 export TMPDIR=$W                         # not /tmp: see fix 1
 source /etc/profile.d/modules.sh
@@ -60,12 +80,19 @@ export JDK_JAVA_OPTIONS="-Djava.io.tmpdir=$W -Dorg.sqlite.tmpdir=$W"
 which gemc recon-util bg-merger
 
 cp "$R/$MODE/chunks/lund_$I.dat" lund.dat || { echo "FATAL: no chunk lund_$I.dat"; exit 1; }
-[ -f "$BG" ] || { echo "FATAL: no background file $BG"; exit 1; }
-echo "chunk $(grep -c '^ *[0-9]* *1 *1 ' lund.dat) events, background $(basename "$BG")"
+# Not just "does it exist".  /cache is tape-backed: an evicted file can be
+# a zero-length or stub entry that passes -f and then feeds gemc nothing.
+# Stage the whole directory with `jcache get` before submitting.
+if [ ! -s "$BG" ] || [ "$(stat -c %s "$BG")" -lt 1000000 ]; then
+  echo "FATAL: background $BG is missing or not staged ($(stat -c %s "$BG" 2>/dev/null || echo absent) bytes)."
+  echo "       Stage it first:  jcache get /mss/clas12/rg-a/production/background/rga_fall2018/$BGPOL/50nA_10604MeV/10k/*.hipo"
+  exit 1
+fi
+echo "chunk $(grep -c '^ *[0-9]* *1 *1 ' lund.dat) events, torus $TORUS, background $(basename "$BG")"
 
 T0=$(date +%s)
 gemc -USE_GUI=0 -NGENP=100 -N=100000 -INPUT_GEN_FILE="lund, lund.dat" "$GC" \
-     -SCALE_FIELD="binary_torus, -1.00" -SCALE_FIELD="binary_solenoid, -1.00" \
+     -SCALE_FIELD="binary_torus, $TORUS" -SCALE_FIELD="binary_solenoid, -1.00" \
      -OUTPUT="hipo, gemc.hipo" -INTEGRATEDRAW="*" > gemc.log 2>&1
 T1=$(date +%s); GS=$(stat -c %s gemc.hipo 2>/dev/null || echo 0)
 echo "GEMC seconds: $((T1-T0))  size: $GS"
@@ -88,13 +115,13 @@ module purge                              # java 21 from coatjava breaks run-gro
 unset JDK_JAVA_OPTIONS
 export PATH=/group/clas12/packages/groovy/4.0.3/bin:$PATH
 /group/clas12/packages/coatjava/9.0.2/bin/run-groovy "$R/hipo_to_ntuple.groovy" \
-    recon.hipo 1000000 "$R/$MODE/out/$OUTTAG.f32" 2>&1 | grep -E "DONE|FATAL|Exception" || true
+    recon.hipo 1000000 "$R/$MODE/out_$POL/$OUTTAG.f32" 2>&1 | grep -E "DONE|FATAL|Exception" || true
 /group/clas12/packages/coatjava/9.0.2/bin/hipo-utils -filter \
     -b "RUN::*,REC::*,RECFT::*,MC::*" -merge \
-    -o "$R/$MODE/dst/$OUTTAG.hipo" recon.hipo > /dev/null 2>&1
+    -o "$R/$MODE/dst_$POL/$OUTTAG.hipo" recon.hipo > /dev/null 2>&1
 T4=$(date +%s); echo "NTUPLE+DST seconds: $((T4-T3))"
 echo "TOTAL seconds: $((T4-T0))"
-ls -la "$R/$MODE/dst/$OUTTAG.hipo" "$R/$MODE/out/$OUTTAG.f32" 2>/dev/null
+ls -la "$R/$MODE/dst_$POL/$OUTTAG.hipo" "$R/$MODE/out_$POL/$OUTTAG.f32" 2>/dev/null
 # only a finished DST makes three hours of GEMC expendable
-if [ -s "$R/$MODE/dst/$OUTTAG.hipo" ]; then cd "$R"; rm -rf "$W"; fi
-echo "DONE $MODE $I"
+if [ -s "$R/$MODE/dst_$POL/$OUTTAG.hipo" ]; then cd "$R"; rm -rf "$W"; fi
+echo "DONE $MODE $POL $I"
