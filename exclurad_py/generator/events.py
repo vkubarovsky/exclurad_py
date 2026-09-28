@@ -294,7 +294,21 @@ class Generator:
             from .decay import ACCEPTANCE
             _w = ACCEPTANCE.get(_iacc)
             if _w and "electron" in _w:
-                self._acc_electron = _w["electron"]
+                self._acc_electron = list(_w["electron"])
+        # An explicit theta window from the card INTERSECTS the preset rather
+        # than replacing it: the two answer different questions -- the preset
+        # is a channel's detector window, this is where the drift chambers
+        # stop finding the track at all.  Measured on the 2026-09-25 born
+        # million, inbending: a negative track matched to the generated
+        # electron exists in 0.3 % of events at theta 5-6 deg and 3.5 % at
+        # 6-7, against 44 % at 9-10 and 74 % at 15-20.  Cutting at 6 deg
+        # removes 22 % of the generation and loses ZERO reconstructed events.
+        _the = (cuts or {}).get("theta_e")
+        if _the and (float(_the[0]) > 0.0 or float(_the[1]) < 180.0):
+            if self._acc_electron is None:
+                self._acc_electron = [0.0, 1.0e9, 0.0, 180.0]
+            self._acc_electron[2] = max(self._acc_electron[2], float(_the[0]))
+            self._acc_electron[3] = min(self._acc_electron[3], float(_the[1]))
         self.n_cut_eacc = 0
         self.n_cut_yxb = 0
         self.n_cut_acc = 0
