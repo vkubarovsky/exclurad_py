@@ -53,6 +53,7 @@ MARGIN = 1.3
 
 
 MAXCELL = int(os.environ.get("B_MAXCELL", "400"))
+MINUSE = int(os.environ.get("B_MINUSE", "20"))
 
 
 def b_shape_for_budget(shape, maxcell):
@@ -107,6 +108,10 @@ def probe_cells(arg):
     e = g.maj["edges"]
     ms = g.majorant_shape
     rng = np.random.default_rng(seed)
+    # `best` alone is not enough.  A cell where 3 of 400 draws survived the
+    # guards gets a bound from 3 samples -- the same lottery as before, just
+    # confined to one cell, and THAT is where a violation comes from.  So the
+    # usable count travels with the max and decides whether it is trusted.
     out, nfail = {}, 0
     for flat in range(lo, hi):
         bc = np.unravel_index(flat, bshape)
@@ -117,7 +122,7 @@ def probe_cells(arg):
             if not idx:
                 idx = [min(ms[ax] - 1, bc[ax])]
             rngs.append((e[k][min(idx)], e[k][max(idx) + 1]))
-        best = 0.0
+        best, nuse = 0.0, 0
         for _ in range(PER):
             if not g._draw_vertex():
                 continue
@@ -147,8 +152,9 @@ def probe_cells(arg):
                 nfail += 1
                 continue
             if np.isfinite(so) and so > 0:
+                nuse += 1
                 best = max(best, so / eta)
-        out[flat] = best
+        out[flat] = (best, nuse)
     return out, nfail
 
 
@@ -178,25 +184,66 @@ if __name__ == "__main__":
     print(f"  probed in {time.time()-t1:.0f} s")
 
     bmax = np.zeros(ncell)
+    nuse = np.zeros(ncell, dtype=int)
     nfail = 0
     for d, nf in res:
         nfail += nf
-        for k, v in d.items():
+        for k, (v, n) in d.items():
             bmax[k] = max(bmax[k], v)
-    bmax = bmax.reshape(bshape)
-    nz = bmax > 0
+            nuse[k] += n
+    bmax, nuse = bmax.reshape(bshape), nuse.reshape(bshape)
+    # A bound is a max over probes, so it is biased LOW when there are few.
+    # Cells under MINUSE keep the global fallback instead of a number drawn
+    # from a handful of draws.  Measured on the -2.5 box at 400 probes per
+    # cell: a third of the grid is kinematically EMPTY (0 usable probes, and
+    # x10 more probes bought only 18 of them back), so this is not a budget
+    # problem and cannot be bought out -- it has to be handled.
+    ok = nuse >= MINUSE
     Bg = float(max(bmax.max() * MARGIN, 1.05))
-    B = np.where(nz, bmax * MARGIN, Bg)
-    print(f"  cells with no usable probe: {int((~nz).sum())} of {ncell}"
+    B = np.where(ok, bmax * MARGIN, Bg)
+    B_nomin = np.where(nuse > 0, bmax * MARGIN, Bg)   # the rule switched off
+    print(f"  usable probes per cell: 0 in {int((nuse == 0).sum())} cells, "
+          f"1-{MINUSE-1} in {int(((nuse > 0) & ~ok).sum())}, "
+          f">={MINUSE} in {int(ok.sum())} of {ncell}"
           f"   rc_factor failures: {nfail}")
-    print(f"  B: min {B.min():.2f}  median {np.median(B):.2f}  "
-          f"mean {B.mean():.2f}  max {B.max():.2f}   global {Bg:.2f}")
-    print(f"  cells above 3: {int((B > 3).sum())} of {ncell}")
+    print(f"  cells on the global fallback: {int((~ok).sum())} of {ncell}")
+    # NOT max(B).  It is identically Bg: every measured cell gets
+    # bmax*MARGIN <= bmax.max()*MARGIN = Bg and every fallback cell gets Bg,
+    # so "max B" is one probe -- the largest r found anywhere -- times the
+    # margin, and it moved 12.72 / 9.79 / 9.87 across three runs of the same
+    # box for that reason.  It is not a property of the grid and comparing
+    # runs by it compares one sample point.  Reported as what it is.
+    print(f"  B over cells: min {B.min():.2f}  median {np.median(B):.2f}  "
+          f"mean {B.mean():.2f}")
+    print(f"  fallback Bg = {Bg:.2f}  (largest single probe x {MARGIN}, "
+          f"not a grid property -- expect it to move run to run)")
+
+    # THE number, and the only one worth deciding on.  A median over CELLS
+    # counts the empty corner of the box the same as the cell every event
+    # lands in, so it moves a lot while nothing that matters moves at all.
+    # Weight by the majorant mass -- M x cell volume, which is what the
+    # proposal draws from -- and the comparison is between two bounds the
+    # generator will actually meet.
+    e = g0.maj["edges"]
+    vol = 1.0
+    for ax, k in enumerate(("Q2", "W2", "t", "phi")):
+        d = np.diff(e[k])
+        vol = vol * d.reshape([-1 if i == ax else 1 for i in range(4)])
+    w = np.asarray(g0.maj["M"]) * vol
+    idx = np.ix_(*[np.minimum((np.arange(ms[a]) * bshape[a]) // ms[a],
+                              bshape[a] - 1) for a in range(4)])
+    tot = float(w.sum())
+    for name, arr in (("with the >=%d rule" % MINUSE, B), ("rule off", B_nomin)):
+        print(f"  proposal-weighted bound, {name:>18}: "
+              f"{float((w * arr[idx]).sum()) / tot:.3f}")
+    print(f"  majorant mass sitting on the global fallback: "
+          f"{100.0 * float(w[np.where(~ok[idx], 1.0, 0.0) > 0].sum()) / tot:.2f} %")
 
     d0 = np.load(OUT + ".maj.npz", allow_pickle=True)
     np.savez_compressed(OUT, M=d0["M"], cdf=d0["cdf"], shape=d0["shape"],
                         eta_hi=d0["eta_hi"], key=d0["key"], B=B, B_global=Bg,
                         b_shape=np.array(bshape),
+                        diag_bmax=bmax, diag_nuse=nuse,
                         **{k: d0[k] for k in d0.files if k.startswith("e_")})
     os.remove(OUT + ".maj.npz")
     print(f"  wrote {OUT}   total {time.time()-t0:.0f} s")
