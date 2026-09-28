@@ -10,7 +10,14 @@ eta.amp2609                        ! model  <channel>.<vintage>  (eta.vpk2021 fo
 0                                  ! iborn   1 = Born only, 0 = full RC   (Born twin: 1, all else identical)
 3.24 16.00                         ! W2 range (GeV^2): W 1.8 - 4.0; nothing is accepted above W = 3.95
 0.80 10.00                         ! Q2 range (GeV^2): outbending acceptance reaches the aao edge 0.9; amp2609 extrapolates below 1.15 and reports
--2.00 -0.001                       ! t range (GeV^2): narrowed from -5.0 on 2026-09-25.  Igor's CLAS12 pi0 grid spans |t| = 0.125-1.758 with NOTHING above 2.0 in 6192 points, and amp2609's validity ends at |t| = 1.8, so the -5.0 box spent statistics where there is neither data nor a model.
+-2.50 -0.001                       ! t range (GeV^2): -2.50 since 2026-09-28 (VPK).  The UPPER edge -0.001 is nominal:
+!   EventKin.t_limits rejects anything outside the kinematic [t_min, t_max] per event,
+!   so the effective edge is -t_min (the sample's smallest |t| is 0.0027, not 0.001).
+!   The lower edge went -5.0 -> -2.0 on 2026-09-25 and -2.0 -> -2.5 on 2026-09-28:
+!   generate WIDER than you analyse, so resolution migration across the analysis cut
+!   at |t| = 2 is simulated.  The band 2.0-2.5 costs +2.3 % of events.  Note amp2609's
+!   validity ends at |t| = 1.8: above that the sample is the model EXTRAPOLATED, kept
+!   as feed-in across the cut, not as a prediction.  Originally narrowed from -5.0:  Igor's CLAS12 pi0 grid spans |t| = 0.125-1.758 with NOTHING above 2.0 in 6192 points, and amp2609's validity ends at |t| = 1.8, so the -5.0 box spent statistics where there is neither data nor a model.
 0                                  ! vcut  0 = no missing-mass cut; the MX^2 cut is an analysis cut, apply it offline
 -0.30                              ! t_nucl (GeV^2) for the pi0/eta models
 0                                  ! ihel   0 = helicity-averaged (use +1/-1 twins for BSA samples)
