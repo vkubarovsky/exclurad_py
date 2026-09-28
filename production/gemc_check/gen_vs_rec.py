@@ -33,9 +33,8 @@ M_P, M_PI0, EB = 0.93827208816, 10.604 * 0 + 0.1349768, 10.604
 # reconstructed one is a subset), so an outline draws a border around a
 # shape that is not a separate object, and a solid fill hides the one
 # underneath.  Alpha lets the overlap read as overlap.
-GEN_FACE = "#4b7fc4"
-REC_FACE = "#e07b39"
-REC_EDGE = "#c2560c"
+GEN_FACE, GEN_EDGE = "#4b7fc4", "#1f4e9c"
+REC_FACE, REC_EDGE = "#e07b39", "#b8500a"
 
 
 def kin(e, p):
@@ -112,10 +111,18 @@ def main():
                  "   (reconstructed = matched AND identified)"
                  + ("   [log scale]" if logy else ""), fontsize=14, y=0.988)
     for a_, (lab, g, r, m, rng, nb) in zip(ax.ravel(), P):
-        a_.hist(g, bins=nb, range=rng, color=GEN_FACE, alpha=0.55,
+        # Fill and outline are drawn SEPARATELY on purpose.  A filled hist
+        # with an edgecolor outlines every bin as a rectangle, so the shared
+        # walls between neighbouring bins show through the transparency as a
+        # picket fence.  The fill goes down with no edge, the contour goes on
+        # top as a step -- which follows the profile and only turns vertical
+        # where the profile actually does.
+        a_.hist(g, bins=nb, range=rng, color=GEN_FACE, alpha=0.45,
                 edgecolor="none", label="generated")
-        a_.hist(r[m], bins=nb, range=rng, color=REC_FACE, alpha=0.65,
+        a_.hist(g, bins=nb, range=rng, histtype="step", color=GEN_EDGE, lw=1.1)
+        a_.hist(r[m], bins=nb, range=rng, color=REC_FACE, alpha=0.55,
                 edgecolor="none", label="reconstructed")
+        a_.hist(r[m], bins=nb, range=rng, histtype="step", color=REC_EDGE, lw=1.1)
         if logy:
             a_.set_yscale("log")
             # a filled bar on a log axis runs to the bottom of the frame and
