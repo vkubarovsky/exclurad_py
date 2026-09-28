@@ -46,12 +46,56 @@ try {
     // propagated (status 1) particles -- a LUND with a status-0 pi0 row (exclurad_py) has 5 Lund rows
     // but 4 MC::Particle rows.  So indices AND momenta are taken from MC::Particle; Lund is the fallback.
     def src = mcp.getRows() > 0 ? mcp : lund
+
+    // WHICH TWO PHOTONS ARE THE PI0's.  Taking the first two in MC::Particle
+    // order is wrong for a radiative sample: the LUND carries THREE photons --
+    // the radiated one, written before the decay pair -- so the first two are
+    // the radiated photon and one decay photon, and the other decay photon is
+    // dropped.  Measured on the 2026-09-25 rad million: 56.7 % of events have
+    // three photons, and the pair was wrong in 26.8 % of the sample, which put
+    // the "g1" efficiency at 39 % against 70 % for born.
+    //
+    // Taking the two HARDEST is no better -- 52.8 % correct -- because the pi0
+    // decay is asymmetric: one photon can be 11 MeV while the radiated one is
+    // 0.93 GeV.  The truth is in MC::Lund's parent column, which survives GEMC:
+    // decay photons carry the pi0's 1-based row index, the radiated one carries
+    // 0.  Match those back to MC::Particle by momentum, since MC::Particle drops
+    // the status-0 pi0 row and the indices do not line up.
+    double[][] pi0gam = new double[2][3]
+    int npi0gam = 0
+    if (lund.getRows() > 0) {
+      int pi0row = -1
+      for (int i = 0; i < lund.getRows(); i++) if (lund.getInt("pid", i) == 111) { pi0row = i + 1; break }
+      if (pi0row > 0) {
+        for (int i = 0; i < lund.getRows() && npi0gam < 2; i++) {
+          if (lund.getInt("pid", i) == 22 && lund.getInt("parent", i) == pi0row) {
+            pi0gam[npi0gam][0] = lund.getFloat("px", i)
+            pi0gam[npi0gam][1] = lund.getFloat("py", i)
+            pi0gam[npi0gam][2] = lund.getFloat("pz", i)
+            npi0gam++
+          }
+        }
+      }
+    }
+
     int ie=-1, ip=-1, ig1=-1, ig2=-1
     for (int i = 0; i < src.getRows(); i++) {
       int pid = src.getInt("pid", i)
       if (pid == 11 && ie < 0) ie = i
       else if (pid == hpid && ip < 0) ip = i
-      else if (pid == 22) { if (ig1 < 0) ig1 = i; else if (ig2 < 0) ig2 = i }
+      else if (pid == 22) {
+        int which = -1
+        if (npi0gam == 2) {
+          // keep only the photons the pi0 actually produced
+          double px = src.getFloat("px", i), py = src.getFloat("py", i), pz = src.getFloat("pz", i)
+          for (int j = 0; j < 2; j++) {
+            if (Math.abs(px - pi0gam[j][0]) < 1e-5 && Math.abs(py - pi0gam[j][1]) < 1e-5
+                && Math.abs(pz - pi0gam[j][2]) < 1e-5) { which = j; break }
+          }
+          if (which < 0) continue                 // the radiated photon: skip it
+        }
+        if (ig1 < 0) ig1 = i; else if (ig2 < 0) ig2 = i
+      }
     }
     if (ie < 0 || ip < 0 || ig1 < 0 || ig2 < 0) { nbad++; continue }
     gi[0]=ie; gi[1]=ip; gi[2]=ig1; gi[3]=ig2

@@ -177,6 +177,7 @@ the detected neutron.
 | beam, target | 10.604 GeV, LH2, vertex z −5.5…−0.5 cm |
 | box | W² 3.24–16.0, Q² 0.80–10.0, t −2.00…−0.001, vcut **0** |
 | events | 1 000 000 born + 1 000 000 rad, 200 chunks × 5000 each |
+| through GEMC | **complete 2026-09-28: born 200/200, rad 200/200 DST** |
 | σ | born **0.8804 nb**, obs **1.0798 nb** → ⟨η⟩ = **1.226** over the box |
 | code | born `225d4d9`, rad `291fe5f` (the difference is the cards commit; the physics code is identical and carries the stage-2 fix) |
 | generated on | clonfarm11, 100 workers, born 8 min, rad 9 h 21 min |
@@ -265,9 +266,30 @@ the detected neutron.
   | ms/event | 1800 | **1596** |
 
   Not zero, and it cannot be: a bound is a max over probes and a rare point
-  will always exceed it. The residual bias is of order 0.01 % against 0.3 %
-  before. **The 2026-09-25 sample was generated before this fix** and carries
-  the numbers above it.
+  will always exceed it. **The 2026-09-25 sample was generated before this
+  fix**, so the question is what it costs, and that is now measured rather
+  than estimated: 240k events regenerated with the fixed bound, compared
+  against the production million.
+
+  | | production (lottery) | fixed bound |
+  |---|---:|---:|
+  | violations per 100 events | 1.52 | **0.0096** |
+  | worst excess | ×3.35 | ×1.76 |
+
+  The shapes agree everywhere except the top of the W range:
+
+  | | χ²/ndf | worst bin |
+  |---|---:|---|
+  | W | 2.33 | **W 3.95–4.00: +13.7 %, 5.2 σ** (0.87 % of the sample) |
+  | Q² | 1.04 | 2.2 σ — consistent with no difference |
+  | −t | 0.81 | 1.5 σ — consistent with no difference |
+
+  **So: use the sample as it stands below W = 3.9, and do not use its last
+  W bin.** Integrated over the whole sample the deficit is 0.12 %; in the
+  last bin it is 14 %, which is not a caveat but an error. Note that
+  rad/born climbs to 4–5 in exactly that region, so whether this matters
+  depends entirely on whether the analysis goes there. Plot:
+  `docs/plots/20260928_bound_effect.png`.
 - **The step at v = 10⁻⁴ in the radiative-tail panel is `vmin`**, the
   soft/hard split, not a defect. Below it only the external pre-vertex
   radiator contributes: born, which has no internal radiation at all, shows

@@ -15,7 +15,12 @@ pi0.amp2609                        ! model  <channel>.<vintage>  (pi0.vpk2021 fo
 0                                  ! ihel   0 = helicity-averaged (use +1/-1 twins for BSA samples)
 20260925                           ! seed   (unique per run/cycle)
 1                                  ! idecay (irrelevant for pi0)
-/Volumes/wd_14tb/exclurad_py       ! output root
+./exclurad_out                     ! output root -- RELATIVE on purpose.
+!   The production wrappers substitute this field with the job's own work
+!   directory (gen_array.sbatch, field 13), so in production the card value
+!   is never used.  It used to read /Volumes/wd_14tb/... -- one Mac's external
+!   disk, in a card shared through git -- and anyone running the card directly
+!   on Linux got PermissionError from os.makedirs before anything else happened.
 0.00 0.85                          ! y range: E' >= 1 GeV at 6.535 GeV is y <= 0.847; no lower cut
 0.00 1.00                          ! xB range: NO cut. xB <= 0.60 removed 4 % inbending at high Q2 / low W
 none                               ! iacc   no generator-level acceptance; GEMC does that
