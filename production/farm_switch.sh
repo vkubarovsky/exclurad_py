@@ -19,7 +19,7 @@
 set -eu
 
 TAG=$1; CH=$2; J=$3; DEADLINE=$4; LABEL=$5; NEV=${6:-100000}
-CODE=${CODE:-/volatile/clas12/vpk/exclurad_py}
+CODE=${CODE:-$HOME/exclurad_py}
 DATA=${DATA:-/volatile/clas12/vpk/exclurad_py_data}
 OUT=$DATA/${CH}_v1
 

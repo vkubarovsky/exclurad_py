@@ -19,7 +19,10 @@ MODE=${1:?born or rad}
 # script said 20260924 while sim_array.sbatch said t2_20260925: stage A
 # wrote where stage B did not look.  Set PROD_DIR once and export it.
 R=${PROD_DIR:-/volatile/clas12/vpk/prod_pi0_rga_fa18_inb_t2_20260925}
-V=/volatile/clas12/vpk/exclurad_py
+# The code checkout the jobs run.  Moved off /volatile on 2026-09-28 (VPK):
+# /volatile is scratch and gets cleaned, so the generator must not live
+# there.  $HOME works for anyone, which matters for Story.
+V=${EXRU:-$HOME/exclurad_py}
 I=$(printf "%03d" "$SLURM_ARRAY_TASK_ID")
 W=$R/$MODE/gen/w_$I
 NEV=${NEV:-5000}
