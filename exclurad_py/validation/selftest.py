@@ -35,8 +35,25 @@ from ..generator import TailSampler, choose_vmin
 # times the sigma_F grid error; the algebraic ones (born, current) are at
 # machine level. Tightening the former means refining the quadrature, not
 # fixing physics.
+# `slicing` and `grid` were 2e-3 and had NOT been touched since the suite was
+# written.  The default quadrature was coarsened on 2026-09-24 (8d28335,
+# (30,16,24,16) -> (20,12,16,12), 2.4x on the radiative mode) and these two
+# checks have FAILED on every commit since -- at 3.372e-03 and 3.237e-03
+# against a 2e-03 bar.  Verified to be the quadrature and nothing else:
+# RC_QUAD=30,16,24,16 restores them to 6.066e-04 and 6.616e-04.
+#
+# So this was a stale alarm, not a defect, and a permanently red suite is
+# worse than no suite -- for five days nobody could use it as a gate, over a
+# period in which a million rad events were generated.
+#
+# 5e-3 is the coarsened quadrature's own error at the std point plus about
+# 1.5x headroom.  It is consistent with what that change was accepted on:
+# weighted |d eta| 0.132 %, 95th percentile 0.50 % over 740 points of the
+# production box (see the note beside quad_default).  IF YOU COARSEN THE
+# QUADRATURE AGAIN, these two numbers move and you must revisit this line
+# rather than widen it again.
 TOL = dict(born_closure=1e-6, current=1e-8, soft=1e-3,
-           ir=3e-4, slicing=2e-3, grid=2e-3, sampler_chi2=3.0)
+           ir=3e-4, slicing=5e-3, grid=5e-3, sampler_chi2=3.0)
 
 
 def _std_point():
