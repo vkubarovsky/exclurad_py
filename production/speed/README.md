@@ -160,10 +160,28 @@ rows, which is independent evidence that the batching is order-preserving.
 
 Reproduce:
 
+    . production/speed/lund_outroot.sh                     # NEVER write LUND to $HOME
     python3 -m production.speed.sigf_grid dump ref.npz     # on production
     python3 -m production.speed.sigf_grid dump new.npz     # on speed
     python3 -m production.speed.sigf_grid cmp ref.npz new.npz
     python3 -m production.speed.bench_sigf 9
+
+### Where LUND output goes
+
+**Not `$HOME`, and not the internal SSD.**  On the mini it goes to
+`/Volumes/wd_14tb`, on ifarm to `/volatile/clas12/vpk`.  `lund_outroot.sh`
+resolves this and refuses a root under `$HOME` rather than falling back to
+one.  Source it instead of hard-coding a path.
+
+This is easy to get wrong because the run cards say `./exclurad_out`
+RELATIVE on purpose -- the production wrappers substitute field 13 with the
+job's own work directory, so the card value is never used in production and
+anything running a card directly has to set the root itself.  The
+byte-identity runs for this branch were first written to the session's
+temporary directory on the internal SSD; they are 60-event runs so it cost
+about a megabyte, but the same mistake at production volume is gigabytes on
+the wrong disk.  The output has been moved to
+`/Volumes/wd_14tb/exclurad_speed_20260929/`.
 
 ## Two findings that are not mine but matter
 
