@@ -237,10 +237,30 @@ def run(card_path, date=None, verbose=True, _part=None):
         interp = g.table.check_interpolation(n=25)
         if verbose:
             print(f" eta-table interpolation: {interp}")
-        if interp.get("rms", 9) > 0.02:
-            print(f" *** WARNING: eta interpolation rms {interp['rms']:.3f} "
-                  f"> 0.02 -- the soft/hard split will be unreliable. "
-                  f"Narrow the box or refine table_shape. ***")
+        # WHAT THIS DOES AND DOES NOT MEAN.  The old text said "the soft/hard
+        # split will be unreliable".  That is true of the CELL-BASED photon
+        # path, where the table drives the split.  Production runs the
+        # PER-EVENT path (EXACT_ACCEPT/EXPO_TAIL both force exact_per_event),
+        # where rc_factor is recomputed at the event's own kinematics and the
+        # split inverts the EXACT sigma_obs.  There the table is only the
+        # stage-1 proposal and stage 2 corrects it exactly, so interpolation
+        # error costs ACCEPTANCE EFFICIENCY, not correctness -- provided the
+        # stage-2 bound holds, which is what b_viol in the report measures.
+        # Measured on the 2026-09-28 million: absolute rms 0.9-2.3 with
+        # bound violations 0.0044 % and worst excess x1.87.
+        _exact = os.environ.get("EXACT_ACCEPT", "") == "1" or \
+                 os.environ.get("EXPO_TAIL", "") == "1"
+        if interp.get("rms_rel", interp.get("rms", 9)) > 0.02:
+            print(f" *** WARNING: eta interpolation rms(rel) "
+                  f"{interp.get('rms_rel', float('nan')):.3f}, rms(abs) "
+                  f"{interp['rms']:.3f} over {interp.get('n')} uniform points. "
+                  + ("Per-event path: this costs stage-1 acceptance "
+                     "efficiency, NOT correctness -- check b_viol in the "
+                     "report, that is the number that would bite. ***"
+                     if _exact else
+                     "Cell-based path: the soft/hard split USES the table "
+                     "and will be unreliable.  Narrow the box or refine "
+                     "table_shape. ***"))
 
     # two passes: the first finds the gross misses, the second the ones
     # only reachable once the cell probabilities have shifted.
@@ -336,7 +356,14 @@ def run(card_path, date=None, verbose=True, _part=None):
            for k, v in g.report().items()}
     cfgname = f"config{part_tag or ''}.json"
     with open(os.path.join(d, "inputs", cfgname), "w") as fh:
+        # `interp` belongs here.  It was printed and nowhere else, and
+        # gen_array.sbatch greps the job log down to three patterns that do
+        # not include it -- so after the work directory was deleted there was
+        # NO way to ask whether a finished sample had the warning.  That
+        # question came up on 2026-09-29 about a million-event sample and
+        # could only be answered by re-running the check by hand.
         json.dump(dict(card=cfg, stamp=st, report=rep, health=g.health(),
+                       interp=interp,
                        calibration=cal, setup_s=t_setup, gen_s=t_gen),
                   fh, indent=2, default=str)
     with open(os.path.join(d, "README.md"), "w") as fh:

@@ -68,7 +68,12 @@ python3 -u -m exclurad_py.run "$W/card.txt" > "$W/gen.log" 2>&1
 RC=$?
 T1=$(date +%s)
 echo "GEN seconds: $((T1-T0))  rc=$RC"
-grep -E "setup |generate |health:" "$W/gen.log" || true
+# WARNING and *** must be in this filter.  They were not, and gen.log is
+# deleted with $W, so the eta-interpolation warning that the 2026-09-28
+# million actually emitted was invisible in all 200 job logs -- it surfaced
+# only because another session ran the same tables by hand a day later.
+# A warning that no finished run can be asked about is not a warning.
+grep -E "setup |generate |health:|WARNING|\*\*\*" "$W/gen.log" || true
 
 SRC=$(ls "$W"/*/*_${MODE}_v1/lund/*.lund 2>/dev/null | head -1)
 if [ $RC -ne 0 ] || [ -z "$SRC" ]; then
