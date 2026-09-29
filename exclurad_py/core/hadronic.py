@@ -27,7 +27,7 @@ test (test suite verifies them to machine precision).
 
 import numpy as np
 from .constants import ALPHA, M_P
-from .spinors import dot4
+from .spinors import dot4, _cross3, _norm3
 
 # Fixed once and for all by the Born closure test (see tests/run_checks.py):
 # with these values the contraction reproduces the canonical decomposition
@@ -89,29 +89,36 @@ def photon_basis(qt, p, pv):
     P = p + qt
     beta = P[:, 1:] / P[:, [0]]
     B = _boost_matrix(beta)          # to CM
-    Binv = _boost_matrix(-beta)      # back
+    # Binv = _boost_matrix(-beta).  Only the two mixed time-space blocks
+    # depend on the sign of beta; gamma and the space-space block go through
+    # beta*beta and are even in it.  Negating a float is exact, so this is
+    # bit-for-bit the matrix the second _boost_matrix call used to build,
+    # for half the work.
+    Binv = B.copy()
+    Binv[:, 0, 1:] = -B[:, 0, 1:]
+    Binv[:, 1:, 0] = -B[:, 1:, 0]
 
     qt_c = np.einsum('nij,nj->ni', B, qt)
     pv_c = np.einsum('nij,nj->ni', B, pv)
 
     Q2t = -dot4(qt, qt)
-    zhat = qt_c[:, 1:] / np.linalg.norm(qt_c[:, 1:], axis=1, keepdims=True)
+    zhat = qt_c[:, 1:] / _norm3(qt_c[:, 1:], keepdims=True)
     hperp = pv_c[:, 1:] - np.einsum('ni,ni->n', pv_c[:, 1:], zhat)[:, None] * zhat
-    hn = np.linalg.norm(hperp, axis=1)
+    hn = _norm3(hperp)
     # fallback direction for degenerate (collinear) configurations:
-    fb = np.cross(zhat, np.tile(np.array([0.0, 1.0, 0.0]), (len(qt), 1)))
-    fbn = np.linalg.norm(fb, axis=1)
+    fb = _cross3(zhat, np.tile(np.array([0.0, 1.0, 0.0]), (len(qt), 1)))
+    fbn = _norm3(fb)
     bad = hn < 1e-12 * pv_c[:, 0]
     xhat = np.where(bad[:, None],
                     fb / np.where(fbn[:, None] > 0, fbn[:, None], 1.0),
                     hperp / np.where(hn[:, None] > 0, hn[:, None], 1.0))
-    yhat = np.cross(zhat, xhat)
+    yhat = _cross3(zhat, xhat)
 
     N = len(qt)
     X_c = np.zeros((N, 4)); X_c[:, 1:] = xhat
     Y_c = np.zeros((N, 4)); Y_c[:, 1:] = yhat
     L_c = np.zeros((N, 4))
-    aq = np.linalg.norm(qt_c[:, 1:], axis=1)
+    aq = _norm3(qt_c[:, 1:])
     sq = np.sqrt(Q2t)
     L_c[:, 0] = aq / sq
     L_c[:, 1:] = (qt_c[:, 0] / sq)[:, None] * zhat

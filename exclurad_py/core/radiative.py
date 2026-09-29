@@ -159,34 +159,74 @@ def sigma_F(kin0, sfmodel, h, v_m, lam=0.0,
     vs = np.exp(lv)
     wvs = 0.5 * (hi - lo) * wv * vs                   # dv = v dln(v)
 
+    # --- The v grid is evaluated in ONE batch per channel. -------------- #
+    # Every quantity below is computed per angular node and never couples
+    # nodes to each other, so stacking the n_v v-values into one array of
+    # n_v*N rows does bitwise the same arithmetic on each row -- it only
+    # stops paying numpy's per-call dispatch 20 times over on arrays of 336
+    # elements, which is where the time actually went.  The reduction is the
+    # one place order matters, so it is still done per v (a row reduction of
+    # the (n_v, N) block, which numpy performs row by row with the same
+    # pairwise algorithm) and accumulated in the original v-outer,
+    # channel-inner order.
     total = 0.0
     n_bad = 0
-    for v, wv_i in zip(vs, wvs):
-        kinv = EventKin(kin0.Ebeam, Q2, W2, t, kin0.phi, mV, v=v, M=M, m=m,
-                        phi_offset=getattr(kin0, 'phi_offset', 0.0),
-                        mU=kin0.mU, t_kind=getattr(kin0, "t_kind", "photon"))
-        pv, Lam = kinv.pv, kinv.Lam
-        for chd in channels:
-            nhat, wang = chd['nhat'], chd['wang']
-            z = Lam[0] - nhat @ Lam[1:]
-            om = v / (2.0 * z)
-            k4 = np.concatenate([om[:, None], om[:, None] * nhat], axis=1)
+    n_v_act = len(vs)
+    N = len(channels[0]['nhat'])
+    # Rows per batch.  Caps the working set -- fine quadratures (the selftest
+    # uses N = 1344) would otherwise build several hundred MB of temporaries
+    # at once -- and sits at the measured cache optimum: on the mini a scan
+    # over 336...6720 rows was flat to ~3% with a shallow minimum near 4000.
+    # The VALUE DOES NOT AFFECT THE RESULT: every chunk size tested gave
+    # bit-identical sigma_F, which is the point of reducing per v.
+    v_chunk = max(1, 4096 // max(N, 1))
 
-            kap1 = 2.0 * om * chd['kh1']
-            kap2 = 2.0 * om * chd['kh2']
+    kinvs = [EventKin(kin0.Ebeam, Q2, W2, t, kin0.phi, mV, v=v, M=M, m=m,
+                      phi_offset=getattr(kin0, 'phi_offset', 0.0),
+                      mU=kin0.mU, t_kind=getattr(kin0, "t_kind", "photon"))
+             for v in vs]
+
+    sums = np.empty((len(channels), n_v_act))
+    for ci, chd in enumerate(channels):
+        nhat, wang = chd['nhat'], chd['wang']
+        wch = chd['wchan']
+        for lo in range(0, n_v_act, v_chunk):
+            hi_ = min(lo + v_chunk, n_v_act)
+            nb = hi_ - lo
+            # per-v scalar setup stays a (cheap) loop: it is a handful of
+            # flops each, and keeping `nhat @ Lam[1:]` in its original
+            # (N,3)@(3,) form keeps that matvec bit-for-bit what it was.
+            z_b = np.empty((nb, N))
+            om_b = np.empty((nb, N))
+            pv_b = np.empty((nb, 4))
+            for j in range(nb):
+                v = vs[lo + j]
+                Lam = kinvs[lo + j].Lam
+                z = Lam[0] - nhat @ Lam[1:]
+                z_b[j] = z
+                om_b[j] = v / (2.0 * z)
+                pv_b[j] = kinvs[lo + j].pv
+            z = z_b.reshape(-1)
+            om = om_b.reshape(-1)
+            v_f = np.repeat(vs[lo:hi_], N)
+            nh = np.tile(nhat, (nb, 1))
+            pv_f = np.repeat(pv_b, N, axis=0)
+            k4 = np.concatenate([om[:, None], om[:, None] * nh], axis=1)
+
+            kap1 = 2.0 * om * np.tile(chd['kh1'], nb)
+            kap2 = 2.0 * om * np.tile(chd['kh2'], nb)
 
             # shifted kinematics
             qt = q[None, :] - k4
             Q2t = Q2 + 2.0 * dot4(k4, q[None, :])
             W2t = W2 - 2.0 * om * W
-            tt = t - 2.0 * dot4(k4, (q - pv)[None, :])
+            tt = t - 2.0 * dot4(k4, q[None, :] - pv_f)
 
             good = Q2t > 1e-6
             n_bad += np.count_nonzero(~good)
 
             sf = _sf_to_gev(sfmodel(W2t, np.maximum(Q2t, 1e-6), tt))
-            H = hadronic_tensor(qt, p[None, :] * np.ones_like(om)[:, None],
-                                pv[None, :] * np.ones_like(om)[:, None],
+            H = hadronic_tensor(qt, np.tile(p, (len(om), 1)), pv_f,
                                 W2t, sf, M=M, lam=lam)
 
             LR, _, _ = rad_L(k1, k2, m, h, k4)
@@ -195,8 +235,13 @@ def sigma_F(kin0, sfmodel, h, v_m, lam=0.0,
             fir = F_IR(Q2, m, kap1, kap2)
             exact = np.where(good, LRH / Q2t ** 2, 0.0)
             sub = 4.0 * fir * LH0 / Q2 ** 2 if subtract else 0.0
-            integrand = (v / z ** 2) * (exact - sub)
-            total += wv_i * np.sum(wang * chd['wchan'] * integrand)
+            integrand = (v_f / z ** 2) * (exact - sub)
+            sums[ci, lo:hi_] = (wang * wch * integrand.reshape(nb, N)).sum(axis=1)
+
+    # accumulate in the original order: v outer, channel inner
+    for iv in range(n_v_act):
+        for ci in range(len(channels)):
+            total += wvs[iv] * sums[ci, iv]
 
     pref = ALPHA ** 3 / (512.0 * np.pi ** 4 * kin0.lam_S * np.sqrt(kin0.lam_q))
     out = pref * total * GEV2_TO_NB

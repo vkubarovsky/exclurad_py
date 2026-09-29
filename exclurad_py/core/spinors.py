@@ -39,9 +39,36 @@ def dot4(a, b):
     return np.einsum('...m,m,...m->...', a, SIGN, b)
 
 
+# Nonzero entries of the sign-folded gamma matrices, in the index order
+# (m, i, j) that einsum's naive loop accumulates in.  gamma^mu is sparse --
+# 16 nonzeros out of 64 -- and the three-operand einsum below spent all its
+# time multiplying by the 48 structural zeros.
+_GS = SIGN[:, None, None] * GAMMA
+_GS_NZ = tuple((m, i, j, _GS[m, i, j])
+               for m in range(4) for i in range(4) for j in range(4)
+               if _GS[m, i, j] != 0)
+
+
 def fslash(p):
-    """p^mu -> pslash = p_mu gamma^mu ; p: (...,4) -> (...,4,4)."""
-    return np.einsum('...m,m,mij->...ij', p, SIGN, GAMMA)
+    """p^mu -> pslash = p_mu gamma^mu ; p: (...,4) -> (...,4,4).
+
+    BIT-IDENTICAL to the einsum it replaced --
+    `np.einsum('...m,m,mij->...ij', p, SIGN, GAMMA)` -- and ~4x faster.
+    Identity is structural, not lucky: folding SIGN (exactly +-1) into GAMMA
+    is exact, the terms are accumulated in the same m order into an array
+    that starts at +0.0, and the skipped terms are the structural zeros,
+    whose addition cannot change a sum that already starts at +0.0.
+    Verified bitwise against the einsum on random input and on the degenerate
+    inputs that actually occur here (eps has p^0 == 0 exactly).
+
+    Kept free of BLAS on purpose: np.tensordot is another 2x here but makes
+    the result depend on the BLAS build, which differs between the mac mini
+    and ifarm.  That is a bad trade for 3% of sigma_F.
+    """
+    out = np.zeros(p.shape[:-1] + (4, 4), dtype=complex)
+    for (m, i, j, c) in _GS_NZ:
+        out[..., i, j] += p[..., m] * c
+    return out
 
 
 def uspinor(p, m, lam):
@@ -86,17 +113,36 @@ def born_L(k1, k2, m, h):
     return np.einsum('am,an->mn', j, np.conj(j))
 
 
+def _cross3(u, v):
+    """np.cross for (N,3) float arrays, without the wrapper.
+
+    Same three formulae np.cross evaluates, so bit-identical; np.cross
+    itself spends most of its time in normalize_axis_tuple / moveaxis /
+    broadcast_to, which showed up as ~220 000 calls per 25 events.
+    """
+    out = np.empty_like(u)
+    out[:, 0] = u[:, 1] * v[:, 2] - u[:, 2] * v[:, 1]
+    out[:, 1] = u[:, 2] * v[:, 0] - u[:, 0] * v[:, 2]
+    out[:, 2] = u[:, 0] * v[:, 1] - u[:, 1] * v[:, 0]
+    return out
+
+
+def _norm3(x, keepdims=False):
+    """np.linalg.norm(x, axis=1) for real (N,3); bit-identical, no wrapper."""
+    return np.sqrt((x * x).sum(axis=1, keepdims=keepdims))
+
+
 def photon_pols(k):
     """Two real transverse polarization 4-vectors for photons k: (N,4).
     Returns (N,2,4)."""
-    n = k[:, 1:] / np.linalg.norm(k[:, 1:], axis=1, keepdims=True)
+    n = k[:, 1:] / _norm3(k[:, 1:], keepdims=True)
     # reference axis least aligned with n
     ref = np.zeros_like(n)
     idx = np.argmin(np.abs(n), axis=1)
     ref[np.arange(len(n)), idx] = 1.0
-    e1 = np.cross(ref, n)
-    e1 /= np.linalg.norm(e1, axis=1, keepdims=True)
-    e2 = np.cross(n, e1)
+    e1 = _cross3(ref, n)
+    e1 /= _norm3(e1, keepdims=True)
+    e2 = _cross3(n, e1)
     eps = np.zeros((len(k), 2, 4))
     eps[:, 0, 1:] = e1
     eps[:, 1, 1:] = e2
@@ -136,9 +182,19 @@ def rad_L(k1, k2, m, h, k):
     return L, kap1, kap2
 
 
+_SIGN2 = SIGN[:, None] * SIGN[None, :]
+
+
 def contractLH(L, H):
-    """L^{mu nu} H_{mu nu} with metric lowering of H's indices; L,H (...,4,4)."""
-    return np.einsum('...mn,m,n,...mn->...', L, SIGN, SIGN, H)
+    """L^{mu nu} H_{mu nu} with metric lowering of H's indices; L,H (...,4,4).
+
+    The metric factors are folded into one constant so this is a three-
+    operand einsum rather than four: einsum has no specialised kernel past
+    three operands, so the four-operand form fell into the generic nested
+    loop.  Bit-identical (SIGN is exactly +-1, so the folding is exact and
+    the summation order is unchanged) and ~1.3x faster.
+    """
+    return np.einsum('...mn,mn,...mn->...', L, _SIGN2, H)
 
 
 def F_IR(Q2, m, kap1, kap2):
