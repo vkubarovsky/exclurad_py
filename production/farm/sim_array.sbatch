@@ -145,8 +145,10 @@ rm -f recon.hipo
 recon-util -y "$YAML" -i merged.hipo -o recon.hipo > recon.log 2>&1
 T3=$(date +%s); RS=$(stat -c %s recon.hipo 2>/dev/null || echo 0)
 echo "RECON seconds: $((T3-T2))  size: $RS"
-# Same reasoning, but reconstruction REDUCES the file (hits become tracks), so
-# the comparison is against a fraction of the input rather than the input.
+# Same reasoning.  NOTE reconstruction GROWS the file -- measured 3.3 -> 7.3 MB,
+# because the REC:: banks are added on top of the hits rather than replacing
+# them.  The threshold is still a fraction of the input, deliberately: it is
+# there to catch output that is empty, not to model the size.
 if [ "$RS" -lt $((MS / 20)) ]; then
   echo "FATAL: recon.hipo is $RS bytes against merged.hipo's $MS -- reconstruction produced almost nothing"
   tail -25 recon.log; exit 1
@@ -155,8 +157,21 @@ fi
 module purge                              # java 21 from coatjava breaks run-groovy
 unset JDK_JAVA_OPTIONS
 export PATH=/group/clas12/packages/groovy/4.0.3/bin:$PATH
-/group/clas12/packages/coatjava/9.0.2/bin/run-groovy "$R/hipo_to_ntuple.groovy" \
+# The groovy lives in the production directory, copied there at setup.  On
+# 2026-09-28 it was missing, run-groovy threw FileNotFoundException, the `||
+# true` swallowed it and the job printed DONE with no ntuple at all -- 200
+# jobs would have "succeeded" and produced nothing to analyse.  So: take it
+# from the checkout when the production directory has no copy, and check the
+# result rather than trusting the exit status of a pipeline ending in grep.
+NTG="$R/hipo_to_ntuple.groovy"
+[ -f "$NTG" ] || NTG="$(dirname "$(dirname "$0")")/gemc_check/hipo_to_ntuple.groovy"
+[ -f "$NTG" ] || { echo "FATAL: hipo_to_ntuple.groovy found neither in $R nor in the checkout"; exit 1; }
+/group/clas12/packages/coatjava/9.0.2/bin/run-groovy "$NTG" \
     recon.hipo 1000000 "$R/$MODE/out_$POL/$OUTTAG.f32" 2>&1 | grep -E "DONE|FATAL|Exception" || true
+NS=$(stat -c %s "$R/$MODE/out_$POL/$OUTTAG.f32" 2>/dev/null || echo 0)
+if [ "$NS" -lt 1000 ]; then
+  echo "FATAL: ntuple $OUTTAG.f32 is $NS bytes -- keeping gemc.hipo for post_array"; exit 1
+fi
 /group/clas12/packages/coatjava/9.0.2/bin/hipo-utils -filter \
     -b "RUN::*,REC::*,RECFT::*,MC::*" -merge \
     -o "$R/$MODE/dst_$POL/$OUTTAG.hipo" recon.hipo > /dev/null 2>&1
