@@ -55,6 +55,7 @@ import numpy as np
 from ..core.constants import ALPHA, GEV2_TO_NB
 from ..core.spinors import dot4, rad_L, contractLH
 from ..core.hadronic import hadronic_tensor
+from ..core.integrand import lrh_batch
 from ..core.kinematics import EventKin
 from ..core.born import _sf_to_gev
 from ..core.radiative import sigma_F
@@ -215,10 +216,11 @@ class TailSampler:
 
         good = (Q2t > 1e-6) & (z > 0) & (W2t > 0)
         sf = _sf_to_gev(self.sf(W2t, np.maximum(Q2t, 1e-6), tt))
-        H = hadronic_tensor(qt, np.broadcast_to(p, pv.shape).copy(), pv,
-                            W2t, sf, M=k0.M)
-        LR, _, _ = rad_L(k0.k1, k0.k2, k0.m, self.h, k4)
-        LRH = np.real(contractLH(LR, H))
+        # Same integrand as sigma_F, on this sampler's own nodes -- half the
+        # generator's integrand points are evaluated right here.
+        LRH = lrh_batch(k0.k1, k0.k2, k0.m, self.h, k4, qt,
+                        np.broadcast_to(p, pv.shape).copy(), pv,
+                        W2t, sf, k0.M)
         f = np.where(good, (v / z ** 2) * LRH / Q2t ** 2, 0.0)
         return np.maximum(f, 0.0), k4, om
 

@@ -24,6 +24,7 @@ from .spinors import dot4, rad_L, contractLH, F_IR
 from .hadronic import hadronic_tensor
 from .kinematics import EventKin
 from .born import born_tensors, born_H, _sf_to_gev
+from .integrand import lrh_batch
 
 
 def _orthobasis(zaxis):
@@ -226,11 +227,10 @@ def sigma_F(kin0, sfmodel, h, v_m, lam=0.0,
             n_bad += np.count_nonzero(~good)
 
             sf = _sf_to_gev(sfmodel(W2t, np.maximum(Q2t, 1e-6), tt))
-            H = hadronic_tensor(qt, np.tile(p, (len(om), 1)), pv_f,
-                                W2t, sf, M=M, lam=lam)
-
-            LR, _, _ = rad_L(k1, k2, m, h, k4)
-            LRH = np.real(contractLH(LR, H))
+            # H is built inside lrh_batch, and only by the numpy backend --
+            # the fused kernel never materialises it.
+            LRH = lrh_batch(k1, k2, m, h, k4, qt,
+                            np.tile(p, (len(om), 1)), pv_f, W2t, sf, M, lam)
 
             fir = F_IR(Q2, m, kap1, kap2)
             exact = np.where(good, LRH / Q2t ** 2, 0.0)
