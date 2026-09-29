@@ -356,12 +356,18 @@ def run(card_path, date=None, verbose=True, _part=None):
            for k, v in g.report().items()}
     cfgname = f"config{part_tag or ''}.json"
     with open(os.path.join(d, "inputs", cfgname), "w") as fh:
-        # `interp` belongs here.  It was printed and nowhere else, and
-        # gen_array.sbatch greps the job log down to three patterns that do
-        # not include it -- so after the work directory was deleted there was
-        # NO way to ask whether a finished sample had the warning.  That
-        # question came up on 2026-09-29 about a million-event sample and
-        # could only be answered by re-running the check by hand.
+        # `interp` beside `report`, so the two numbers that must be read
+        # TOGETHER are in one place: the interpolation error only matters
+        # through the stage-2 bound, and b_viol lives in `report`.
+        #
+        # CORRECTION 2026-09-29.  An earlier version of this comment said
+        # there was no record of the check on a finished run.  That was
+        # wrong: the .info sidecar has carried `run.eta_interp.rms` all
+        # along, in all 200 chunks of the 2026-09-28 million.  I had claimed
+        # a missing record without looking for it, and the optimization
+        # session found it by reading the sidecars.  What was genuinely
+        # missing is only the job-log line (gen_array.sbatch's grep), which
+        # is why the warning went unnoticed at the time.
         json.dump(dict(card=cfg, stamp=st, report=rep, health=g.health(),
                        interp=interp,
                        calibration=cal, setup_s=t_setup, gen_s=t_gen),
