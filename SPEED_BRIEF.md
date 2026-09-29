@@ -54,7 +54,14 @@ true. If you see it quoted, it is out of date; the table above replaces it.
 
 ## The shape of the work
 
-**Phase 0 — half a day, no numba, do this FIRST.** It pays for itself and it
+Phase 0 is pure numpy and starts immediately. Phase 1 is numba and may turn
+out to be unnecessary: if Phase 0 removes most of the 37 % spent in einsum
+dispatch, the LLVM dependency question never has to be answered. **Measure
+Phase 0 before deciding whether Phase 1 is worth it.**
+
+**Phase 0 — half a day, PURE NUMPY, start here today.** It needs no numba,
+no LLVM, no install of any kind, and it runs unchanged on ifarm's numpy 1.23
+and the mini's 2.x. Nothing below blocks it. It pays for itself and it
 tests the diagnosis: if half a day gives 2x, the cost really is dispatch and
 the numba estimate below is trustworthy. If it gives nothing, stop and
 re-profile before spending a week.
@@ -81,7 +88,11 @@ the cost), so 3–4x overall: 2.6 → 0.7–0.9 s/event.
 Neither `np.einsum` nor `np.linalg.norm(axis=, keepdims=)` exists in numba
 nopython mode. Every one becomes an explicit loop. That is the bulk of the work.
 
-## CHECK THIS BEFORE PORTING ANYTHING
+## The numba question — runs ALONGSIDE Phase 0, does not block it
+
+Nothing here stands between you and Phase 0. Start Phase 0 first; settle this
+while it runs, so that if Phase 1 turns out to be needed you are not finding
+it out on day four.
 
 **numba is installed nowhere.** Not on the mini, not on ifarm:
 
@@ -94,7 +105,7 @@ ifarm   : ModuleNotFoundError: No module named 'numba'
 The mini runs Python 3.14 with numpy 2.x. So:
 
 1. Establish that numba installs and runs **on ifarm** (Python 3.9, numpy
-   1.23) before porting a single function. If it cannot, a hand-written C
+   1.23) before porting a single function — but after Phase 0 is measured. If it cannot, a hand-written C
    extension is the fallback — more days, but no LLVM dependency.
 2. Whatever you write must run on **both** numpy 1.23 and 2.x. Test on ifarm,
    not only on the mini.
@@ -195,4 +206,6 @@ A merge request on `speed` with: the measured speedup on farm compute nodes
 honest statement of what you could not make byte-identical and why, and a
 one-line answer on whether numba is acceptable for the OSG container.
 
-Partial is fine. Phase 0 alone, measured and validated, is a real result.
+Partial is fine. **Phase 0 alone, measured and validated, is a real result**
+and may be the whole answer — it costs half a day, adds no dependency, and
+attacks the largest single item in the profile.
