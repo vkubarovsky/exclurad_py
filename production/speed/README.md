@@ -7,16 +7,30 @@ pure numpy, no new dependency.
 
 | | |
 |---|---|
-| speedup, rad generation | **2.00x** (mac mini, back-to-back pair, production card + settings) |
-| LUND output | **byte-identical**, md5 `4b8c5b617aec452275f6416bd566e590` |
+| speedup, rad generation end-to-end | **1.94x** (mini, median of 3 interleaved pairs) |
+| speedup, `sigma_F` alone | **1.98x** on numpy 2.4.6, **1.90x** on numpy 1.23.5 |
+| LUND output | **byte-identical** on both stacks |
 | new dependencies | **none** |
-| numpy versions verified | 2.4.6 and **1.23.5** (what slurm runs) |
-| farm compute-node number | **not yet measured** -- see "What is not done" |
+| stacks verified bit-identical | mini ARM numpy 2.4.6; mini ARM numpy 1.23.5; **ifarm x86 numpy 1.23.5** |
+| farm compute-node number | in progress -- see "What is not done" |
 
 Quote the ratio, not the milliseconds.  The mini was swapping for most of the
-day (load average 1 -> 154 with 87 % of the CPU idle), so absolute numbers off
-it mean little; a back-to-back pair still measures the ratio well because both
-halves see the same machine.
+day (load average 1 -> 175 with ~87 % of the CPU idle), so absolute numbers off
+it mean little; interleaved pairs still measure the ratio well because both
+arms see the same machine within seconds of each other.
+
+Measured ratios, every one of them interleaved base/speed on one machine:
+
+| what | stack | base | speed | ratio |
+|---|---|---:|---:|---:|
+| 60-event rad run, median of 3 pairs | mini, numpy 2.4.6 | 1021.0 | 525.9 ms/ev | **1.94x** |
+| `sigma_F`, 5 interleaved reps | mini, numpy 2.4.6 | 49.50 | 24.95 ms | **1.98x** |
+| `sigma_F`, 5 interleaved reps | mini, numpy 1.23.5 | 48.99 | 25.81 ms | **1.90x** |
+
+A **single** 60-event pair on numpy 1.23 gave 1.60x; three interleaved pairs
+and the `sigma_F` A/B both say ~1.9x, so that 1.60 was load noise on a
+swapping machine and not a numpy-version effect.  One pair is not a
+measurement -- which is the brief's own warning, and it caught me once.
 
 ## Where the time actually went
 
