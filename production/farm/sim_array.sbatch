@@ -12,7 +12,7 @@
 # polarities share one generated LUND, because the generator knows nothing
 # about the torus.
 #
-# Configuration: rga_fall2018, beam 10604 MeV,
+# Configuration: set by RGCFG/GEMCV/COATV/BGTREE/BGCUR/RGTAG below; defaults rga_fall2018,
 # gemc 5.13 + coatjava 10.0.7 -- the pass-2 pair from clas12-config setup.json.
 # Background: 50 nA over the eleven detectors the official production merges;
 # bg-merger's own default is DC,FTOF only, which would leave the calorimeter
@@ -56,15 +56,41 @@ W=$R/$MODE/work_$POL/w_$I
 # both polarities' directories were empty and `jcache get` had to stage 100
 # files each, which is why the guard below exists: it turns a cold cache
 # into one line instead of 200 jobs dying inside gemc three hours in.
-BGDIR=/cache/clas12/rg-a/production/background/rga_fall2018/$BGPOL/50nA_10604MeV/10k
+# RUN GROUP.  Everything below defaults to RG-A fall 2018 exactly as before,
+# so an existing submission is unchanged.  RG-B needs six of them and NOTHING
+# else, which is the point of naming them: the run group is not one setting,
+# it is a gcard, a yaml, two module versions, a background tree and a beam
+# energy, and picking five of the six right is how a sample ends up passed
+# through the wrong detector without any error at all.
+#
+#   RG-B spring 2019 (deuterium, inbending only -- rgb_fall2019 is torus +1.00):
+#     export RGCFG=rgb_spring2019 GEMCV=5.11 COATV=11.1.0 \
+#            BGTREE=rg-b/production/background/rgb_spring2019 \
+#            BGCUR=50nA_10599MeV RGTAG=sp19
+#
+# The gemc and coatjava versions are an APPROVED PAIR from clas12-config
+# setup.json, not two independent choices: 5.13+10.0.7 for RG-A pass 2,
+# 5.11+11.1.0 for RG-B.  Do not mix halves of two pairs.
+RGCFG=${RGCFG:-rga_fall2018}
+GEMCV=${GEMCV:-5.13}
+COATV=${COATV:-10.0.7}
+BGTREE=${BGTREE:-rg-a/production/background/rga_fall2018}
+BGCUR=${BGCUR:-50nA_10604MeV}
+RGTAG=${RGTAG:-fa18}
+# The sqlite module tracks the gemc version, not coatjava's.
+SQLV=${SQLV:-$GEMCV}
+BGDIR=/cache/clas12/$BGTREE/$BGPOL/$BGCUR/10k
 # 100 background files for 200 tasks: each is used by two tasks, whose
 # generated events are independent, so no correlation is introduced
 BG=$(printf "%s/%05d.hipo" "$BGDIR" $(( (SLURM_ARRAY_TASK_ID - 1) % 100 + 1 )))
 DET='DC,FTOF,ECAL,HTCC,LTCC,BST,BMT,CND,CTOF,FTCAL,FTHODO'
 CFG=/cvmfs/oasis.opensciencegrid.org/jlab/hallb/clas12/sw/noarch/clas12-config/prod
-GC=$CFG/gemc/5.13/rga_fall2018.gcard
-YAML=$CFG/coatjava/10.0.7/rga_fall2018.yaml
-OUTTAG=excluradpy_pi0_${MODE}_fa18_${POL}_bg50nA_$I
+GC=$CFG/gemc/$GEMCV/$RGCFG.gcard
+YAML=$CFG/coatjava/$COATV/$RGCFG.yaml
+OUTTAG=excluradpy_pi0_${MODE}_${RGTAG}_${POL}_bg${BGCUR%%_*}_$I
+for f in "$GC" "$YAML"; do
+  [ -f "$f" ] || { echo "FATAL: $f does not exist -- wrong run group or version"; exit 1; }
+done
 
 mkdir -p "$R/$MODE/out_$POL" "$R/$MODE/dst_$POL"
 rm -rf "$W"; mkdir -p "$W"; cd "$W"
@@ -72,10 +98,10 @@ export TMPDIR=$W                         # not /tmp: see fix 1
 source /etc/profile.d/modules.sh
 module use /cvmfs/oasis.opensciencegrid.org/jlab/hallb/clas12/sw/modulefiles
 module use /cvmfs/oasis.opensciencegrid.org/jlab/geant4/modules
-module load gemc/5.13
-module load sqlite/5.13
+module load gemc/$GEMCV
+module load sqlite/$SQLV
 export RCDB_CONNECTION=mysql://null
-module load coatjava/10.0.7
+module load coatjava/$COATV
 export JDK_JAVA_OPTIONS="-Djava.io.tmpdir=$W -Dorg.sqlite.tmpdir=$W"
 which gemc recon-util bg-merger
 
@@ -85,7 +111,7 @@ cp "$R/$MODE/chunks/lund_$I.dat" lund.dat || { echo "FATAL: no chunk lund_$I.dat
 # Stage the whole directory with `jcache get` before submitting.
 if [ ! -s "$BG" ] || [ "$(stat -c %s "$BG")" -lt 1000000 ]; then
   echo "FATAL: background $BG is missing or not staged ($(stat -c %s "$BG" 2>/dev/null || echo absent) bytes)."
-  echo "       Stage it first:  jcache get /mss/clas12/rg-a/production/background/rga_fall2018/$BGPOL/50nA_10604MeV/10k/*.hipo"
+  echo "       Stage it first:  jcache get /mss/clas12/$BGTREE/$BGPOL/$BGCUR/10k/*.hipo"
   exit 1
 fi
 echo "chunk $(grep -c '^ *[0-9]* *1 *1 ' lund.dat) events, torus $TORUS, background $(basename "$BG")"
