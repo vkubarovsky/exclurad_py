@@ -163,11 +163,35 @@ export PATH=/group/clas12/packages/groovy/4.0.3/bin:$PATH
 # jobs would have "succeeded" and produced nothing to analyse.  So: take it
 # from the checkout when the production directory has no copy, and check the
 # result rather than trusting the exit status of a pipeline ending in grep.
+# THE HADRON, and this is not a detail.  hipo_to_ntuple.groovy takes the
+# hadron's pid as its FIFTH argument and DEFAULTS TO 2212.  Nothing passed it,
+# so every sample was analysed as if the detected hadron were a proton.
+#
+# On a proton target that is right.  On a NEUTRON target the LUND carries two
+# baryons -- the struck neutron, which is the physics, and the spectator
+# PROTON -- so the default picks the spectator, and nothing complains: the
+# groovy finds a proton in every event, badGen stays 0, the ntuple is full,
+# and every row is the wrong particle.  Measured on 2026-09-28: 100 of 100.
+#
+# So it is derived from the CARD rather than from an environment variable one
+# has to remember.  The model name already says which nucleon was struck --
+# pi0n.* and etan.* are the neutron models -- and it is the same file that
+# decided the physics, so the two cannot drift apart.  HPID still overrides.
+CARD=$R/cards/rga_$MODE.txt
+if [ -z "${HPID:-}" ] && [ -f "$CARD" ]; then
+  MODEL=$(awk '{sub(/!.*/,"")} /[^ \t]/{print $1; exit}' "$CARD")
+  case "$MODEL" in
+    pi0n.*|etan.*) HPID=2112 ;;
+    *)             HPID=2212 ;;
+  esac
+fi
+HPID=${HPID:-2212}
+echo "hadron pid: $HPID (model ${MODEL:-unknown})"
 NTG="$R/hipo_to_ntuple.groovy"
 [ -f "$NTG" ] || NTG="$(dirname "$(dirname "$0")")/gemc_check/hipo_to_ntuple.groovy"
 [ -f "$NTG" ] || { echo "FATAL: hipo_to_ntuple.groovy found neither in $R nor in the checkout"; exit 1; }
 /group/clas12/packages/coatjava/9.0.2/bin/run-groovy "$NTG" \
-    recon.hipo 1000000 "$R/$MODE/out_$POL/$OUTTAG.f32" 2>&1 | grep -E "DONE|FATAL|Exception" || true
+    recon.hipo 1000000 "$R/$MODE/out_$POL/$OUTTAG.f32" 0 "$HPID" 2>&1 | grep -E "DONE|FATAL|Exception" || true
 NS=$(stat -c %s "$R/$MODE/out_$POL/$OUTTAG.f32" 2>/dev/null || echo 0)
 if [ "$NS" -lt 1000 ]; then
   echo "FATAL: ntuple $OUTTAG.f32 is $NS bytes -- keeping gemc.hipo for post_array"; exit 1
