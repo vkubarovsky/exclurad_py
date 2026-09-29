@@ -1,0 +1,120 @@
+RESULT 001 npy 1548.65 setup=0s farm180212.jlab.org
+RESULT 001 nba 662.38 setup=0s farm180212.jlab.org
+BYTES 001 identical
+RESULT 010 npy 1091.80 setup=0s farm180120.jlab.org
+RESULT 010 nba 474.87 setup=0s farm180120.jlab.org
+BYTES 010 identical
+RESULT 011 npy 1302.97 setup=0s farm180119.jlab.org
+RESULT 011 nba 506.36 setup=0s farm180119.jlab.org
+BYTES 011 identical
+RESULT 012 npy 1132.73 setup=0s farm180119.jlab.org
+RESULT 012 nba 420.22 setup=0s farm180119.jlab.org
+BYTES 012 identical
+RESULT 013 npy 1509.94 setup=0s farm180119.jlab.org
+RESULT 013 nba 576.66 setup=0s farm180119.jlab.org
+BYTES 013 identical
+RESULT 014 npy 1269.21 setup=0s farm180119.jlab.org
+RESULT 014 nba 516.13 setup=0s farm180119.jlab.org
+BYTES 014 identical
+RESULT 015 npy 1893.97 setup=0s farm180110.jlab.org
+RESULT 015 nba 676.01 setup=0s farm180110.jlab.org
+BYTES 015 identical
+RESULT 016 npy 1455.77 setup=0s farm180111.jlab.org
+RESULT 016 nba 553.44 setup=0s farm180111.jlab.org
+BYTES 016 identical
+RESULT 017 npy 1755.66 setup=0s farm180111.jlab.org
+RESULT 017 nba 674.55 setup=0s farm180111.jlab.org
+BYTES 017 identical
+RESULT 018 npy 1730.60 setup=0s farm180109.jlab.org
+RESULT 018 nba 668.43 setup=0s farm180109.jlab.org
+BYTES 018 identical
+RESULT 019 npy 1277.44 setup=0s farm1902.jlab.org
+RESULT 019 nba 528.64 setup=0s farm1902.jlab.org
+BYTES 019 identical
+RESULT 002 npy 2008.90 setup=0s farm180207.jlab.org
+RESULT 002 nba 832.45 setup=0s farm180207.jlab.org
+BYTES 002 identical
+RESULT 020 npy 1383.21 setup=0s farm1902.jlab.org
+RESULT 020 nba 604.31 setup=0s farm1902.jlab.org
+BYTES 020 identical
+RESULT 021 npy 1080.85 setup=0s farm1902.jlab.org
+RESULT 021 nba 439.95 setup=0s farm1902.jlab.org
+BYTES 021 DIFFER
+RESULT 022 npy 1233.04 setup=0s farm1905.jlab.org
+RESULT 022 nba 494.51 setup=0s farm1905.jlab.org
+BYTES 022 identical
+RESULT 023 npy 1942.38 setup=0s farm1905.jlab.org
+RESULT 023 nba 762.18 setup=0s farm1905.jlab.org
+BYTES 023 identical
+RESULT 024 npy 1539.88 setup=0s farm1905.jlab.org
+RESULT 024 nba 627.45 setup=0s farm1905.jlab.org
+BYTES 024 identical
+RESULT 025 npy 1291.52 setup=0s farm1905.jlab.org
+RESULT 025 nba 512.04 setup=0s farm1905.jlab.org
+BYTES 025 identical
+RESULT 026 npy 1125.26 setup=0s farm1905.jlab.org
+RESULT 026 nba 516.04 setup=0s farm1905.jlab.org
+BYTES 026 identical
+RESULT 027 npy 1175.57 setup=0s farm1903.jlab.org
+RESULT 027 nba 479.89 setup=0s farm1903.jlab.org
+BYTES 027 identical
+RESULT 028 npy 1379.10 setup=0s farm1903.jlab.org
+RESULT 028 nba 624.84 setup=0s farm1903.jlab.org
+BYTES 028 identical
+RESULT 029 npy 1631.60 setup=0s farm1904.jlab.org
+RESULT 029 nba 654.05 setup=0s farm1904.jlab.org
+BYTES 029 identical
+RESULT 003 npy 1427.02 setup=0s farm180222.jlab.org
+RESULT 003 nba 615.63 setup=0s farm180222.jlab.org
+BYTES 003 identical
+RESULT 030 npy 1710.89 setup=0s farm1904.jlab.org
+RESULT 030 nba 584.94 setup=0s farm1904.jlab.org
+BYTES 030 identical
+RESULT 031 npy 1837.42 setup=0s farm1904.jlab.org
+RESULT 031 nba 641.36 setup=0s farm1904.jlab.org
+BYTES 031 identical
+RESULT 032 npy 1590.28 setup=0s farm1904.jlab.org
+RESULT 032 nba 540.83 setup=0s farm1904.jlab.org
+BYTES 032 identical
+RESULT 033 npy 1437.93 setup=0s farm1904.jlab.org
+RESULT 033 nba 627.05 setup=0s farm1904.jlab.org
+BYTES 033 identical
+RESULT 034 npy 1590.19 setup=0s farm1904.jlab.org
+RESULT 034 nba 628.76 setup=0s farm1904.jlab.org
+BYTES 034 identical
+RESULT 035 npy 1571.96 setup=0s farm1904.jlab.org
+RESULT 035 nba 576.45 setup=0s farm1904.jlab.org
+BYTES 035 identical
+RESULT 036 npy 1585.66 setup=0s farm1904.jlab.org
+RESULT 036 nba 589.79 setup=0s farm1904.jlab.org
+BYTES 036 identical
+RESULT 037 npy 1177.97 setup=0s farm1904.jlab.org
+RESULT 037 nba 515.62 setup=0s farm1904.jlab.org
+BYTES 037 identical
+RESULT 038 npy 1262.77 setup=0s farm1912.jlab.org
+RESULT 038 nba 564.17 setup=0s farm1912.jlab.org
+BYTES 038 identical
+RESULT 039 npy 1324.41 setup=0s farm1912.jlab.org
+RESULT 039 nba 600.83 setup=0s farm1912.jlab.org
+BYTES 039 identical
+RESULT 004 npy 1714.25 setup=0s farm180210.jlab.org
+RESULT 004 nba 732.63 setup=0s farm180210.jlab.org
+BYTES 004 identical
+RESULT 040 npy 992.82 setup=0s farm1910.jlab.org
+RESULT 040 nba 441.73 setup=0s farm1910.jlab.org
+BYTES 040 identical
+RESULT 005 npy 1574.23 setup=0s farm180123.jlab.org
+RESULT 005 nba 555.63 setup=0s farm180123.jlab.org
+BYTES 005 identical
+RESULT 006 npy 1980.09 setup=0s farm180123.jlab.org
+RESULT 006 nba 672.36 setup=0s farm180123.jlab.org
+BYTES 006 identical
+RESULT 007 npy 2224.27 setup=0s farm180123.jlab.org
+RESULT 007 nba 702.11 setup=0s farm180123.jlab.org
+BYTES 007 identical
+RESULT 008 npy 1466.25 setup=0s farm180123.jlab.org
+RESULT 008 nba 525.90 setup=0s farm180123.jlab.org
+BYTES 008 identical
+RESULT 009 npy 1505.04 setup=0s farm180120.jlab.org
+RESULT 009 nba 605.50 setup=0s farm180120.jlab.org
+BYTES 009 identical
