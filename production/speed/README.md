@@ -41,6 +41,9 @@ about 1560 ms/event**.
 
 ### The mini overstates the farm gain -- ratios do not transfer either
 
+*(This finding now lives in `docs/benchmarking.md` on `production`, where it
+applies to anyone measuring anything here, not just to this branch.)*
+
 | what | stack | ratio |
 |---|---|---:|
 | **farm compute nodes, 40 paired tasks** | **ifarm x86, numpy 1.23.5** | **1.657x** |
@@ -143,8 +146,15 @@ In the brief's own order:
    `sigma_F`, and the run reproduces the byte-identical LUND through it.
 4. **Physics distributions** -- see (1).
 
-Plus: `--jobs 3` (the multi-process path the production wrapper uses) gives
-three byte-identical part files; the eight-check `selftest` prints every
+Plus: `--jobs 3` gives three byte-identical part files -- a genuinely
+separate path, since `run_parallel` builds the table and calibrates the
+majorant in the parent and splits seeds as `seed + 1000*i`, none of which
+the single-process path exercises.  Independently reconfirmed at `--jobs 2`
+by the campaign session, same md5 from both branches.  It is not on the
+campaign's critical path (`gen_array.sbatch` runs one process per slurm
+task, no `--jobs`) but the local wrappers use it: `born_all_clean.sh` (6),
+`run_born_par.sh` (4), `run_rad_all.sh` (6), `run_production_100k.sh` (12).
+The eight-check `selftest` the eight-check `selftest` prints every
 number identical to the last digit, and `sigma_F` is bit-identical at **every batch size** from 336 to 6720
 rows, which is independent evidence that the batching is order-preserving.
 
