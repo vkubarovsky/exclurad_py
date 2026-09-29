@@ -190,9 +190,9 @@ def sigma_F(kin0, sfmodel, h, v_m, lam=0.0,
     for ci, chd in enumerate(channels):
         nhat, wang = chd['nhat'], chd['wang']
         wch = chd['wchan']
-        for lo in range(0, n_v_act, v_chunk):
-            hi_ = min(lo + v_chunk, n_v_act)
-            nb = hi_ - lo
+        for i0 in range(0, n_v_act, v_chunk):
+            i1 = min(i0 + v_chunk, n_v_act)
+            nb = i1 - i0
             # per-v scalar setup stays a (cheap) loop: it is a handful of
             # flops each, and keeping `nhat @ Lam[1:]` in its original
             # (N,3)@(3,) form keeps that matvec bit-for-bit what it was.
@@ -200,15 +200,15 @@ def sigma_F(kin0, sfmodel, h, v_m, lam=0.0,
             om_b = np.empty((nb, N))
             pv_b = np.empty((nb, 4))
             for j in range(nb):
-                v = vs[lo + j]
-                Lam = kinvs[lo + j].Lam
+                v = vs[i0 + j]
+                Lam = kinvs[i0 + j].Lam
                 z = Lam[0] - nhat @ Lam[1:]
                 z_b[j] = z
                 om_b[j] = v / (2.0 * z)
-                pv_b[j] = kinvs[lo + j].pv
+                pv_b[j] = kinvs[i0 + j].pv
             z = z_b.reshape(-1)
             om = om_b.reshape(-1)
-            v_f = np.repeat(vs[lo:hi_], N)
+            v_f = np.repeat(vs[i0:i1], N)
             nh = np.tile(nhat, (nb, 1))
             pv_f = np.repeat(pv_b, N, axis=0)
             k4 = np.concatenate([om[:, None], om[:, None] * nh], axis=1)
@@ -236,7 +236,7 @@ def sigma_F(kin0, sfmodel, h, v_m, lam=0.0,
             exact = np.where(good, LRH / Q2t ** 2, 0.0)
             sub = 4.0 * fir * LH0 / Q2 ** 2 if subtract else 0.0
             integrand = (v_f / z ** 2) * (exact - sub)
-            sums[ci, lo:hi_] = (wang * wch * integrand.reshape(nb, N)).sum(axis=1)
+            sums[ci, i0:i1] = (wang * wch * integrand.reshape(nb, N)).sum(axis=1)
 
     # accumulate in the original order: v outer, channel inner
     for iv in range(n_v_act):
