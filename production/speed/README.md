@@ -7,30 +7,59 @@ pure numpy, no new dependency.
 
 | | |
 |---|---|
-| speedup, rad generation end-to-end | **1.94x** (mini, median of 3 interleaved pairs) |
-| speedup, `sigma_F` alone | **1.98x** on numpy 2.4.6, **1.90x** on numpy 1.23.5 |
-| LUND output | **byte-identical** on both stacks |
+| **speedup on farm COMPUTE NODES** | **1.657x**, median of 40 paired slurm tasks (10-90 %: 1.592-1.755) |
+| LUND output | **byte-identical**, including 40/40 independent checks on 20 compute nodes |
 | new dependencies | **none** |
-| stacks verified bit-identical | mini ARM numpy 2.4.6; mini ARM numpy 1.23.5; **ifarm x86 numpy 1.23.5** |
-| farm compute-node number | in progress -- see "What is not done" |
+| stacks verified bit-identical | mini ARM numpy 2.4.6 and 1.23.5; ifarm x86 numpy 1.23.5; 40 farm nodes |
+| **does it meet the brief's <1 s/event target?** | **No.** 2.60 -> ~1.56 s/event |
 
 Quote the ratio, not the milliseconds.  The mini was swapping for most of the
 day (load average 1 -> 175 with ~87 % of the CPU idle), so absolute numbers off
 it mean little; interleaved pairs still measure the ratio well because both
 arms see the same machine within seconds of each other.
 
-Measured ratios, every one of them interleaved base/speed on one machine:
+### The number that counts: farm compute nodes
 
-| what | stack | base | speed | ratio |
-|---|---|---:|---:|---:|
-| 60-event rad run, median of 3 pairs | mini, numpy 2.4.6 | 1021.0 | 525.9 ms/ev | **1.94x** |
-| `sigma_F`, 5 interleaved reps | mini, numpy 2.4.6 | 49.50 | 24.95 ms | **1.98x** |
-| `sigma_F`, 5 interleaved reps | mini, numpy 1.23.5 | 48.99 | 25.81 ms | **1.90x** |
+40 slurm tasks, each timing BOTH arms back to back **on the same node**, so
+the node-to-node spread cancels in the per-task ratio.  Production card,
+production settings, the campaign's own tables read-only, 20 distinct nodes,
+`OPENBLAS_NUM_THREADS=1` as production.
 
-A **single** 60-event pair on numpy 1.23 gave 1.60x; three interleaved pairs
-and the `sigma_F` A/B both say ~1.9x, so that 1.60 was load noise on a
-swapping machine and not a numpy-version effect.  One pair is not a
-measurement -- which is the brief's own warning, and it caught me once.
+| | median | min | max |
+|---|---:|---:|---:|
+| production (`origin/production`) | 2388.2 | 1503.4 | 3979.2 ms/event |
+| `speed` | 1427.5 | 951.0 | 2200.9 ms/event |
+| **per-task ratio** | **1.657** | 1.527 | 1.808 |
+
+10-90 % of the per-task ratio: **1.592-1.755**.  Guard failures: 0.  LUND
+byte-comparison inside each task: **40 of 40 identical**.
+
+The baseline median, 2388 ms/event, sits just under the campaign's own 2586,
+which is the check that this harness measures the production generator and
+not something else.  Applying the ratio to the campaign's number: **2586 ->
+about 1560 ms/event**.
+
+### The mini overstates the farm gain -- ratios do not transfer either
+
+| what | stack | ratio |
+|---|---|---:|
+| **farm compute nodes, 40 paired tasks** | **ifarm x86, numpy 1.23.5** | **1.657x** |
+| 60-event run, 3 interleaved pairs | mini ARM, numpy 2.4.6 | 1.94x |
+| `sigma_F`, 5 interleaved reps | mini ARM, numpy 2.4.6 | 1.98x |
+| `sigma_F`, 5 interleaved reps | mini ARM, numpy 1.23.5 | 1.90x |
+
+The brief says never to compare an absolute number across machines.  This
+says the same is true of a **ratio**: the mini reads 1.94x for a change that
+is worth 1.66x where production runs, a 17 % overstatement, and the numpy
+version is not the cause (1.90 vs 1.98 on the same box).  Different CPU,
+different cache and memory behaviour, and this change is largely about how
+much numpy overhead sits on top of the arithmetic.  Quote the farm number.
+
+One more methodological note, because it nearly went into this report as a
+finding: a **single** 60-event pair on numpy 1.23 read 1.60x and looked like
+evidence that the speedup was numpy-version dependent.  Three interleaved
+pairs and the `sigma_F` A/B both said ~1.9x on that same box.  It was load
+noise on a swapping machine.  One pair is not a measurement.
 
 ## Where the time actually went
 
@@ -138,17 +167,53 @@ Reproduce:
   Physically irrelevant, but it means "byte-identical" is a within-stack
   statement -- for anyone's change, not just this one.
 
-## What is not done
+## Does this finish the job?  No -- and the arithmetic
 
-* **No farm compute-node measurement.** The headline number the brief asks for
-  is a median over many slurm tasks, and ssh to ifarm hung all session
-  (ProxyJump through login.jlab.org; a valid Kerberos ticket was present and
-  direct connection to ifarm2402:22 times out from 129.57.79.26). The 2.60
-  s/event production figure is therefore **not yet confirmed to have become
-  ~1.30**; that claim needs the farm.
-* **numpy 1.23 was verified on ARM, not x86.** Same numpy and scipy versions
-  as production, different CPU and SIMD.
-* **numba / Phase 1 not started**, and on this evidence it should not be
-  started before the farm re-measure. 2x with no new dependency, bit-identical
-  on both numpy versions, does not need the OSG container question answered;
-  3-4x with LLVM does, and that question is not ours to decide.
+The brief's target was **under 1 s/event on a compute node**.  At 1.657x the
+campaign's 2.60 s/event becomes about **1.56 s/event**.  That is a real
+saving and it is not the target.
+
+Per 100 M events, taking the brief's 72 000 core-hours at 2.60 s/event:
+
+| | core-hours per 100 M | saved |
+|---|---:|---:|
+| production today | 72 000 | -- |
+| `speed` (this branch) | ~43 500 | **~28 500** |
+| the brief's 1 s/event target | ~27 700 | a further ~15 800 |
+
+So Phase 0 captures roughly two thirds of what was on the table, with no new
+dependency and with the output provably unchanged.
+
+## numba, in one line
+
+**numba is not needed for what is on this branch, and the remaining gap is a
+weaker case for it than it looked this morning.**  Whether LLVM is acceptable
+in the OSG container and in `clas12-mcgen` is a packaging policy question
+that is not mine to answer -- but it now only has to be answered if ~15 800
+core-hours per 100 M campaign is worth it, since the other ~28 500 are
+already available without asking anyone.  It installs and runs on both
+machines (tested by the campaign session: numba 0.67.0 on the mini's 3.14 and
+on ifarm's 3.13, though production slurm runs 3.9).
+
+If Phase 1 is taken up, the profile says where: after this work the remaining
+time is genuine array arithmetic in `rad_L` and the tensor assembly, and the
+structure-function model -- the actual physics -- is ~6 % of it.  Nothing
+further is available from pure numpy without giving up bit-identity.
+
+## What is NOT done
+
+* **The `table_shape` lever is untouched.** The eta interpolation over this
+  box is poor (rms(rel) 0.292), so stage 1 proposes badly and stage 2 throws
+  work away; a finer table might buy acceptance for a one-off build cost.  It
+  is deliberately left out of this branch because it is a **different kind of
+  change**: a different table means different random draws, so byte-identity
+  is gone by construction and the bar drops to distributions plus `b_viol`.
+  It also has a measured precedent of losing (1008 -> 1035 ms/event at
+  TABLE_SHAPE x4, on a narrower box) because a finer table is a slower
+  lookup per event.  Separate branch, separate argument.
+* **`--jobs N` multi-process runs were not byte-compared.**  Single-process
+  was, on four stacks; the parallel path is untouched by these changes but it
+  was not exercised.
+* **x86 bit-identity rests on `sigma_F` and on 40 end-to-end LUND
+  comparisons**, both on ifarm.  That is strong, but the 228-point box grid
+  was run on the login node, not on a compute node.

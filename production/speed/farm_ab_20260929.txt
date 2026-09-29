@@ -1,0 +1,120 @@
+BYTES 001 identical
+BYTES 002 identical
+BYTES 003 identical
+BYTES 004 identical
+BYTES 005 identical
+BYTES 006 identical
+BYTES 007 identical
+BYTES 008 identical
+BYTES 009 identical
+BYTES 010 identical
+BYTES 011 identical
+BYTES 012 identical
+BYTES 013 identical
+BYTES 014 identical
+BYTES 015 identical
+BYTES 016 identical
+BYTES 017 identical
+BYTES 018 identical
+BYTES 019 identical
+BYTES 020 identical
+BYTES 021 identical
+BYTES 022 identical
+BYTES 023 identical
+BYTES 024 identical
+BYTES 025 identical
+BYTES 026 identical
+BYTES 027 identical
+BYTES 028 identical
+BYTES 029 identical
+BYTES 030 identical
+BYTES 031 identical
+BYTES 032 identical
+BYTES 033 identical
+BYTES 034 identical
+BYTES 035 identical
+BYTES 036 identical
+BYTES 037 identical
+BYTES 038 identical
+BYTES 039 identical
+BYTES 040 identical
+RESULT 001 base 2548.87 setup=0s farm180226.jlab.org
+RESULT 001 spd 1486.82 setup=0s farm180226.jlab.org
+RESULT 002 base 3494.95 setup=0s farm180226.jlab.org
+RESULT 002 spd 1994.22 setup=0s farm180226.jlab.org
+RESULT 003 base 2344.88 setup=0s farm180209.jlab.org
+RESULT 003 spd 1361.67 setup=0s farm180209.jlab.org
+RESULT 004 base 3363.12 setup=0s farm180116.jlab.org
+RESULT 004 spd 2020.04 setup=0s farm180116.jlab.org
+RESULT 005 base 2606.27 setup=0s farm180116.jlab.org
+RESULT 005 spd 1509.49 setup=0s farm180116.jlab.org
+RESULT 006 base 3263.96 setup=0s farm180116.jlab.org
+RESULT 006 spd 1909.13 setup=0s farm180116.jlab.org
+RESULT 007 base 3979.20 setup=0s farm180111.jlab.org
+RESULT 007 spd 2200.86 setup=0s farm180111.jlab.org
+RESULT 008 base 2610.86 setup=0s farm180111.jlab.org
+RESULT 008 spd 1487.97 setup=0s farm180111.jlab.org
+RESULT 009 base 3130.15 setup=0s farm180110.jlab.org
+RESULT 009 spd 1934.94 setup=0s farm180110.jlab.org
+RESULT 010 base 2063.31 setup=0s farm180216.jlab.org
+RESULT 010 spd 1156.29 setup=0s farm180216.jlab.org
+RESULT 011 base 2526.12 setup=0s farm180216.jlab.org
+RESULT 011 spd 1435.70 setup=0s farm180216.jlab.org
+RESULT 012 base 2266.00 setup=0s farm180216.jlab.org
+RESULT 012 spd 1306.78 setup=0s farm180216.jlab.org
+RESULT 013 base 3023.64 setup=0s farm180215.jlab.org
+RESULT 013 spd 1722.00 setup=0s farm180215.jlab.org
+RESULT 014 base 2538.21 setup=0s farm180215.jlab.org
+RESULT 014 spd 1474.65 setup=0s farm180215.jlab.org
+RESULT 015 base 2780.10 setup=0s farm180215.jlab.org
+RESULT 015 spd 1615.52 setup=0s farm180215.jlab.org
+RESULT 016 base 2197.13 setup=0s farm180212.jlab.org
+RESULT 016 spd 1329.64 setup=0s farm180212.jlab.org
+RESULT 017 base 2636.12 setup=0s farm180212.jlab.org
+RESULT 017 spd 1587.01 setup=0s farm180212.jlab.org
+RESULT 018 base 2551.07 setup=0s farm180213.jlab.org
+RESULT 018 spd 1611.43 setup=0s farm180213.jlab.org
+RESULT 019 base 2226.56 setup=0s farm180213.jlab.org
+RESULT 019 spd 1419.27 setup=0s farm180213.jlab.org
+RESULT 020 base 2735.14 setup=0s farm180206.jlab.org
+RESULT 020 spd 1601.45 setup=0s farm180206.jlab.org
+RESULT 021 base 2494.59 setup=0s farm180124.jlab.org
+RESULT 021 spd 1481.18 setup=0s farm180124.jlab.org
+RESULT 022 base 2272.57 setup=0s farm180205.jlab.org
+RESULT 022 spd 1338.34 setup=0s farm180205.jlab.org
+RESULT 023 base 3207.99 setup=0s farm180205.jlab.org
+RESULT 023 spd 1848.20 setup=0s farm180205.jlab.org
+RESULT 024 base 2704.29 setup=0s farm180205.jlab.org
+RESULT 024 spd 1564.55 setup=0s farm180205.jlab.org
+RESULT 025 base 2126.47 setup=0s farm180122.jlab.org
+RESULT 025 spd 1330.70 setup=0s farm180122.jlab.org
+RESULT 026 base 1983.01 setup=0s farm180121.jlab.org
+RESULT 026 spd 1230.34 setup=0s farm180121.jlab.org
+RESULT 027 base 2133.57 setup=0s farm180121.jlab.org
+RESULT 027 spd 1319.71 setup=0s farm180121.jlab.org
+RESULT 028 base 2454.78 setup=0s farm180121.jlab.org
+RESULT 028 spd 1492.52 setup=0s farm180121.jlab.org
+RESULT 029 base 1907.83 setup=0s farm1908.jlab.org
+RESULT 029 spd 1179.80 setup=0s farm1908.jlab.org
+RESULT 030 base 1923.01 setup=0s farm1908.jlab.org
+RESULT 030 spd 1190.41 setup=0s farm1908.jlab.org
+RESULT 031 base 1981.12 setup=0s farm1908.jlab.org
+RESULT 031 spd 1221.58 setup=0s farm1908.jlab.org
+RESULT 032 base 1831.59 setup=0s farm1910.jlab.org
+RESULT 032 spd 1131.31 setup=0s farm1910.jlab.org
+RESULT 033 base 1988.60 setup=0s farm1914.jlab.org
+RESULT 033 spd 1302.58 setup=0s farm1914.jlab.org
+RESULT 034 base 2227.57 setup=0s farm1914.jlab.org
+RESULT 034 spd 1389.43 setup=0s farm1914.jlab.org
+RESULT 035 base 1800.39 setup=0s farm1912.jlab.org
+RESULT 035 spd 1095.19 setup=0s farm1912.jlab.org
+RESULT 036 base 2431.61 setup=0s farm1911.jlab.org
+RESULT 036 spd 1515.80 setup=0s farm1911.jlab.org
+RESULT 037 base 2076.51 setup=0s farm1911.jlab.org
+RESULT 037 spd 1281.78 setup=0s farm1911.jlab.org
+RESULT 038 base 1869.05 setup=0s farm1905.jlab.org
+RESULT 038 spd 1173.36 setup=0s farm1905.jlab.org
+RESULT 039 base 2036.12 setup=0s farm1905.jlab.org
+RESULT 039 spd 1244.76 setup=0s farm1905.jlab.org
+RESULT 040 base 1503.37 setup=0s farm1905.jlab.org
+RESULT 040 spd 951.03 setup=0s farm1905.jlab.org
