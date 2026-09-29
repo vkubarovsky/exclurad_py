@@ -129,13 +129,28 @@ rm -f merged.hipo
 bg-merger -b "$BG" -i gemc.hipo -o merged.hipo -d "$DET" > bg.log 2>&1
 T2=$(date +%s); MS=$(stat -c %s merged.hipo 2>/dev/null || echo 0)
 echo "BGMERGE seconds: $((T2-T1))  size: $MS"
-if [ "$MS" -lt 10000000 ]; then echo "FATAL: merged.hipo is $MS bytes -- keeping gemc.hipo for post_array"; tail -25 bg.log; exit 1; fi
+# SCALE-FREE, because 10 MB is a 5000-event number and a 100-event test chunk
+# legitimately merges to 3.5 MB -- the guard fired on a perfectly good file on
+# 2026-09-28 and the chain looked broken when it was not.  What is actually
+# being caught is a header-only hipo, which is ~336 kB WHATEVER the chunk size,
+# so compare against gemc.hipo: the merge adds background hits, so the result
+# must be strictly larger than its own input, which already passed its guard.
+GS=$(stat -c %s gemc.hipo)
+if [ "$MS" -le "$GS" ]; then
+  echo "FATAL: merged.hipo is $MS bytes, not larger than gemc.hipo at $GS -- the merge added nothing"
+  tail -25 bg.log; exit 1
+fi
 
 rm -f recon.hipo
 recon-util -y "$YAML" -i merged.hipo -o recon.hipo > recon.log 2>&1
 T3=$(date +%s); RS=$(stat -c %s recon.hipo 2>/dev/null || echo 0)
 echo "RECON seconds: $((T3-T2))  size: $RS"
-if [ "$RS" -lt 10000000 ]; then echo "FATAL: recon.hipo is $RS bytes -- keeping gemc.hipo for post_array"; tail -25 recon.log; exit 1; fi
+# Same reasoning, but reconstruction REDUCES the file (hits become tracks), so
+# the comparison is against a fraction of the input rather than the input.
+if [ "$RS" -lt $((MS / 20)) ]; then
+  echo "FATAL: recon.hipo is $RS bytes against merged.hipo's $MS -- reconstruction produced almost nothing"
+  tail -25 recon.log; exit 1
+fi
 
 module purge                              # java 21 from coatjava breaks run-groovy
 unset JDK_JAVA_OPTIONS
