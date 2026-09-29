@@ -96,3 +96,64 @@ above says it is still present elsewhere.  A single-point `born_xsec` costs
   over the box when he wants it; it adopts nothing.
 * Nothing in this branch is proposed for merge.  `speed` (merged, 1.657x,
   byte-identical) is unaffected by any of it.
+
+## 6. The unified cost model — counted, not inferred
+
+Instrumenting the integrand directly, 50 events, production configuration:
+
+    integrand-point evaluations per WRITTEN event
+
+        tail sampler   118 620   (51 %)
+        sigma_F        113 702   (49 %)   423 calls x 13 440 points
+        TOTAL          232 323
+
+**The generator's cost is (number of integrand points) x (cost per point),
+and nothing else matters.**  Everything expensive -- the exact RC, the tail
+sampler, the Born trials -- is the same integrand: `rad_L`,
+`hadronic_tensor`, `contractLH`.
+
+This closes the question the campaign session raised about overlap.
+`_density_batch` never calls `sigma_F`; it evaluates the integrand itself,
+on the CellGrid's own nodes.  So the two halves above are not duplicated
+work at different resolutions of the same points -- they are different
+point sets, and there is no free deduplication to be had.
+
+Where the tail sampler's 118 620 come from:
+
+    n_v 20  x  n_x 32  x  n_phi 12  x  n_sub 12  x  2 channels  =  184 320
+    per build, x 0.64 builds per written event                  =  118 620
+
+against `sigma_F`'s 20 x (12+16) x 12 x 2 = 13 440 per call.  **One tail
+build costs 13.7 sigma_F.**  The arithmetic predicts the measurement: at the
+1.86 us/point this branch achieves, 184 320 points is 343 ms against 368 ms
+measured per build.
+
+### What that means for what is left
+
+The merged `speed` work attacked **cost per point** and got 1.657x.  Every
+remaining lever attacks the **number of points**:
+
+| lever | points | whose call |
+|---|---|---|
+| tail grid `n_sub` (12x multiplier), `n_x` (32) | 184 320/build | needs measuring — accuracy trade |
+| `RC_QUAD` | 13 440/call | **VPK's**, physics accuracy |
+| stage-2 acceptance (call count) | — | already banked in production |
+
+`n_sub` is stratified sub-sampling for the per-cell integral and majorant,
+so cutting it is not free: it degrades `sigma_hard` (the branching
+fraction) and the per-cell majorant, which shows up as overweight events.
+That is the same shape as the `B_PROBES` trade, and it must be measured as
+a curve -- cost against `n_overweight`/`max_overweight` -- not guessed.
+
+## 7. The methodological lesson from my own withdrawn number
+
+I checked the environment variables and still measured the wrong baseline.
+**An environment guard proves what you asked for; only the artefact proves
+what you got.**  My own two harnesses were printing the answer the whole
+time and I never compared the two lines:
+
+    scan   "stage-2 bounds: 300 probes, global B = 4.91"      <- in-job lottery
+    prod   "stage-2 bound from cache: shape (4,4,4,6), ..."   <- stratified
+
+Assert on the provenance line, not on the variable that was supposed to
+produce it.
