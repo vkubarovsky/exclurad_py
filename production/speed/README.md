@@ -143,8 +143,9 @@ In the brief's own order:
    `sigma_F`, and the run reproduces the byte-identical LUND through it.
 4. **Physics distributions** -- see (1).
 
-Plus: the eight-check `selftest` prints every number identical to the last
-digit, and `sigma_F` is bit-identical at **every batch size** from 336 to 6720
+Plus: `--jobs 3` (the multi-process path the production wrapper uses) gives
+three byte-identical part files; the eight-check `selftest` prints every
+number identical to the last digit, and `sigma_F` is bit-identical at **every batch size** from 336 to 6720
 rows, which is independent evidence that the batching is order-preserving.
 
 Reproduce:
@@ -211,9 +212,6 @@ further is available from pure numpy without giving up bit-identity.
   It also has a measured precedent of losing (1008 -> 1035 ms/event at
   TABLE_SHAPE x4, on a narrower box) because a finer table is a slower
   lookup per event.  Separate branch, separate argument.
-* **`--jobs N` multi-process runs were not byte-compared.**  Single-process
-  was, on four stacks; the parallel path is untouched by these changes but it
-  was not exercised.
 * **x86 bit-identity rests on `sigma_F` and on 40 end-to-end LUND
   comparisons**, both on ifarm.  That is strong, but the 228-point box grid
   was run on the login node, not on a compute node.
