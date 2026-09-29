@@ -91,8 +91,21 @@ echo "events written: $(grep -c '^ *[0-9]* *1 *1 ' "$SRC" 2>/dev/null || echo '?
 # true.  Until 2026-09-28 this said "inb", so every outbending sample would
 # have been built from a file whose name claimed otherwise.
 NAME=excluradpy_pi0_${MODE}_fa18_$I
-cp "$SRC" "$R/$MODE/lund_osg/$NAME.lund"
+# MAKE THE OUTPUT DIRECTORIES.  This script used to assume they existed,
+# which they did in the RG-A directory because earlier campaigns had made
+# them.  In a FRESH production directory they do not, and on 2026-09-29 that
+# cost 100 tasks and 200k events: cp failed with "No such file or directory",
+# `ln -sf` happily created a symlink to the file cp had not written, the
+# chunk directory filled with 50 DANGLING LINKS that count like real files,
+# the script printed DONE, and `rm -rf $W` deleted the events.
+mkdir -p "$R/$MODE/lund_osg" "$R/$MODE/chunks" "$R/$MODE/logs" "$R/$MODE/prov"
+cp "$SRC" "$R/$MODE/lund_osg/$NAME.lund" || {
+  echo "FATAL: could not copy the LUND to $R/$MODE/lund_osg -- keeping $W"; exit 1; }
 ln -sf "$R/$MODE/lund_osg/$NAME.lund" "$R/$MODE/chunks/lund_$I.dat"
+# ln -sf succeeds against a missing target, so the link proves nothing: test
+# what it points AT.  -e follows the link; a dangling one fails here.
+[ -e "$R/$MODE/chunks/lund_$I.dat" ] || {
+  echo "FATAL: chunk lund_$I.dat is a dangling link -- keeping $W"; exit 1; }
 
 # Provenance travels beside the file, not inside it: the .info sidecar the
 # generator writes, and its own config.json, which carries sigma_nb -- the
@@ -105,5 +118,12 @@ cp "$(dirname "$(dirname "$SRC")")/inputs/config.json" "$R/$MODE/prov/${MODE}_$I
 cp "$W/card.txt" "$R/$MODE/prov/${MODE}_$I.card.txt"
 grep -o '"sigma_nb":[^,]*' "$R/$MODE/prov/${MODE}_$I.config.json" 2>/dev/null | head -1
 
+# Only now, with a chunk that exists and holds the events, is the work
+# directory expendable.  Every exit above keeps it, so post-mortem and resume
+# are possible without regenerating.
+CHUNKN=$(grep -c '^ *[0-9]* *1 *1 ' "$R/$MODE/chunks/lund_$I.dat" 2>/dev/null || echo 0)
+if [ "$CHUNKN" -lt 1 ]; then
+  echo "FATAL: chunk lund_$I.dat holds $CHUNKN events -- keeping $W"; exit 1
+fi
 rm -rf "$W"
-echo "DONE $MODE $I"
+echo "DONE $MODE $I  ($CHUNKN events in chunk)"
