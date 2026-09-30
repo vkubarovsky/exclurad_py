@@ -42,6 +42,29 @@ OUTTAG=excluradpy_pi0_${MODE}_fa18_${POL}_bg50nA_$I
 [ -s "$W/gemc.hipo" ] || { echo "FATAL: no gemc.hipo in $W -- nothing to catch up"; exit 1; }
 SZ=$(stat -c %s "$W/gemc.hipo")
 [ "$SZ" -lt 1000000 ] && { echo "FATAL: gemc.hipo is only $SZ bytes"; exit 1; }
+# AND the count, because the size test is one a PARTIAL gemc walks straight
+# through.  post_array exists to resume a job killed after GEMC -- but a job
+# killed DURING GEMC also leaves a gemc.hipo, just a short one.  Real case:
+# rad outb 150 of the 2026-09-28 reference was cancelled on the 12 h limit
+# part-way through GEMC and left 52 MB against a 144 MB minimum over the 199
+# chunks that finished.  1000000 accepts that by a factor of fifty, and the
+# job would have merged, reconstructed and written a DST holding about a
+# third of a chunk -- a short chunk in a reference sample, with nothing in
+# any log to say so.
+#
+# The exact test is the event count, and it is cheap: hipo reports it from
+# the header, no scan.  The chunk's own LUND says how many there should be.
+NEXP=$(grep -c '^ *[0-9]* *1 *1 ' "$R/$MODE/chunks/lund_$I.dat" 2>/dev/null || echo 0)
+NGOT=$(/group/clas12/packages/coatjava/9.0.2/bin/hipo-utils -dump "$W/gemc.hipo" 2>/dev/null \
+       | sed -n 's/.*number of  events *: *\([0-9]*\).*/\1/p' | head -1)
+NGOT=${NGOT:-0}
+if [ "$NEXP" -gt 0 ] && [ "$NGOT" -lt "$NEXP" ]; then
+  echo "FATAL: gemc.hipo holds $NGOT events, the chunk has $NEXP -- GEMC was"
+  echo "       killed part-way through.  There is nothing to resume: rerun"
+  echo "       this task with sim_array.sbatch, not post_array."
+  exit 1
+fi
+echo "gemc.hipo: $NGOT of $NEXP events, $SZ bytes"
 # Same tape guard as sim_array: /cache is tape-backed and an evicted file
 # can be a stub that passes -f and then feeds bg-merger nothing.
 if [ ! -s "$BG" ] || [ "$(stat -c %s "$BG")" -lt 1000000 ]; then
