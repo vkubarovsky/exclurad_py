@@ -97,13 +97,23 @@ def _dot4(a, b):
 @njit(cache=True, parallel=False)
 def lrh_kernel(k1, k2, m, k4, qt, p, pv, W2t,
                sT, sL, sTT, sLT, sLTp, M,
-               u1, ub2, UB2G, GU1, out):
+               u1, ub2, UB2G, GU1, out, nbad):
     """LRH[n] = Re( L_R^{mu nu} H_{mu nu} ) for a batch of photons.
 
     k1,k2 (4,) real; k4,qt,p,pv (N,4) real; W2t and the five sf (N,) real;
     u1 (4,), ub2 (2,4), UB2G (2,4,4), GU1 (4,4) complex -- all photon-
     independent, built once in numpy by the caller.
     out (N,) real, written in place.
+    nbad (1,) int64, incremented for every row skipped by the guard below.
+
+    THE GUARD.  numpy and numba disagree on degenerate input: an array
+    division by zero gives inf/nan, which the callers mask afterwards, but
+    the SCALAR divisions here follow Python semantics and would raise
+    ZeroDivisionError -- aborting a slurm chunk where the numpy path merely
+    produced a nan.  Every denominator that can vanish is therefore checked,
+    the row is written as 0.0, and nbad is incremented so it can never be
+    silent.  In normal running nbad stays 0 and the guard changes nothing;
+    `integrand.lrh_batch` raises if it ever does not.
 
     Everything between here and the return is per row: nothing bigger than a
     4x4 is allocated, and L_R and H are never materialised as arrays of N.
@@ -134,6 +144,8 @@ def lrh_kernel(k1, k2, m, k4, qt, p, pv, W2t,
     for n in range(N):
         # ---------------- photon basis X, Y, L at this shifted point -----
         P0 = p[n, 0] + qt[n, 0]
+        if P0 == 0.0 or not np.isfinite(P0):
+            out[n] = 0.0; nbad[0] += 1; continue
         for i in range(3):
             beta[i] = (p[n, i + 1] + qt[n, i + 1]) / P0
         _boost(beta, Bm)
@@ -148,6 +160,8 @@ def lrh_kernel(k1, k2, m, k4, qt, p, pv, W2t,
 
         Q2t = -_dot4(qt[n], qt[n])
         aq = np.sqrt(qtc[1] ** 2 + qtc[2] ** 2 + qtc[3] ** 2)
+        if aq == 0.0 or Q2t <= 0.0 or not np.isfinite(aq):
+            out[n] = 0.0; nbad[0] += 1; continue
         for i in range(3):
             zhat[i] = qtc[i + 1] / aq
         pz = pvc[1] * zhat[0] + pvc[2] * zhat[1] + pvc[3] * zhat[2]
@@ -196,6 +210,8 @@ def lrh_kernel(k1, k2, m, k4, qt, p, pv, W2t,
         # ---------------- radiative leptonic tensor ----------------------
         kap1 = 2.0 * _dot4(k4[n], k1)
         kap2 = 2.0 * _dot4(k4[n], k2)
+        if kap1 == 0.0 or kap2 == 0.0:
+            out[n] = 0.0; nbad[0] += 1; continue
         for i in range(4):
             km[i] = k1[i] - k4[n, i]
         _pslash(km, pr1)
@@ -217,6 +233,8 @@ def lrh_kernel(k1, k2, m, k4, qt, p, pv, W2t,
 
         # two real transverse polarizations of this photon
         kn = np.sqrt(k4[n, 1] ** 2 + k4[n, 2] ** 2 + k4[n, 3] ** 2)
+        if kn == 0.0:
+            out[n] = 0.0; nbad[0] += 1; continue
         for i in range(3):
             nh[i] = k4[n, i + 1] / kn
         imin = 0
@@ -231,6 +249,8 @@ def lrh_kernel(k1, k2, m, k4, qt, p, pv, W2t,
         e1[1] = refv[2] * nh[0] - refv[0] * nh[2]
         e1[2] = refv[0] * nh[1] - refv[1] * nh[0]
         en = np.sqrt(e1[0] ** 2 + e1[1] ** 2 + e1[2] ** 2)
+        if en == 0.0:
+            out[n] = 0.0; nbad[0] += 1; continue
         for i in range(3):
             e1[i] /= en
         e2[0] = nh[1] * e1[2] - nh[2] * e1[1]

@@ -59,6 +59,7 @@ def lrh_batch(k1, k2, m, h, k4, qt, p, pv, W2t, sf, M, lam=0.0, H=None):
     if USE_NUMBA and not polarised:
         u1, ub2, UB2G, GU1 = _spinor_setup(k1, k2, m, h)
         out = np.empty(len(W2t))
+        nbad = np.zeros(1, dtype=np.int64)
         lrh_kernel(np.ascontiguousarray(k1), np.ascontiguousarray(k2), float(m),
                    np.ascontiguousarray(k4), np.ascontiguousarray(qt),
                    np.ascontiguousarray(p), np.ascontiguousarray(pv),
@@ -66,7 +67,16 @@ def lrh_batch(k1, k2, m, h, k4, qt, p, pv, W2t, sf, M, lam=0.0, H=None):
                    np.ascontiguousarray(sf['sT']), np.ascontiguousarray(sf['sL']),
                    np.ascontiguousarray(sf['sTT']), np.ascontiguousarray(sf['sLT']),
                    np.ascontiguousarray(sf['sLTp']),
-                   float(M), u1, ub2, UB2G, GU1, out)
+                   float(M), u1, ub2, UB2G, GU1, out, nbad)
+        if nbad[0]:
+            # The guard fires only on kinematics that would have divided by
+            # zero.  It has never fired in validation; if it does, the rows
+            # were dropped and the result is no longer trustworthy, so say
+            # so loudly rather than return a quietly biased number.
+            raise RuntimeError(
+                f"lrh_kernel: {int(nbad[0])} of {len(out)} rows hit a "
+                "degenerate denominator and were skipped. The numpy backend "
+                "(unset RC_NUMBA) masks these instead. Please report the card.")
         return out
     if H is None:
         H = hadronic_tensor(qt, p, pv, W2t, sf, M=M, lam=lam)
