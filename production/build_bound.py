@@ -126,6 +126,26 @@ def probe_cells(arg):
         for _ in range(PER):
             if not g._draw_vertex():
                 continue
+            # FERMI MOTION BELONGS IN THE PROBE.  Without this the bound is a
+            # FREE-NUCLEON bound whatever the card says: `fermi` reaches the
+            # Generator and so the majorant's KEY is right and the file loads
+            # against a deuteron run, but the probes were taken with the
+            # nucleon at rest and the CONTENT never saw the boost.  Measured
+            # on 2026-09-29: the two arms of the RG-B neutron card produced
+            # bounds identical to the last digit, 173 of 384 cells on the
+            # fallback in both, proposal-weighted 1.756 in both.
+            #
+            # Fermi enters r through ONE quantity -- _draw_fermi replaces
+            # self._E with the beam energy in the struck nucleon's rest frame,
+            # and r is rc_factor(Ebeam=g._E)/eta_table at the nominal energy.
+            # Re-probing with the boost live moved the per-cell maximum by a
+            # median of -1.5 %, a 90th percentile of +8.8 % and a worst cell
+            # of +84 %, and crossed the recorded bound in 0 of 218 cells: the
+            # 1.3 margin absorbed it.  So this is not a correction to any
+            # sample already made -- it is closing the hole before a wider
+            # wave function or a steeper channel falls into it.
+            if g.fermi != "none" and not g._draw_fermi():
+                continue
             u = rng.random(4)
             Q2 = rngs[0][0] + u[0] * (rngs[0][1] - rngs[0][0])
             W2 = rngs[1][0] + u[1] * (rngs[1][1] - rngs[1][0])
@@ -134,6 +154,10 @@ def probe_cells(arg):
             if not g._pass_yxb(Q2, W2):
                 continue
             if not g._draw_mass(Q2, W2, t):
+                continue
+            # the same guard the generate loop applies: an unphysical working
+            # frame must not reach _born, and must not count as a probe
+            if g.fermi != "none" and not g._pass_fermi_frame(Q2, W2, t, ph):
                 continue
             h = +1 if rng.random() < 0.5 else -1
             b = g._born(Q2, W2, t, ph, h)

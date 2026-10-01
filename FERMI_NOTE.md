@@ -397,7 +397,51 @@ floor at this statistics is about 2 sigma. Full output in
 * **`ptarg` with a deuteron is refused**, at construction. Phase 1 is an
   unpolarised deuteron and `ptarg` is a longitudinal *nucleon* polarisation;
   tensor polarisation is out of scope.
-* **No final-state interactions, no coherent production.** PWIA only.
+* **No final-state interactions, no coherent production.** PWIA only, and the
+  limit this puts on the sample is sharp enough to be worth a number rather
+  than a word.
+
+  A Glauber estimate of the probability that a fast outgoing particle hits the
+  spectator on its way out is `P ~ sigma_NN <1/r^2> / 4 pi`. The deuteron is
+  the most loosely bound nucleus there is, around 4 fm between the nucleons, so
+  with `sigma_NN = 40 mb = 4 fm^2` and `<1/r^2> ~ 0.05 fm^-2` this is **one to
+  two per cent** on the total rate. For the pion the same arithmetic with
+  `sigma_piN = 30 mb` gives the same order, and our pions are fast and well
+  away from the Delta.
+
+  **But the average is misleading, because FSI is not spread evenly: all of it
+  sits where the spectator is fast.** From `d(e,e'p)n` it is long established
+  that at perpendicular kinematics -- spectator at around 70 degrees to the
+  momentum transfer -- rescattering raises the cross section by FACTORS at
+  spectator momenta of 300-500 MeV/c, while in parallel kinematics it is small.
+  The reason is the same one that makes the PWIA tail suspect in the first
+  place: a 400 MeV/c spectator means the nucleons were close together, which is
+  also where the chance of hitting it is largest, and where a nucleon is as
+  likely to have got its momentum from the collision as from the wave function.
+
+  **The practical consequence, and it is an awkward one:**
+
+  | spectator momentum | CLAS12 sees it | PWIA describes it |
+  |---|---|---|
+  | below ~300 MeV/c | no | **yes** |
+  | above ~300 MeV/c | **yes** (CVT tracks protons) | **no** |
+
+  So the one configuration where the spectator is visible -- a struck neutron,
+  hence a spectator PROTON -- is also the one where this branch's model stops
+  being quantitative. That is not an argument against the samples: the number
+  they were made for, the retention under an exclusivity cut, is carried by the
+  bulk of the distribution at ~90 MeV/c where FSI is a per-cent effect. It is
+  an argument against three specific uses:
+
+  - extracting physics from events with a DETECTED spectator;
+  - using the momentum tail above 300 MeV/c for anything quantitative;
+  - treating spectator tagging as a precise neutron tag.
+
+  Experiments that tag spectators (BONuS and its kin) cut at low momentum and
+  backward angles for exactly this reason, not for statistics. Doing it
+  properly means Glauber in the generalised eikonal approximation (Sargsian,
+  Frankfurt-Strikman), which is a separate piece of work and deliberately out
+  of phase 1.
 * **The spectator is written with status 1** so gemc tracks it. For about 97%
   of events it stops inside the target within a millimetre — the median
   spectator carries 69 MeV/c and 2.5 MeV of kinetic energy — but the file has

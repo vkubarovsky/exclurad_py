@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """What Fermi motion does, measured through the full GEMC + reconstruction chain.
 
-    python3 production/gemc_check/fermi_compare.py none.f32 av18.f32 outdir [--ebeam 10.6]
+    python3 production/gemc_check/fermi_compare.py none.f32 av18.f32 outdir \
+            [--ebeam 10.6] [--nucleon p|n]
 
 Two samples that differ in ONE card field.  Everything else -- model, box,
 gcard, torus, software, number of events -- is identical, so every difference
@@ -29,7 +30,17 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 
-M_P, M_PI0, NFLD = 0.93827208816, 0.1349768, 50
+M_P, M_N, M_PI0, NFLD = 0.93827208816, 0.93956542, 0.1349768, 50
+
+# THE STRUCK NUCLEON'S MASS, and it is not decoration.  It enters the target
+# mass assumed at rest (W, xB, t) and the detected hadron's energy in
+# MX^2(e'h) -- the exclusivity variable this whole comparison is about.  It was
+# hardcoded to the proton, which is right for RG-A and silently wrong for a
+# neutron target: 1.3 MeV in the mass is nothing, but it is used in four places
+# and nothing would have complained.  Set once, from the command line, and
+# printed in the output so a table cannot be read without knowing which it was.
+M_T = M_P
+NUCLEON = "p"
 
 
 def load(path):
@@ -55,22 +66,22 @@ def kin(px, py, pz, eb):
     with np.errstate(invalid="ignore", divide="ignore"):
         q2 = 2.0 * eb * (p - pz)
         nu = eb - p
-        w2 = M_P**2 + 2.0 * M_P * nu - q2
-        xb = np.where(nu > 0, q2 / (2.0 * M_P * nu), np.nan)
+        w2 = M_T**2 + 2.0 * M_T * nu - q2
+        xb = np.where(nu > 0, q2 / (2.0 * M_T * nu), np.nan)
     return q2, np.sqrt(np.maximum(w2, 0.0)), xb, nu
 
 
 def t_of(px, py, pz):
     """t = (p_target - p')^2 with the target at rest."""
-    e = np.sqrt(M_P**2 + px**2 + py**2 + pz**2)
-    return 2.0 * M_P**2 - 2.0 * M_P * e
+    e = np.sqrt(M_T**2 + px**2 + py**2 + pz**2)
+    return 2.0 * M_T**2 - 2.0 * M_T * e
 
 
 def mx2_ep(epx, epy, epz, ppx, ppy, ppz, eb):
     """MX^2(e'p): the exclusivity variable, target assumed at rest."""
     ee = np.sqrt(epx**2 + epy**2 + epz**2)
-    ep_ = np.sqrt(M_P**2 + ppx**2 + ppy**2 + ppz**2)
-    e_m = eb + M_P - ee - ep_
+    ep_ = np.sqrt(M_T**2 + ppx**2 + ppy**2 + ppz**2)
+    e_m = eb + M_T - ee - ep_
     x_m = -epx - ppx
     y_m = -epy - ppy
     z_m = eb - epz - ppz
@@ -110,17 +121,25 @@ def band(ax, x, ya, yb, la, lb):
 
 
 def main():
+    global M_T, NUCLEON
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     eb = 10.6
     for a in sys.argv[1:]:
         if a.startswith("--ebeam"):
             eb = float(a.split("=")[1]) if "=" in a else eb
+        if a.startswith("--nucleon"):
+            NUCLEON = a.split("=")[1] if "=" in a else NUCLEON
+    if NUCLEON not in ("p", "n"):
+        sys.exit(f"--nucleon must be p or n, not {NUCLEON!r}")
+    M_T = M_P if NUCLEON == "p" else M_N
     f_none, f_av18, outdir = args[0], args[1], Path(args[2])
     outdir.mkdir(parents=True, exist_ok=True)
 
     N = analyse(load(f_none), eb)
     A = analyse(load(f_av18), eb)
     print(f"# Fermi motion through GEMC + reconstruction\n")
+    print(f"struck nucleon: {NUCLEON}   (M_T = {M_T:.6f} GeV, "
+          f"used for W, xB, t and MX^2)")
     print(f"free nucleon : {N['n']:,} events")
     print(f"deuteron     : {A['n']:,} events\n")
 
