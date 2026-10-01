@@ -52,10 +52,21 @@ SZ=$(stat -c %s "$W/gemc.hipo")
 # third of a chunk -- a short chunk in a reference sample, with nothing in
 # any log to say so.
 #
-# The exact test is the event count, and it is cheap: hipo reports it from
-# the header, no scan.  The chunk's own LUND says how many there should be.
+# The exact test is the event count.  USE -info, NOT -dump.
+#
+# I wrote -dump here on 2026-09-30 and called it "cheap, hipo reports it from
+# the header, no scan".  That was wrong and I had verified it on a TEN-event
+# file, where every behaviour looks fast.  -dump prints every event: on a
+# real 5000-event chunk it does not return, and the `| head -1` does not save
+# it.  Both catch-up jobs for born inb 191 and 193 then sat for the full six
+# hours producing an empty log and touching nothing -- a guard against a
+# silent failure that became one.
+#
+# -info reads the index: 0.136 s on the same 135 MB file, and it prints
+# "number of  events  :  5000".  The timeout is the second lesson: a check
+# that can hang must not be able to cost more than its own worth.
 NEXP=$(grep -c '^ *[0-9]* *1 *1 ' "$R/$MODE/chunks/lund_$I.dat" 2>/dev/null || echo 0)
-NGOT=$(/group/clas12/packages/coatjava/9.0.2/bin/hipo-utils -dump "$W/gemc.hipo" 2>/dev/null \
+NGOT=$(timeout 120 /group/clas12/packages/coatjava/9.0.2/bin/hipo-utils -info "$W/gemc.hipo" 2>/dev/null \
        | sed -n 's/.*number of  events *: *\([0-9]*\).*/\1/p' | head -1)
 NGOT=${NGOT:-0}
 if [ "$NEXP" -gt 0 ] && [ "$NGOT" -lt "$NEXP" ]; then
