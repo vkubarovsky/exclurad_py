@@ -109,3 +109,37 @@ the identical 158 points and the identical 3.103e-8 -- so it is the numpy
 *build* (pip wheel against the system RPM of the same 1.23.5), not this
 branch.  Same class as the 2.3e-7 between numpy versions.  Byte-identity is
 a within-build statement, not just a within-version one.
+
+## Does it touch all channels?  Yes -- measured, not assumed
+
+The changes are entirely in `core/` (`spinors`, `hadronic`, `radiative`,
+`integrand`, `_kernel_numba`).  Channel-specific code lives in `models/`
+and is untouched, so every channel goes through the same accelerated
+integrand.  `sigma_F`, one point, mini:
+
+| channel | before | merged | + numba | total |
+|---|---:|---:|---:|---:|
+| pi0.amp2609 | 39.55 ms | 22.52 | 7.01 | **5.6x** |
+| eta.amp2609 | 40.35 ms | 22.44 | 7.03 | **5.7x** |
+| phi.diffrad_vm | 34.83 ms | 20.65 | 5.30 | **6.6x** |
+| rho.diffrad_vm | 35.99 ms | 21.14 | 5.35 | **6.7x** |
+| jpsi.diffrad_vm | 35.75 ms | 20.74 | 5.49 | **6.5x** |
+
+The vector mesons gain MORE, and the cost model says why: `diffrad_vm` is
+a cheaper model than the pi0/eta amplitude fits, so a larger share of their
+time sits in the integrand -- which is the part that was accelerated.
+
+**Born mode** gets a smaller, incidental gain from the shared
+`photon_basis` / `contractLH` work -- 231.5 -> 201.1 us/call (pi0),
+141.2 -> 113.4 (phi) -- and nothing from numba, which only covers the
+radiative integrand.  Born was already 0.02 s/event, so this does not
+matter either way.
+
+**Caveat.** These are `sigma_F` on the mini.  The end-to-end farm numbers
+(1.657x merged, 2.494x numba) were measured for **pi0 only**.  Other
+channels' end-to-end gain will differ, because what surrounds the
+integrand differs -- rho draws a Breit-Wigner mass, J/psi decays, and the
+hard-photon fraction is channel-dependent.  Not yet measured.
+
+**Other generators are NOT touched.**  `aao_norad`, `exclugen` and the
+Fortran `diffrad_vm` are separate programs; none of this reaches them.
