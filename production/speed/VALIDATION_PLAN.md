@@ -70,18 +70,47 @@ cheaper than "we reasoned".
 
 ---
 
-## Stage 3 — deployment.  Not mine.
+## Stage 3 — deployment.  No container.  Already validated.
 
-* Build `clas12-mcgen` / the OSG container with `numba` + `llvmlite`, run
-  one chunk inside it, and compare against the same chunk outside.
-* Decide the cache policy once: pre-warm after deploy, `NUMBA_CACHE_DIR`
-  per job, or accept 5.3 s per job.  All three are safe (tested); the point
-  is to choose rather than discover.
+VPK: the generator runs on **slurm, not OSG** — the campaign's chunks all
+came from `gen_array.sbatch`, and the generator has never run in the OSG
+container.  So there is no container gate and no LLVM-in-the-container
+question.  What is left is one venv and one line.
 
-**This is the real gate.** Everything above says the code is ready. None of
-it says the container is.
+**The trap, and the fix.**  `gen_array.sbatch` runs a plain `python3`, the
+system 3.9.25.  The obvious move — point it at a venv that has numba —
+would have changed the numbers at 3e-8 **even with `RC_NUMBA` unset**,
+because a pip-installed numpy 1.23.5 is a different build from the system
+RPM of the same version, and that difference is real (measured: unmodified
+production code, 158 of 228 points, 3.103e-8).  Deploying that way would
+have silently broken Part 1's byte-identity for free.
 
----
+**`--system-site-packages` is the fix**, and it is verified:
+
+    /usr/bin/python3 -m venv --system-site-packages /work/clas12/vpk/venv-prod-numba
+    .../bin/python -m pip install --no-cache-dir numba
+
+    numpy  1.23.5  from /usr/lib64/python3.9/site-packages   <- the SYSTEM build
+    scipy  1.9.3                                             <- the SYSTEM build
+    numba  0.60.0                                            <- added
+
+Measured in that venv, on ifarm:
+
+| | vs system `python3` baseline |
+|---|---|
+| production code, `RC_NUMBA` unset | **byte-identical, 0 of 228** |
+| production code, `RC_NUMBA=1` | 8.3e-14 worst |
+
+So the deployment adds numba without touching numpy, scipy or python, and
+without changing a single number until the flag is set.
+
+Remaining, and small:
+
+* one line in `gen_array.sbatch`: `python3` -> `$V/bin/python`
+* decide the cache policy once — pre-warm after deploy, `NUMBA_CACHE_DIR`
+  per job, or accept 5.3 s per job.  All three tested safe.
+* `/work` has 994 GB free but is 100 % by percentage; a venv is small
+  enough, but put nothing large beside it.
 
 ## Stage 4 — canary, on the first real campaign.
 
