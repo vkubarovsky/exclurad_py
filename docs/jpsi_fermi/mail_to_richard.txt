@@ -16,9 +16,17 @@ Why E_gamma(eff) and not E_gamma(lab): inside a bin of E_gamma(eff) every event 
 
 The Fermi motion does not disappear; it moves into the photon flux. The number of photons that produced a given E_gamma(eff) is the bremsstrahlung spectrum folded with the Fermi motion, and it has to come from a Monte Carlo with Fermi motion for every bin. We have that generator. The folded flux is 2-3 % below the free-neutron flux up to 9 GeV, 10-40 % below it near the endpoint, and nonzero beyond the free endpoint, where 19 % of the deuteron events sit. So the price of E_gamma(eff) is a model-dependent flux normalisation per bin, small in the middle of the range and large at its ends; the price of E_gamma(lab) is the same convolution inside the cross section itself, which no flux can remove.
 
+In practice this means the cross section has to be calculated differently from the free-proton case. For the proton one divides the yield in a bin of photon energy by the bremsstrahlung (or tagged) flux in that bin. For the deuteron:
+
+  1. bin the events in E_gamma(eff) from the measured J/psi and neutron;
+  2. divide the acceptance-corrected yield of each bin by the number of photons that could produce that E_gamma(eff) on a moving, bound neutron, which is the bremsstrahlung spectrum folded with the Fermi motion (and the flux factor of the moving nucleon), taken from the Monte Carlo with Fermi motion for the same bin;
+  3. compute the acceptance with the same Monte Carlo, because events of the same E_gamma(eff) have different lab kinematics.
+
+Using the bremsstrahlung flux at E_gamma(eff) instead, as for a free target, is wrong by 2 % at threshold, 7 % at 9.5 GeV, 20 % at 10.1 GeV, 40 % at 10.5 GeV, and gives no cross section at all for the 19 % of the events beyond the free endpoint (second attached plot). Using E_gamma(lab) bins with the free-proton recipe is wrong in a different way: each such bin mixes cross sections that differ by a factor 2-3 across the bin (first attached plot, top row), while a bin of E_gamma(eff) contains one cross section (bottom row).
+
 Two consequences for the analysis. The bins in E_gamma(eff) can be as narrow as the statistics allow: Fermi motion does not enter the variable, only the flux per bin. And the method is self-checking: splitting each bin in spectator momentum or in lab photon energy must give the same cross section from each piece; if it does, the deuteron is a free-neutron target in that bin, and if it does not, the difference measures the off-shell or final-state effects. A cut |p_s| < 0.15 GeV/c keeps 84 % of the events and limits the off-shellness of the struck neutron to 26 MeV.
 
-The plot is from our generator: 10.6 GeV bremsstrahlung beam, deuteron with the AV18 momentum distribution, 20 million events; the x axis is E_gamma(lab) from Eq. 10, the y axis is E_gamma(eff) from the measured J/psi and neutron, the orange line is where every event of a free neutron would be.
+The plots are from our generator: 10.6 GeV bremsstrahlung beam, deuteron with the AV18 momentum distribution, 20 million events. Plot 1: three bins of E_gamma(lab), each split into ten sub-bins of E_gamma(eff), and three bins of E_gamma(eff), each split into ten sub-bins of E_gamma(lab); in every sub-bin the cross section is the yield divided by the flux of that sub-bin. Plot 2: the cross section extracted in bins of E_gamma(eff) with the Fermi-folded flux (blue) and with the free-neutron bremsstrahlung flux (orange), against the cross section put into the generator (green). Plot 3: E_gamma(eff) against E_gamma(lab) event by event, with the free-neutron line.
 
 Best regards,
 Valery
