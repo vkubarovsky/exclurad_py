@@ -12,6 +12,34 @@ first, and nothing expensive runs until the cheap checks pass.
 
 ---
 
+## Stage 0 — PASSED, 2026-10-02.  All seven paths byte-identical.
+
+| path | result |
+|---|---|
+| Fermi / deuteron (`av18`) | **BYTE-IDENTICAL** (305 lines) |
+| born mode | **BYTE-IDENTICAL** (240) |
+| eta rad | **BYTE-IDENTICAL** (264) |
+| phi rad | **BYTE-IDENTICAL** (260) |
+| rho rad | **BYTE-IDENTICAL** (264) |
+| polarised target (`ptarg=0.8`) | **BYTE-IDENTICAL** (258) |
+| helicity twin (`ihel=+1`) | **BYTE-IDENTICAL** (262) |
+
+Part 1's claim -- that the merged numpy work changes no number anywhere --
+now holds on every code path, not only the pi0 rad card it was developed
+against.
+
+Three harness bugs were found getting here, all the same shape: a `sed`
+anchored on a VALUE rather than on the field.  `s|^none|av18|` hit `iacc`
+before `fermi`; `s|^5000|40|` missed the VM cards, which carry
+nev = 100000, and ran one for seven hours at full CPU; and BSD sed does
+not support `\|` alternation, so `outroot` was never substituted and the
+generator wrote into the repository.  The harness now anchors every edit
+on the field's trailing comment AND refuses to run unless it can read the
+intended value back out of the card.  Verify the artefact, not the intent
+-- including when the artefact is your own test input.
+
+### (original plan below)
+
 ## Stage 0 — finish proving Part 1.  Half a day, mine.
 
 Part 1 claims byte-identity, which is the strongest claim available, and
