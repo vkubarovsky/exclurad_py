@@ -51,6 +51,12 @@ every quantity reconstructed with the target assumed at rest: the photon energy 
 $\jpsi$ alone is smeared by $\erRH$\,MeV rms and shifted by up to $\erBB$\,MeV near threshold.  The
 conclusion (Section~\ref{sec:need}) is that the Monte Carlo has to include Fermi motion for any
 analysis on deuterium, although the generated yield per neutron above 8.6\,GeV does not require it.
+Section~\ref{sec:variable} shows that the cross section must be presented against $W$ from the
+final state, with the lab photon energy, reconstructed exactly from the spectator's mass-shell
+condition, kept as a label: one photon energy feeds a 0.13\,GeV band in $W$, sub-threshold
+photons produce the reaction at an ordinary $W$ of 4.2\,GeV, and the effective photon flux per
+$W$ bin, which the generator provides, differs from the free one by 2--3\,\% below 9\,GeV and by
+up to 40\,\% at the endpoint.
 \end{abstract}
 
 \tableofcontents
@@ -516,6 +522,223 @@ redistributes events among nearby $s$.  Below the free threshold the events sit 
 space, $|t|_{\min}$ is large and the distribution is compressed toward it; the $t$ slope of a
 sub-threshold sample is not the elementary slope $b$.
 
+
+\section{Which variable for the cross section: $W$, not $\Eg$}
+\label{sec:variable}
+
+On a free nucleon the photon energy and the invariant mass are the same variable, $W^2=M^2+2M\Eg$,
+and the free-proton measurements are quoted against $\Eg$ by convention.  On the deuteron the map is
+gone: the elementary cross section is a function of $s=(k+p_N)^2$ with a moving, bound nucleon, and
+one lab photon energy feeds a band of $W$.  This section establishes, with the generator, which
+quantities an analysis of $\gamma d\to\jpsi\,n\,(p_s)$ can reconstruct and which one the cross
+section should be presented against.
+
+\subsection{The photon energy from the final state}
+
+With the $\jpsi$ and the neutron measured and the deuteron at rest, the undetected spectator proton
+closes the kinematics.  Requiring it to be on its mass shell, $(k+P_d-p_\psi-p_n)^2=M_p^2$ with
+$k=(\Eg,0,0,\Eg)$, gives
+\begin{equation}
+\Eg=\frac{(E_\psi+E_n-M_d)^2-|\vec p_\psi+\vec p_n|^2-M_p^2}{2\,(E_\psi+E_n-p_{z,\psi}-p_{z,n}-M_d)}\,,
+\label{eq:eq10}
+\end{equation}
+Eq.~(10) of Ref.~\cite{solid} with proton and neutron exchanged.  It is exact for a real photon along
+the beam, independent of the Fermi-motion model, and it also yields the spectator momentum
+$\vec p_s=\vec k-\vec p_\psi-\vec p_n$ and hence the off-shell mass $m^{*2}=(M_d-E_s)^2-p_s^2$ of the
+struck neutron, event by event.  For a quasi-real virtual photon the same derivation gives a correction
+$+Q^2/2(E_s-p_{z,s})\simeq0.53\,Q^2$, i.e.\ 5\,MeV at $Q^2=0.01\GeV^2$ and 50\,MeV at $0.1\GeV^2$.
+
+Figure~\ref{fig:estimators} compares Eq.~(\ref{eq:eq10}) with four other ways of obtaining a photon
+energy from the final state, on the deuteron sample where the true $\Eg$ is known
+(Table~\ref{tab:estimators}).  Energy conservation with a neutron at rest, $E_\psi+E_n-M_n$, is low
+by the spectator kinetic energy plus the binding energy, 12\,MeV with a 24\,MeV spread; longitudinal
+momentum conservation, $p_{z,\psi}+p_{z,n}$, is off by the spectator's $p_z$; the $\jpsi$ alone, as in
+an LH$_2$ analysis, carries the full Fermi smearing of 200\,MeV.  The last entry,
+$(s-M_n^2)/2M_n$ with $s=(p_\psi+p_n)^2$, is not an estimator of the lab photon energy at all: it is the
+photon energy a free neutron would need to reach the measured $W$, and it differs from the true
+$\Eg$ by the Fermi smearing of $s$ itself, 0.67\,GeV rms.  With detector resolution (illustrative:
+1\,\% and 1\,mrad for the $\jpsi$, 10\,\% and 10\,mrad for the neutron) Eq.~(\ref{eq:eq10}) and the
+energy-conservation estimate are both limited by the neutron momentum, 135\,MeV rms, which is the
+mechanism behind the 41--86\,MeV resolution Ref.~\cite{solid} finds for SoLID in the proton channel.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{jpsi_egamma_estimators}
+\caption{Photon energy reconstructed from the measured $\jpsi$ and neutron on the deuteron, minus
+the true photon energy of the generator, for five prescriptions; left: distributions above
+8.6\,GeV, right: rms (solid) and mean shift (dotted) against the true $\Eg$.  Top: ideal momenta;
+bottom: with an illustrative detector resolution.}
+\label{fig:estimators}
+\end{figure}
+
+\begin{table}[htbp]
+\centering
+\caption{Mean shift and rms of five photon-energy prescriptions against the true $\Eg$, deuteron
+events above 8.6\,GeV, ideal and smeared momenta (MeV).}
+\label{tab:estimators}
+\begin{tabular}{lcccc}
+\toprule
+ & \multicolumn{2}{c}{ideal} & \multicolumn{2}{c}{smeared} \\
+prescription & shift & rms & shift & rms \\
+\midrule
+Eq.~(\ref{eq:eq10}), spectator on shell & 0 & 0 & $+3$ & 133 \\
+$E_\psi+E_n-M_n$ & $-12$ & 24 & $-10$ & 136 \\
+$p_{z,\psi}+p_{z,n}$ & $-38$ & 85 & $-38$ & 171 \\
+$\jpsi$ alone, neutron at rest & $+40$ & 196 & $+41$ & 209 \\
+$(s-M_n^2)/2M_n$ (not an estimator of $\Eg$) & $+245$ & 667 & $+262$ & 684 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{$W$ rules the cross section}
+
+Figures~\ref{fig:wvse} and \ref{fig:eeffvse} show the final-state invariant mass against the lab
+photon energy of Eq.~(\ref{eq:eq10}), once as $W$ and once converted to the equivalent free-neutron
+photon energy $\Eg^{\rm eff}=(W^2-M_n^2)/2M_n$.  On a free neutron every event would lie on the
+orange line.  On the deuteron one photon energy feeds a band 0.13\,GeV wide in $W$ (0.6--0.7\,GeV
+in $\Eg^{\rm eff}$); the band's mean runs 40--50\,MeV in $W$ above the free line because the
+flux-factor selection favours nucleons moving toward the photon; and below the free threshold the
+band does not start at the line at all.  The photons of 6.7--8.2\,GeV produce the reaction at
+$W=4.17$--$4.22\GeV$, about 150\,MeV above $M_n+M_{\jpsi}$, the same $W$ a 9\,GeV photon gives on a free
+neutron.  The elementary process is ordinary there; only the photon is sub-threshold.  At the other
+end, photons of 10.5\,GeV reach $W$ values a free neutron would need $10.7\pm0.7\GeV$ for, and 19\,\%
+of all deuteron events lie beyond the free-nucleon endpoint.  A cut $|p_s|<0.15\GeV/c$ narrows the
+band by a third and brings its mean to within 20\,MeV of the free line (right panels).
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{jpsi_W_vs_Egamma}
+\caption{$W$ from the measured $\jpsi$ and neutron against the lab photon energy of
+Eq.~(\ref{eq:eq10}), deuteron with AV18; orange: the free-neutron relation; black: mean and rms
+of $W$ per 200\,MeV bin of $\Eg$.  Left: all events; right: $|p_s|<0.15\GeV/c$.}
+\label{fig:wvse}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{jpsi_Eeff_vs_Egamma}
+\caption{The same in photon-energy units: $\Eg^{\rm eff}=(W^2-M_n^2)/2M_n$ against the lab $\Eg$.}
+\label{fig:eeffvse}
+\end{figure}
+
+The cross section therefore has to be presented against $W$, the variable it is a function of
+and the one the final state measures exactly, with no assumption about the target.  The lab
+photon energy becomes a label: for each $W$ bin one quotes $\langle\Eg\rangle$ and its spread
+(Table~\ref{tab:egperw}), as Ref.~\cite{clas12jpsi} does for its bins.  That spread is physics,
+0.5\,GeV rms, not resolution.  Above 10\,GeV the mean freezes at 10.15\,GeV because $\Eg\le E_0$:
+those $W$ bins are reached only by the upper half of the Fermi distribution.
+
+\begin{table}[htbp]
+\centering
+\caption{Lab photon energy per bin of $W$ on the deuteron: mean, rms and 16--84\,\% range of
+$\Eg$ from Eq.~(\ref{eq:eq10}), all events and with $|p_s|<0.15\GeV/c$.}
+\label{tab:egperw}
+\begin{tabular}{ccccc}
+\toprule
+$W$ [GeV] & $\Eg^{\rm eff}$ [GeV] & $\langle\Eg\rangle\pm$rms, all & 16--84\,\% & $\langle\Eg\rangle\pm$rms, $|p_s|<0.15$ \\
+\midrule
+4.036--4.083 & 8.2--8.4   & $8.39\pm0.51$  & 7.97--8.81  & $8.39\pm0.40$ \\
+4.128--4.174 & 8.6--8.8   & $8.75\pm0.52$  & 8.32--9.19  & $8.77\pm0.42$ \\
+4.218--4.263 & 9.0--9.2   & $9.12\pm0.51$  & 8.69--9.58  & $9.16\pm0.42$ \\
+4.307--4.350 & 9.4--9.6   & $9.48\pm0.49$  & 9.07--9.93  & $9.53\pm0.40$ \\
+4.393--4.436 & 9.8--10.0  & $9.81\pm0.45$  & 9.42--10.23 & $9.87\pm0.36$ \\
+4.478--4.519 & 10.2--10.4 & $10.06\pm0.42$ & 9.71--10.43 & $10.13\pm0.30$ \\
+4.561--4.602 & 10.6--10.8 & $10.17\pm0.41$ & 9.84--10.50 & $10.28\pm0.25$ \\
+4.643--4.683 & 11.0--11.2 & $10.16\pm0.44$ & 9.81--10.51 & $10.35\pm0.19$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{The effective photon flux in $W$}
+
+The price of binning in $W$ is the flux: bremsstrahlung photons are counted per lab $\Eg$, and
+Fermi motion redistributes them in $W$.  The number of photons that produced a given $W$,
+\begin{equation}
+\Phi_d(W)\,dW=\int d\Eg\,\frac{dN_\gamma}{d\Eg}\int d^3p_s\,n(p_s)\,(1-\beta_z)\;
+\delta\!\bigl(W-W(\Eg,\vec p_s)\bigr)\,dW,
+\end{equation}
+is obtained from the generator by weighting every event with $1/\sigma(s)$.  Figure~\ref{fig:phiw}
+compares it with the free-neutron flux in the same $W$ bin (Table~\ref{tab:phiw}).  Up to 9\,GeV
+the two differ by 2--3\,\%, and the difference is insensitive to the Fermi model because the core
+of the wave function determines it; toward the endpoint it grows to 10--40\,\%, and beyond
+$\Eg^{\rm eff}=E_0$ the free flux is zero while the deuteron flux is not.  The spectator cut lowers
+$\Phi_d$ by the 5--6\,\% of events it removes and does not change the shape.  The cross section
+extracted from a $W$ bin is the acceptance-corrected yield divided by $\Phi_d(W)$ and by the
+number of neutrons; the generator provides $\Phi_d$ for any selection, and its model dependence
+(wave function, off-shell prescription) is the systematic of the method.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{jpsi_effective_flux_W}
+\caption{Left: photons per electron and per neutron in bins of $\Eg^{\rm eff}$, i.e.\ of $W$: the
+bremsstrahlung flux on a free neutron and the effective flux $\Phi_d(W)$ on the deuteron, all
+events and with $|p_s|<0.15\GeV/c$.  Right: their ratio, and the fraction of events inside the
+spectator cut.}
+\label{fig:phiw}
+\end{figure}
+
+\begin{table}[htbp]
+\centering
+\caption{Effective flux on the deuteron relative to the free-neutron flux in the same $W$ bin.}
+\label{tab:phiw}
+\begin{tabular}{lccccccc}
+\toprule
+$\Eg^{\rm eff}$ [GeV] & 8.3 & 8.9 & 9.3 & 9.7 & 10.1 & 10.5 & $>10.6$ \\
+\midrule
+$\Phi_d/\Phi_{\rm free}$, all & 0.98 & 0.97 & 0.95 & 0.90 & 0.79 & 0.60 & $\infty$ \\
+$\Phi_d/\Phi_{\rm free}$, $|p_s|<0.15$ & 0.92 & 0.92 & 0.90 & 0.86 & 0.75 & 0.56 & $\infty$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{The struck nucleon is off shell}
+
+What is measured is $\gamma\,n^*\to\jpsi\,n$ with $m^*<M_n$, and a cross section for an off-shell
+nucleon is not an observable: the connection to the free reaction is a prescription.  The deuteron
+keeps the prescription under control because the off-shellness is small and measured
+(Table~\ref{tab:offshell}).  Within $|p_s|<0.15\GeV/c$, 84\,\% of the events, the struck neutron is
+off shell by 8\,MeV on average and 26\,MeV at most, and the ambiguity of where to evaluate
+$\sigma(s)$ is $(M_n^2-m^{*2})/(s-M_n^2)\simeq10^{-3}$, equivalent to 5--10\,MeV on the
+$\Eg^{\rm eff}$ axis.  The generator's prescription, $\sigma_{\rm free}$ at the measured invariants
+with $m^*$ in the kinematics only, and its alternatives (the flux or Hand factor with $m^*$, the
+on-shell energy for the struck nucleon) differ by that amount in the bulk and by 2--3\,\% at
+$p_s=0.3\GeV/c$.  The formally correct limit is the deuteron pole, $m^{*2}\to M_n^2$, where the
+residue is the free cross section and final-state interactions vanish; measuring the extracted
+$\sigma$ in two or three bins of $p_s$ and checking that it does not move is the practical form of
+that extrapolation.  Final-state interactions are outside the generator: $\jpsi$--nucleon
+rescattering is below 1\,\% except near threshold, where it is the physics of interest, and
+nucleon--nucleon rescattering is confined to $p_s>0.3\GeV/c$.
+
+\begin{table}[htbp]
+\centering
+\caption{Off-shellness of the struck neutron as a function of a spectator-momentum cut, events
+above the free threshold.}
+\label{tab:offshell}
+\begin{tabular}{lcccc}
+\toprule
+$|p_s|$ cut [GeV/c] & kept & $\langle M_n-m^*\rangle$ [MeV] & max $M_n-m^*$ [MeV] & $(M_n^2-m^{*2})/(s-M_n^2)$ \\
+\midrule
+$<0.05$ & 32\,\% & 3.5 & 5 & $4\times10^{-4}$ \\
+$<0.10$ & 68\,\% & 6 & 13 & $6\times10^{-4}$ \\
+$<0.15$ & 84\,\% & 8 & 26 & $8\times10^{-4}$ \\
+$<0.20$ & 91\,\% & 10 & 45 & $1.0\times10^{-3}$ \\
+all & 100\,\% & 24 & 840 & $2\times10^{-3}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Recommendation}
+
+Reconstruct $\Eg$ and $\vec p_s$ event by event with Eq.~(\ref{eq:eq10}).  Select
+$|p_s|<0.15\GeV/c$.  Bin in $W$ from $p_\psi+p_n$.  Divide the acceptance-corrected yield by
+$\Phi_d(W)$ from the generator with the same selection.  Present the result as
+$\sigma(\gamma n\to\jpsi\,n)$ against $W$, with $\langle\Eg\rangle$ and its spread per bin as a
+second column, together with the free-proton data at the same $W$.  Quote as systematics the
+prescription spread, the wave-function dependence of $\Phi_d$ inside the cut, and the stability
+of $\sigma$ against $p_s$.  Show the full sample separately as the sub-threshold and large-$p_s$
+physics, without calling it the free cross section.  Do not use $\langle\Eg\rangle$ as the
+abscissa of the cross section, and do not call $(s-M_n^2)/2M_n$ a photon energy.
+
 \section{Discussion and limits}
 \label{sec:discussion}
 
@@ -600,7 +823,9 @@ before radiation or the beam energy spread, each of order 1\,MeV at the endpoint
 section is one parametrisation, \texttt{roberts2026}, with $b=1.67\GeV^{-2}$ independent of $W$; the
 ratio of Section~\ref{sec:ratio} depends on its slope near threshold, not on its normalisation.
 
-\begin{thebibliography}{9}
+\begin{thebibliography}{99}
+\bibitem{solid} T.~Liu, Z.~Zhao, M.~Cai, D.~Byer, H.~Gao, \emph{Subthreshold production of $J/\psi$ mesons
+from the deuteron with the proposed Solenoidal Large Intensity Device}, Phys.\ Rev.\ C \textbf{109}, 065206 (2024).
 \bibitem{clas12jpsi} P.~Chatagnon et al.\ (CLAS Collaboration), \emph{Measurement of the
 near-threshold $J/\psi$ photoproduction cross section with the CLAS12 experiment},
 arXiv:2602.22128 [hep-ex] (2026), JLAB-PHY-26-4605, submitted to Phys.\ Rev.\ C.

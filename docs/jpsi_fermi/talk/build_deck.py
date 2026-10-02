@@ -7,6 +7,7 @@ import os
 
 R = "/Volumes/wd_14tb/aao_norad_kin/jpsi_fermi/photo20M/report"
 D = os.path.dirname(os.path.abspath(__file__))
+DOCS = os.path.join(D, "..")
 OUT = os.path.join(D, "Jpsi_Fermi_photoproduction.pptx")
 
 NAVY = RGBColor(0x1F, 0x2A, 0x44); WHITE = RGBColor(0xFF, 0xFF, 0xFF); ICE = RGBColor(0xC9, 0xD8, 0xEE)
@@ -286,6 +287,38 @@ card(s, 6.3, 5.15, 6.55, 1.8, "3 · The actual CLAS12 configuration: electroprod
     "for the Fermi-motion ratio it is irrelevant: the flux cancels. photo.py remains the right tool for the bremsstrahlung part and for tagged real-photon beams"], size=11, head_color=GREEN)
 footer(s, 9)
 
+# ------------------------------------------------------------------ 10 photon energy from the final state
+s = prs.slides.add_slide(BLANK); bg(s, WHITE)
+title(s, "Photon energy from the final state: Eq. 10 of Liu et al., PRC 109, 065206")
+image(s, DOCS + "/jpsi_egamma_estimators.png", 0.4, 1.1, h=5.6)
+card(s, 8.75, 1.1, 4.1, 2.35, "Exact: spectator proton on shell", [
+    [("E_γ = [(E_ψ+E_n−M_d)² − |p_ψ+p_n|² − M_p²] / 2(E_ψ+E_n−p_zψ−p_zn−M_d)", {"bold": True, "size": 10.5})],
+    "no Fermi-motion model; gives p_s and m* of the struck neutron event by event",
+    "quasi-real photon: + 0.53 Q² (5 MeV at Q² = 0.01, 50 MeV at 0.1)"], size=10.5)
+card(s, 8.75, 3.6, 4.1, 3.3, "The other prescriptions (rms vs true E_γ)", [
+    "E_ψ + E_n − M_n: −12 ± 24 MeV (spectator kinetic + binding energy)",
+    "p_zψ + p_zn: −38 ± 85 MeV",
+    "J/ψ alone, neutron at rest: +40 ± 196 MeV, +250 next to threshold",
+    "(s − M_n²)/2M_n: +245 ± 667 MeV — not an estimator of E_γ, it is the free-neutron energy for the measured W",
+    "with resolution (J/ψ 1 %, neutron 10 %) Eq. 10 and the energy sum both give 135 MeV: the neutron momentum limits both"], size=10.5, head_color=ORANGE)
+footer(s, 10)
+
+# ------------------------------------------------------------------ 11 W rules the cross section
+s = prs.slides.add_slide(BLANK); bg(s, WHITE)
+title(s, "W rules the cross section; E_γ is a label on the deuteron")
+image(s, DOCS + "/jpsi_Eeff_vs_Egamma.png", 0.4, 1.1, h=3.55)
+image(s, DOCS + "/jpsi_effective_flux_W.png", 0.4, 4.75, h=2.2)
+card(s, 8.75, 1.1, 4.1, 2.9, "What the plots show", [
+    "one lab E_γ feeds a band of W: 0.13 GeV rms (0.6–0.7 GeV in photon-energy units); mean 40–50 MeV above the free line",
+    "photons of 6.7–8.2 GeV produce the reaction at W = 4.17–4.22 GeV, the W of a 9 GeV photon on a free neutron: only the photon is sub-threshold",
+    "19 % of the events lie beyond the free-nucleon endpoint E₀"], size=10.5)
+card(s, 8.75, 4.15, 4.1, 2.8, "Recipe", [
+    "E_γ and p_s from Eq. 10; select |p_s| < 0.15 GeV/c (84 %, m* within 26 MeV of M_n)",
+    "bin in W from p_ψ + p_n; divide by the effective flux Φ_d(W) from the generator: 2–3 % below the free flux up to 9 GeV, 10–40 % at the endpoint",
+    "quote ⟨E_γ⟩ ± rms per W bin as a second column; show proton data at the same W",
+    "systematics: prescription spread (10⁻³), wave function in Φ_d, stability of σ against p_s (pole limit)"], size=10.5, head_color=GREEN)
+footer(s, 11)
+
 # ------------------------------------------------------------------ 10 conclusion
 s = prs.slides.add_slide(BLANK); bg(s, WHITE)
 title(s, "Conclusion: do we need a Monte Carlo with Fermi motion?")
@@ -299,7 +332,7 @@ card(s, 8.6, 2.85, 4.25, 3.0, "Yes, for everything an analysis measures", [
 text(s, 0.5, 4.75, 7.8, 1.05, [dict(runs="Bottom line", bold=True, color=BLUE, size=14),
      "Generate deuterium with Fermi motion always: it costs 0.65 ms per event and passes every acceptance test. The free-neutron sample keeps one role, the cross-check that isolates the effect. In the E_γ bins of the CLAS12 analysis (150–450 MeV wide) the migration from Fermi motion is larger than the detector resolution."], size=12)
 card(s, 0.5, 5.9, 12.35, 1.05, "Next steps", [
-    "J/ψ → e⁺e⁻γ decay radiation in the generator (15–20 % of decays below 3.0 GeV)  ·  flux factor (1 − β_z) in the electroproduction Fermi path  ·  refit A, α, B, b to the CLAS12 tables  ·  quasi-real electroproduction twin with RC for absolute CLAS12 yields"], size=11)
-footer(s, 10)
+    "present σ(γn → J/ψ n) against W with Φ_d(W) from this generator  ·  J/ψ → e⁺e⁻γ decay radiation (15–20 % of decays below 3.0 GeV)  ·  flux factor (1 − β_z) in the electroproduction Fermi path  ·  refit A, α, B, b to the CLAS12 tables  ·  quasi-real electro twin with RC for absolute yields"], size=11)
+footer(s, 12)
 
 prs.save(OUT); print("wrote", OUT)
