@@ -11,6 +11,7 @@ But what we want to publish, I believe, is the J/psi photoproduction cross secti
 In other words, there is no way to kill the Fermi motion by choosing some magic variable. If we bin in E_gamma(lab), the Fermi smearing sits in the cross section; if we bin in W, it sits in the photon flux, which then has to be computed with a Fermi-motion Monte Carlo for every W bin. In both cases the same convolution has to be unfolded, and we have the generator that does it.
 
 The bin size has to be compatible with this smearing. One bin of E_gamma(lab) contains a spread of 0.6-0.7 GeV rms in E_gamma(eff) (0.13 GeV in W), whatever its width. Bins narrower than about 0.5 GeV in E_gamma(lab) therefore do not resolve the cross section any further; neighbouring narrow bins sample almost the same distribution in W and only subdivide the same smearing. The 150-200 MeV bins that are natural for the free proton are too fine for the deuteron, unless the purpose is the sub-threshold yield itself rather than the cross section.
+In W, on the contrary, the bins can be as narrow as the statistics allow: Fermi motion does not enter the variable, only the effective photon flux per bin, which the Monte Carlo provides.
 
 The plot is from our generator: 10.6 GeV bremsstrahlung beam, deuteron with the AV18 momentum distribution, 20 million events; the x axis is E_gamma from Eq. 10, the y axis is E_gamma(eff) from the measured J/psi and neutron, the orange line is where every event of a free neutron would be.
 
