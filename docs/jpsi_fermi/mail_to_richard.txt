@@ -1,0 +1,18 @@
+Subject: J/psi photoproduction on the deuteron: which photon energy
+
+Dear Richard,
+
+Thank you for pointing me to the SoLID paper (Liu et al., PRC 109, 065206) and to its Eq. 10.
+
+Eq. 10 gives the lab photon energy E_gamma event by event in photoproduction, provided the J/psi and the recoil nucleon are detected (they discuss J/psi + proton; in our case it is J/psi + neutron, with the spectator proton undetected). It is exact: it only uses the fact that the undetected spectator is on its mass shell, and it does not depend on any model of the Fermi motion. It is the right variable for the study of sub-threshold J/psi photoproduction, because "sub-threshold" is a statement about the lab photon energy.
+
+But what we want to publish, I believe, is the J/psi photoproduction cross section on a free neutron. That cross section is a function of s = (p_J/psi + p_n)^2 only, or, translated to a free neutron, of E_gamma(eff) = (s - M_n^2) / 2 M_n; we can equally well publish it as a function of W = sqrt(s). This is a different variable. What Eq. 10 gives is exactly E_gamma in the lab system, and on the deuteron any bin of E_gamma(lab) contains a whole spectrum of E_gamma(eff), as the attached plot shows: for one lab photon energy the reaction takes place over a band of about 0.6 GeV rms in E_gamma(eff), and the photons below the free threshold of 8.2 GeV produce the reaction at E_gamma(eff) around 9 GeV, i.e. at a perfectly ordinary W about 150 MeV above M_n + M_J/psi. Only the photon is sub-threshold; the elementary process is not.
+
+In other words, there is no way to kill the Fermi motion by choosing some magic variable. If we bin in E_gamma(lab), the Fermi smearing sits in the cross section; if we bin in W, it sits in the photon flux, which then has to be computed with a Fermi-motion Monte Carlo for every W bin. In both cases the same convolution has to be unfolded, and we have the generator that does it.
+
+The bin size has to be compatible with this smearing. One bin of E_gamma(lab) contains a spread of 0.6-0.7 GeV rms in E_gamma(eff) (0.13 GeV in W), whatever its width. Bins narrower than about 0.5 GeV in E_gamma(lab) therefore do not resolve the cross section any further; neighbouring narrow bins sample almost the same distribution in W and only subdivide the same smearing. The 150-200 MeV bins that are natural for the free proton are too fine for the deuteron, unless the purpose is the sub-threshold yield itself rather than the cross section.
+
+The plot is from our generator: 10.6 GeV bremsstrahlung beam, deuteron with the AV18 momentum distribution, 20 million events; the x axis is E_gamma from Eq. 10, the y axis is E_gamma(eff) from the measured J/psi and neutron, the orange line is where every event of a free neutron would be.
+
+Best regards,
+Valery
