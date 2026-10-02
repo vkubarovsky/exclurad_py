@@ -1,7 +1,22 @@
 # numba: 2.494x more, on the production stack, with the physics intact
 
-Branch `speed-numba`.  Opt-in with `RC_NUMBA=1`; without it the numpy path
-runs and is byte-identical to production.
+Branch `speed-numba`.  **The numba kernel is the DEFAULT** (VPK, 2026-10-02).  `RC_NUMBA`
+selects the backend:
+
+| `RC_NUMBA` | behaviour |
+|---|---|
+| unset | **numba if importable**; else numpy with a loud `RuntimeWarning` |
+| `1` | **require** numba — raise rather than fall back |
+| `0` | force numpy deliberately, no warning |
+
+Every sample records which backend actually produced it as `rc_backend`
+in `config.json` and the `.info` sidecar.  That is the artefact; the
+environment variable is only what was asked for.
+
+**Default-on means merging is no longer a no-op.**  It also means the
+interpreter matters: ifarm's system `python3` has no numba, so a job run
+with it warns and runs numpy.  `gen_array.sbatch` must point at the venv
+for the default to take effect.
 
 ## Result
 

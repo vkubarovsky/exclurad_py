@@ -22,17 +22,56 @@ numpy kappa1 itself differs from the STABLE 2*om*kap_own that
 limited by the same conditioning, and neither is the more accurate one.
 """
 import os
+import warnings
+
 import numpy as np
 
 from .spinors import rad_L, contractLH, uspinor, _ubar, GAMMA
 from .hadronic import hadronic_tensor, POL_KEYS
 
-_WANT = os.environ.get("RC_NUMBA", "") not in ("", "0")
+# RC_NUMBA selects the backend.  The numba kernel is the DEFAULT:
+#
+#   unset   use numba if it is importable, else numpy with a LOUD warning
+#   1       REQUIRE numba -- raise rather than fall back
+#   0       force numpy deliberately, no warning
+#
+# Default-on is what production wants, but it makes the silent fallback the
+# dangerous case rather than the safe one: a campaign would run 2.3x slower
+# than planned and nothing would say so.  An environment variable proves
+# what you ASKED FOR; only the artefact proves what you GOT.  So the
+# fallback warns here, and `run.py` stamps `rc_backend` into every sample's
+# provenance, which is the artefact.
+_ENV = os.environ.get("RC_NUMBA", "").strip()
+_IMPORT_ERR = None
 try:
     from ._kernel_numba import lrh_kernel, HAVE_NUMBA
-except Exception:                                      # pragma: no cover
+except Exception as _e:                                # pragma: no cover
     HAVE_NUMBA = False
-USE_NUMBA = bool(_WANT and HAVE_NUMBA)
+    _IMPORT_ERR = _e
+
+_why = (f" ({type(_IMPORT_ERR).__name__}: {_IMPORT_ERR})" if _IMPORT_ERR else "")
+if _ENV == "0":
+    USE_NUMBA = False                                   # deliberate numpy
+elif _ENV in ("1", "true", "True", "yes", "on"):
+    if not HAVE_NUMBA:
+        raise RuntimeError(
+            "RC_NUMBA=1 requires the numba kernel and it is unavailable"
+            + _why + ".\nRefusing to fall back silently: the run would be "
+            "~2.3x slower than planned with nothing to say why.\nUse an "
+            "interpreter with numba (on ifarm, a venv built with "
+            "--system-site-packages so the system numpy/scipy are kept), "
+            "or set RC_NUMBA=0 to choose numpy deliberately.")
+    USE_NUMBA = True
+else:                                                   # unset: numba by default
+    USE_NUMBA = HAVE_NUMBA
+    if not HAVE_NUMBA:
+        warnings.warn(
+            "exclurad_py: the numba integrand kernel is unavailable" + _why
+            + "; falling back to the numpy backend, which is correct but "
+              "~2.3x slower. Set RC_NUMBA=0 to silence this, or install "
+              "numba. The backend actually used is recorded as "
+              "`rc_backend` in the run's config.json and .info sidecar.",
+            RuntimeWarning, stacklevel=2)
 
 _cache = {}
 
