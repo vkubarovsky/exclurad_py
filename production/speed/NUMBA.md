@@ -22,10 +22,16 @@ for the default to take effect.
 
 | | |
 |---|---|
-| **on farm COMPUTE NODES** | **2.494x**, median of 40 paired slurm tasks (10-90 %: 2.247-2.871) |
-| on top of the merged `speed` | 1.657x -> **4.13x total** |
-| campaign, end to end | **2.60 -> 0.63 s/event** |
-| core-hours per 100 M | 72 000 -> **~17 400** |
+| **on farm COMPUTE NODES** | **2.324x**, median of 20 chunks x 5000 events (Stage 1, production scale) |
+| | 2.494x on an earlier 40 x 25-event array -- same quantity, different node mix |
+| on top of the merged `speed` | 1.657x -> **3.85x total** (4.13x on the 25-event figure) |
+| campaign, end to end | **2.60 -> 0.68 s/event** |
+| core-hours per 100 M | 72 000 -> **~18 700** |
+
+**Quote 3.85x and 0.68 s/event.**  Stage 1 is the production-scale
+measurement -- 5000-event chunks, exactly what a campaign runs -- so it is
+the one to use; the 7 % gap to the 25-event array is node mix, and both are
+honest measurements of the same thing.
 | **meets the brief's <1 s/event target?** | **yes** |
 | production stack change | **none** -- python 3.9.25 and numpy 1.23.5 unchanged |
 | added | numba 0.60.0 + llvmlite 0.43.0 |
