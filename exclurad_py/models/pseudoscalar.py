@@ -1038,3 +1038,122 @@ class Etan_Amp2610(ProtonDetectedModel):
 
     def _sfs_tn(self, t_nucl, xB, Q2):
         return _amp2610_sfs("etan", t_nucl, xB, Q2)
+
+
+# --------------------------------------------------------------------------- #
+#  amp2611: amp2610 with b'(<Etilde>) tied to b'(<Htilde>)   (run Htil_tieELB_A)
+# --------------------------------------------------------------------------- #
+#
+# amp2610 left b'(<Etilde>) free and it came out -0.30, against -1.0 to -1.2 for
+# every other block.  Inside the fitted region that is invisible; past |t| = 1.8
+# sigma_L stops falling, and the radiative integral -- which spends 20 % of its
+# evaluations beyond |t| = 1.8 and reaches |t| = 14.6 -- made eta blow up to
+# 2.6e9 against 36 for amp2609, which is why amp2610 was 11x slower and its
+# sample was not exactly unweighted.
+#
+# Htilde and Etilde are the two twist-2 longitudinal GPDs and already share one
+# u-d relative phase (p[36]); tying their Regge alpha' is a statement of the
+# same kind, not a patch.  Tied, both settle at b' = -0.80: Etilde rises from
+# -0.30 and Htilde falls from -1.01, so the data pull both ways and the tie
+# finds the compromise.
+#
+# 31 free + 3 norms, chi2/ndf 1.3761 = 2097.1/1523, best of four starts.
+# The tie costs +31.3 against amp2610's 2065.8 -- roughly one unit of the 26.7
+# optimiser noise measured on this surface -- and keeps -43.2 of amp2609's
+# 2140.3.
+#
+# Provenance: ~/pi0eta_ampmodel_fit, run tag Htil_tieELB_A, md5 766820268f7d104297646faa2240acc5.
+
+_AMP2611_PAR = _np.load(_os.path.join(_os.path.dirname(__file__), "amp2611_par.npy"))
+_AMP2611_PROV = ("Amplitude fit of 2026-10-02, run Htil_free2, the first with "
+                 "an explicit Htilde block (pi0eta_ampmodel_fit 2fcc412, "
+                 "md5 6935728c1f...). Normalisation nuisances NOT applied. ")
+
+
+def _amp2611_sfs(channel, t_nucl, xB, Q2):
+    """Nine structure functions; same contract as _amp2609_sfs."""
+    t = _np.atleast_1d(_np.asarray(t_nucl, dtype=float))
+    x = _np.atleast_1d(_np.asarray(xB, dtype=float))
+    q = _np.atleast_1d(_np.asarray(Q2, dtype=float))
+    t, x, q = _np.broadcast_arrays(t, x, q)
+    KEYS = ("T", "L", "TT", "LT", "LTp", "LTUL", "TTUL", "Tp", "LTpLL")
+    if _AMPVEC:
+        r, _ok = _AF2V.structure_arr(_AMP2611_PAR, channel, t, x, q)
+        out = _np.stack([r[k] if k in r else _np.zeros_like(r["T"]) for k in KEYS])
+    else:
+        out = _np.zeros((len(KEYS),) + t.shape)
+        o = out.reshape(len(KEYS), -1)
+        for i, (ti, xi, qi) in enumerate(zip(t.ravel(), x.ravel(), q.ravel())):
+            try:
+                s = _AF2.structure(_AMP2611_PAR, channel, float(ti), float(xi), float(qi))
+            except (ValueError, ZeroDivisionError):
+                continue
+            if s is None:
+                continue
+            for j, k in enumerate(KEYS):
+                o[j, i] = s[k]
+    if out.shape[1:] == (1,):
+        return tuple(float(v) for v in out[:, 0])
+    return tuple(out)
+
+
+@register
+class Pi0_Amp2611(ProtonDetectedModel):
+    name = "pi0.amp2611"
+    channel = "pi0"
+    version = "amp2611"
+    topology = _PI0_TOPO
+    validity = _AMP26C_VALIDITY          # the fitted region did not change
+    provenance = _AMP2611_PROV + "pi0 off the proton."
+    reference = _AMP_REF
+
+    def _sfs_tn(self, t_nucl, xB, Q2):
+        return _amp2611_sfs("pi0p", t_nucl, xB, Q2)
+
+
+@register
+class Eta_Amp2611(ProtonDetectedModel):
+    name = "eta.amp2611"
+    channel = "eta"
+    version = "amp2611"
+    topology = _ETA_TOPO
+    validity = _AMP26C_VALIDITY
+    provenance = _AMP2611_PROV + "eta off the proton, flavour-rotated."
+    reference = _AMP_REF
+
+    def _sfs_tn(self, t_nucl, xB, Q2):
+        return _amp2611_sfs("etap", t_nucl, xB, Q2)
+
+
+@register
+class Pi0n_Amp2611(ProtonDetectedModel):
+    name = "pi0n.amp2611"
+    channel = "pi0n"
+    version = "amp2611-n"
+    topology = _PI0N_TOPO
+    validity = _AMP26C_VALIDITY
+    provenance = _AMP2611_PROV + ("pi0 off the NEUTRON. INDICATIVE ONLY: "
+                                  "four points with 42-90% errors. Htilde "
+                                  "moves this channel most -- sigma_U by up "
+                                  "to a factor 2 against amp2609.")
+    reference = _AMP_REF
+
+    def _sfs_tn(self, t_nucl, xB, Q2):
+        return _amp2611_sfs("pi0n", t_nucl, xB, Q2)
+
+
+@register
+class Etan_Amp2611(ProtonDetectedModel):
+    name = "etan.amp2611"
+    channel = "etan"
+    version = "amp2611-n"
+    topology = _ETAN_TOPO
+    validity = _AMP26C_VALIDITY
+    provenance = _AMP2611_PROV + (
+        "eta off the NEUTRON: isospin rotation (2F^d - F^u)/(3 sqrt6 k) of "
+        "the same fitted flavour amplitudes -- NO new parameters. "
+        "PREDICTION: no eta-neutron data exists, and none entered the fit.")
+    reference = _AMP_REF
+
+    def _sfs_tn(self, t_nucl, xB, Q2):
+        return _amp2611_sfs("etan", t_nucl, xB, Q2)
