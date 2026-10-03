@@ -32,5 +32,10 @@ print(f"per-task RATIO: median {st.median(ratios):.3f}   "
       f"min {min(ratios):.3f} max {max(ratios):.3f}")
 print(f"distinct nodes: {len(set(host.values()))}")
 print()
-camp = 2586.0
-print(f"campaign median 2586 ms/event -> {camp/st.median(ratios):.0f} ms/event at this ratio")
+# DO NOT divide the campaign's 2586 ms/event by this ratio unless the
+# "base" arm IS the code the campaign ran.  2586 is the PRE-speed number;
+# a numba A/B whose base arm is the already-merged numpy work measures a
+# ratio relative to THAT, and chaining it onto 2586 silently skips a
+# factor.  Quoting 2586/2.324 = 1113 ms/event was exactly this mistake.
+print(f"ratio is relative to the 'base' arm of THIS run -- chain it onto the")
+print(f"baseline that arm represents, not onto an unrelated campaign number.")
