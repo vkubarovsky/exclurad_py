@@ -67,6 +67,50 @@ nor a speedup from it.**
   venv in `~/.bashrc`; a slurm job gets the system python 3.9.25 with numpy
   1.23.5. Those are different major versions of numpy.
 
+## Byte-identity is also per CPU GENERATION on this farm
+
+Measured 2026-10-03: the same code, the same seed, the same tables, the
+same `RC_NUMBA=0`, 300 events of the production rad card.
+
+| machine | CPU | md5 |
+|---|---|---|
+| ifarm2401 | AMD EPYC 9554 (Zen 4) | `f8d0e0137a78a934` |
+| ifarm2402 | AMD EPYC 9554 (Zen 4) | `f8d0e0137a78a934` |
+| farm2517 | AMD EPYC 9354 (Zen 4) | `f8d0e0137a78a934` |
+| farm180222 | Intel Xeon Gold 6148 (Skylake-SP) | `f8d0e0137a78a934` |
+| **farm1959** | **AMD EPYC 7502 (Zen 2)** | **`ce1416234decc5ab`** |
+
+Four of five agree, and they agree with the 2026-09-28 reference campaign.
+The odd one out differs by **one unit in the last place** of one photon
+momentum component in the second event, with the first event identical —
+so it is arithmetic, not a shifted random stream. The one machine that
+differs is also the only one without AVX-512, which is a plausible cause
+and is NOT verified: saying so would need the dispatched flexiblas kernel
+to be checked.
+
+**`sigma_nb` is bit-identical on all five**, because it comes from the
+accept counters and the cached majorant and never touches the photon
+kinematics. So the physics reproduces everywhere and the bytes do not.
+
+This cost a day. A canary comparing the merged generator against the
+banked campaign came back "0 of 20 chunks byte-identical", which was read
+as a code change — twice, by two people, in opposite directions — before
+anyone looked at which nodes the two sides had run on.
+
+### So
+
+* **Byte comparisons: ifarm2401 or ifarm2402.** Both EPYC 9554, verified
+  identical to each other and to the campaign. `production/pick_ifarm.sh`
+  picks whichever is less loaded; measured the same minute, 2401 was at
+  5 % and 2402 at 66 %, and the same run took 4m29 against 6m10.
+  300 events is plenty — a difference shows up by the second event. Do not
+  run a 5000-event chunk on a login node.
+* **Anything that must run on compute nodes and be compared byte for byte
+  needs `--constraint`**, or the scheduler will spread the arms over
+  different generations and you will be comparing CPUs. `farm25` matches
+  the login nodes; `farm19` does not.
+* **Timing stays on compute nodes** regardless, in paired arms, as above.
+
 ## Byte-identity is the cheapest correctness bar, and it is per stack
 
 If a change does not alter how much randomness is consumed, the same card
