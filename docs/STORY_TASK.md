@@ -54,21 +54,33 @@ Minutes on an interactive ifarm node, not hours. It writes into
 Then submit `gen_array.sbatch` with the same `PROD_DIR` exported. It reads
 `$R/tables/majorant_$MODE.npz`, so the two modes no longer collide.
 
-**Read two numbers out of `build.log` before you submit 200 jobs.** On the
-new box, with the defaults (`NW=32`, `PER=400`):
+**What `build.log` should look like.** Measured on the new box, `NW=32`,
+`PER=400` (the build itself is ~11 minutes):
 
 ```
-bound grid (4, 4, 4, 6) = 384 cells x 400 probes
-B: min 0.85  median 1.70  ...  max 12.72
-cells with no usable probe: <should be a handful, not 150>
+bound grid (4, 4, 4, 6) = 384 cells x 400 probes = 153600 total
+usable probes per cell: 0 in 133 cells, 1-19 in 29, >=20 in 222 of 384
+proposal-weighted bound, with the >=20 rule: 1.950
+majorant mass sitting on the global fallback: 0.07 %
 ```
 
-A **median far above ~1.7** or **many unprobed cells** means the probes did
-not reach; raise `PER`. A grid of `(1,1,1,2)` means you are back to a global
-bound wearing a grid's clothes — that is the shape the old code produced, and
-it is what the fixed script exists to avoid. Note the maximum is **12.72** on
-the −2.5 box against 8.67 on the old −2.0 one: widening `t` added a harder
-corner, which is exactly why the tables cannot be carried over.
+**Read the proposal-weighted bound (~1.95) and nothing else.** The other
+numbers look alarming and are not:
+
+- **A third of the cells get zero probes, and that is geometry.** Those
+  corners of the (Q2, W2, t, phi) box are kinematically unreachable. Ten
+  times the probes bought back 18 of 150 cells. Do not raise `PER` chasing
+  them. Together they hold **0.07 %** of the majorant mass.
+- **Ignore `max B`.** It is identically the fallback `Bg`, which is the
+  single largest probe found anywhere times 1.3 — one sample point, not a
+  property of the grid. On this box it came out 12.72, 9.79 and 9.87 in
+  three runs that differed only in their random draws.
+- **Ignore the median over cells too.** It counts the empty corner the same
+  as the cell every event lands in; it moved 1.71 -> 3.20 while the number
+  the generator actually meets moved 1.944 -> 1.950, i.e. by 0.3 %.
+
+A grid printed as `(1,1,1,2)` is the one real alarm: two cells is a global
+bound wearing a grid's clothes, and it means `B_MAXCELL` was overridden.
 
 ### Why you cannot skip this, and why nothing will warn you
 

@@ -17,22 +17,72 @@
 #     three hours of GEMC again.
 set -u
 MODE=${1:?born or rad}
+POL=${2:?inb or outb}
+# Must match sim_array.sbatch exactly: this resumes ITS work directory, so a
+# mismatched polarity would merge the wrong background into a surviving
+# gemc.hipo and nothing downstream would notice.
+case "$POL" in
+  inb)  BGPOL=tor-1.00_sol-1.00 ;;
+  outb) BGPOL=tor+1.00_sol-1.00 ;;
+  *)    echo "FATAL: polarity must be inb or outb, got '$POL'"; exit 1 ;;
+esac
 # ONE production directory for all three stages.  Until 2026-09-28 this
 # script said 20260924 while sim_array.sbatch said t2_20260925: stage A
 # wrote where stage B did not look.  Set PROD_DIR once and export it.
 R=${PROD_DIR:-/volatile/clas12/vpk/prod_pi0_rga_fa18_inb_t2_20260925}
 I=$(printf "%03d" "$SLURM_ARRAY_TASK_ID")
-W=$R/$MODE/work/w_$I
-BGDIR=/cache/clas12/rg-a/production/background/rga_fall2018/tor-1.00_sol-1.00/50nA_10604MeV/10k
+W=$R/$MODE/work_$POL/w_$I
+BGDIR=/cache/clas12/rg-a/production/background/rga_fall2018/$BGPOL/50nA_10604MeV/10k
 BG=$(printf "%s/%05d.hipo" "$BGDIR" $(( (SLURM_ARRAY_TASK_ID - 1) % 100 + 1 )))
 DET='DC,FTOF,ECAL,HTCC,LTCC,BST,BMT,CND,CTOF,FTCAL,FTHODO'
 CFG=/cvmfs/oasis.opensciencegrid.org/jlab/hallb/clas12/sw/noarch/clas12-config/prod
 YAML=$CFG/coatjava/10.0.7/rga_fall2018.yaml
-OUTTAG=excluradpy_pi0_${MODE}_fa18_inb_bg50nA_$I
+OUTTAG=excluradpy_pi0_${MODE}_fa18_${POL}_bg50nA_$I
 
 [ -s "$W/gemc.hipo" ] || { echo "FATAL: no gemc.hipo in $W -- nothing to catch up"; exit 1; }
 SZ=$(stat -c %s "$W/gemc.hipo")
 [ "$SZ" -lt 1000000 ] && { echo "FATAL: gemc.hipo is only $SZ bytes"; exit 1; }
+# AND the count, because the size test is one a PARTIAL gemc walks straight
+# through.  post_array exists to resume a job killed after GEMC -- but a job
+# killed DURING GEMC also leaves a gemc.hipo, just a short one.  Real case:
+# rad outb 150 of the 2026-09-28 reference was cancelled on the 12 h limit
+# part-way through GEMC and left 52 MB against a 144 MB minimum over the 199
+# chunks that finished.  1000000 accepts that by a factor of fifty, and the
+# job would have merged, reconstructed and written a DST holding about a
+# third of a chunk -- a short chunk in a reference sample, with nothing in
+# any log to say so.
+#
+# The exact test is the event count.  USE -info, NOT -dump.
+#
+# I wrote -dump here on 2026-09-30 and called it "cheap, hipo reports it from
+# the header, no scan".  That was wrong and I had verified it on a TEN-event
+# file, where every behaviour looks fast.  -dump prints every event: on a
+# real 5000-event chunk it does not return, and the `| head -1` does not save
+# it.  Both catch-up jobs for born inb 191 and 193 then sat for the full six
+# hours producing an empty log and touching nothing -- a guard against a
+# silent failure that became one.
+#
+# -info reads the index: 0.136 s on the same 135 MB file, and it prints
+# "number of  events  :  5000".  The timeout is the second lesson: a check
+# that can hang must not be able to cost more than its own worth.
+NEXP=$(grep -c '^ *[0-9]* *1 *1 ' "$R/$MODE/chunks/lund_$I.dat" 2>/dev/null || echo 0)
+NGOT=$(timeout 120 /group/clas12/packages/coatjava/9.0.2/bin/hipo-utils -info "$W/gemc.hipo" 2>/dev/null \
+       | sed -n 's/.*number of  events *: *\([0-9]*\).*/\1/p' | head -1)
+NGOT=${NGOT:-0}
+if [ "$NEXP" -gt 0 ] && [ "$NGOT" -lt "$NEXP" ]; then
+  echo "FATAL: gemc.hipo holds $NGOT events, the chunk has $NEXP -- GEMC was"
+  echo "       killed part-way through.  There is nothing to resume: rerun"
+  echo "       this task with sim_array.sbatch, not post_array."
+  exit 1
+fi
+echo "gemc.hipo: $NGOT of $NEXP events, $SZ bytes"
+# Same tape guard as sim_array: /cache is tape-backed and an evicted file
+# can be a stub that passes -f and then feeds bg-merger nothing.
+if [ ! -s "$BG" ] || [ "$(stat -c %s "$BG")" -lt 1000000 ]; then
+  echo "FATAL: background $BG is missing or not staged ($(stat -c %s "$BG" 2>/dev/null || echo absent) bytes)."
+  echo "       Stage it first:  jcache get /mss/clas12/rg-a/production/background/rga_fall2018/$BGPOL/50nA_10604MeV/10k/*.hipo"
+  exit 1
+fi
 echo "reusing gemc.hipo: $SZ bytes, background $(basename "$BG")"
 
 export TMPDIR=$W
@@ -64,12 +114,12 @@ module purge
 export PATH=/group/clas12/packages/groovy/4.0.3/bin:$PATH
 unset JDK_JAVA_OPTIONS
 /group/clas12/packages/coatjava/9.0.2/bin/run-groovy "$R/hipo_to_ntuple.groovy" \
-    recon.hipo 1000000 "$R/$MODE/out/$OUTTAG.f32" 2>&1 | grep -E "DONE|FATAL|Exception" || true
+    recon.hipo 1000000 "$R/$MODE/out_$POL/$OUTTAG.f32" 2>&1 | grep -E "DONE|FATAL|Exception" || true
 /group/clas12/packages/coatjava/9.0.2/bin/hipo-utils -filter \
     -b "RUN::*,REC::*,RECFT::*,MC::*" -merge \
-    -o "$R/$MODE/dst/$OUTTAG.hipo" recon.hipo > /dev/null 2>&1
+    -o "$R/$MODE/dst_$POL/$OUTTAG.hipo" recon.hipo > /dev/null 2>&1
 T4=$(date +%s); echo "NTUPLE+DST seconds: $((T4-T3))"
-ls -la "$R/$MODE/dst/$OUTTAG.hipo" "$R/$MODE/out/$OUTTAG.f32" 2>/dev/null
+ls -la "$R/$MODE/dst_$POL/$OUTTAG.hipo" "$R/$MODE/out_$POL/$OUTTAG.f32" 2>/dev/null
 # only now is gemc.hipo expendable
-if [ -s "$R/$MODE/dst/$OUTTAG.hipo" ]; then cd "$R"; rm -rf "$W"; fi
+if [ -s "$R/$MODE/dst_$POL/$OUTTAG.hipo" ]; then cd "$R"; rm -rf "$W"; fi
 echo "DONE $MODE $I"

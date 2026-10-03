@@ -30,7 +30,7 @@ OUT=$1; NEV=$2; NPART=$3; IBORN=$4; SEED=$5; CH=${6:-pi0}; TLIM=${7:-01:00:00}
 # на 04:00:20, УЖЕ построив таблицу eta, а зависимые массивы 2..N были сняты
 # следом.  production даёт двое суток.
 PARTITION=${PARTITION:-priority}
-CODE=${CODE:-/volatile/clas12/vpk/exclurad_py}
+CODE=${CODE:-$HOME/exclurad_py}
 MODE=$([ "$IBORN" = 1 ] && echo born || echo rad)
 MEM=${MEM:-512M}
 # Карточка: по умолчанию по каналу, но CARD в окружении ПЕРЕКРЫВАЕТ.  Без

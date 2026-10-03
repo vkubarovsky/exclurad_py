@@ -258,8 +258,18 @@ class RCTable:
         if not res:
             return dict(n=0)
         d = np.array([r[2] for r in res])
+        ex = np.array([r[0] for r in res])
+        # ABSOLUTE and RELATIVE, because the absolute number alone is
+        # misleading on a wide box: the points are drawn uniformly, eta runs
+        # from ~0.8 at low W to >5 at the high-W corner, and a corner where
+        # no event ever lands dominates an unweighted absolute rms.  On the
+        # 2026-09-28 production box the absolute rms is 0.9-2.3 while the
+        # sample itself is sound -- same trap as judging the stage-2 bound
+        # by its median over cells instead of by proposal weight.
+        rel = d / np.where(np.abs(ex) > 1e-12, ex, 1.0)
         return dict(n=len(res), mean=float(d.mean()), rms=float(d.std()),
-                    max_abs=float(np.abs(d).max()))
+                    max_abs=float(np.abs(d).max()),
+                    rms_rel=float(rel.std()), max_rel=float(np.abs(rel).max()))
 
     # ------------------------------------------------------------------ #
     def save(self, path):

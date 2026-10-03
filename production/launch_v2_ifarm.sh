@@ -1,6 +1,6 @@
 #!/bin/bash
 # --- code: both checkouts
-for D in $HOME/exclurad_py /volatile/clas12/vpk/exclurad_py; do cd $D && git fetch -q /tmp/ep9.bundle "refs/heads/production:refs/remotes/bun/production" && git merge -q --ff-only refs/remotes/bun/production && echo "  $D: $(git describe --tags) dirty=$(git status --short|wc -l)"; done
+for D in $HOME/exclurad_py; do cd $D && git fetch -q /tmp/ep9.bundle "refs/heads/production:refs/remotes/bun/production" && git merge -q --ff-only refs/remotes/bun/production && echo "  $D: $(git describe --tags) dirty=$(git status --short|wc -l)"; done
 # --- tables (already parked for slurm; link the same files under the layout names for v2)
 T=/volatile/clas12/vpk/tables; mkdir -p $HOME/tables
 declare -A B=([hp_pp]=beam_helicity_pos/target_pol_pos [hp_pm]=beam_helicity_pos/target_pol_neg [hm_pp]=beam_helicity_neg/target_pol_pos [hm_pm]=beam_helicity_neg/target_pol_neg)

@@ -35,6 +35,7 @@ from . import models, stamp
 from .generator import (Generator, Box, write_lund, decay_two_body, DECAY,
                         meson_slot)
 from .core.radiative import quad_default
+from .core.integrand import USE_NUMBA as _USE_NUMBA
 from .generator.tables import RCTable
 from .runcard import parse, echo
 
@@ -239,10 +240,30 @@ def run(card_path, date=None, verbose=True, _part=None):
         interp = g.table.check_interpolation(n=25)
         if verbose:
             print(f" eta-table interpolation: {interp}")
-        if interp.get("rms", 9) > 0.02:
-            print(f" *** WARNING: eta interpolation rms {interp['rms']:.3f} "
-                  f"> 0.02 -- the soft/hard split will be unreliable. "
-                  f"Narrow the box or refine table_shape. ***")
+        # WHAT THIS DOES AND DOES NOT MEAN.  The old text said "the soft/hard
+        # split will be unreliable".  That is true of the CELL-BASED photon
+        # path, where the table drives the split.  Production runs the
+        # PER-EVENT path (EXACT_ACCEPT/EXPO_TAIL both force exact_per_event),
+        # where rc_factor is recomputed at the event's own kinematics and the
+        # split inverts the EXACT sigma_obs.  There the table is only the
+        # stage-1 proposal and stage 2 corrects it exactly, so interpolation
+        # error costs ACCEPTANCE EFFICIENCY, not correctness -- provided the
+        # stage-2 bound holds, which is what b_viol in the report measures.
+        # Measured on the 2026-09-28 million: absolute rms 0.9-2.3 with
+        # bound violations 0.0044 % and worst excess x1.87.
+        _exact = os.environ.get("EXACT_ACCEPT", "") == "1" or \
+                 os.environ.get("EXPO_TAIL", "") == "1"
+        if interp.get("rms_rel", interp.get("rms", 9)) > 0.02:
+            print(f" *** WARNING: eta interpolation rms(rel) "
+                  f"{interp.get('rms_rel', float('nan')):.3f}, rms(abs) "
+                  f"{interp['rms']:.3f} over {interp.get('n')} uniform points. "
+                  + ("Per-event path: this costs stage-1 acceptance "
+                     "efficiency, NOT correctness -- check b_viol in the "
+                     "report, that is the number that would bite. ***"
+                     if _exact else
+                     "Cell-based path: the soft/hard split USES the table "
+                     "and will be unreliable.  Narrow the box or refine "
+                     "table_shape. ***"))
 
     # two passes: the first finds the gross misses, the second the ones
     # only reachable once the cell probabilities have shifted.
@@ -309,6 +330,12 @@ def run(card_path, date=None, verbose=True, _part=None):
                               # after 2026-09-24 differ by ~0.13% in eta, and
                               # nothing else in the file would say which
                               rc_quad=",".join(str(x) for x in quad_default()),
+                              # WHICH INTEGRAND BACKEND made this sample.
+                              # numpy and numba agree to ~1e-11 per event and
+                              # exactly on sigma_nb, but a sample must still
+                              # be able to say which produced it -- the same
+                              # reason rc_quad is stamped above.
+                              rc_backend=("numba" if _USE_NUMBA else "numpy"),
                               # the CARD's t_nucl -- sf.t_nucl in the stamp is
                               # the live attribute, i.e. the last event's t
                               t_nucl_card=cfg.get("t_nucl"),
@@ -338,7 +365,20 @@ def run(card_path, date=None, verbose=True, _part=None):
            for k, v in g.report().items()}
     cfgname = f"config{part_tag or ''}.json"
     with open(os.path.join(d, "inputs", cfgname), "w") as fh:
+        # `interp` beside `report`, so the two numbers that must be read
+        # TOGETHER are in one place: the interpolation error only matters
+        # through the stage-2 bound, and b_viol lives in `report`.
+        #
+        # CORRECTION 2026-09-29.  An earlier version of this comment said
+        # there was no record of the check on a finished run.  That was
+        # wrong: the .info sidecar has carried `run.eta_interp.rms` all
+        # along, in all 200 chunks of the 2026-09-28 million.  I had claimed
+        # a missing record without looking for it, and the optimization
+        # session found it by reading the sidecars.  What was genuinely
+        # missing is only the job-log line (gen_array.sbatch's grep), which
+        # is why the warning went unnoticed at the time.
         json.dump(dict(card=cfg, stamp=st, report=rep, health=g.health(),
+                       interp=interp,
                        calibration=cal, setup_s=t_setup, gen_s=t_gen),
                   fh, indent=2, default=str)
     with open(os.path.join(d, "README.md"), "w") as fh:

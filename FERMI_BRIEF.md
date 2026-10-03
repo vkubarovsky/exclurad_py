@@ -31,7 +31,7 @@ proton-target physics.
 | mac mini (primary) | `/Users/vpk/exclurad_py_fermi` | git worktree on branch `fermi`. **This is your directory.** |
 | mac mini | `/Users/vpk/exclurad_py` | **NOT yours.** Branch `production`, actively used. |
 | ifarm2402 | make your own: `git clone git@github.com:vkubarovsky/exclurad_py.git /volatile/clas12/vpk/exclurad_py_fermi && cd $_ && git checkout fermi` | git reaches GitHub from ifarm. |
-| ifarm2402 | `/volatile/clas12/vpk/exclurad_py` | **NOT yours.** Production checkout. |
+| ifarm2402 | `/home/vpk/exclurad_py` | **NOT yours.** Production checkout (moved off /volatile 2026-09-28). |
 | clonfarm11 | — | **Do not use today.** See §9. |
 
 `/Users/vpk/exclurad_py_fermi` is a git *worktree*, not a clone: it shares the

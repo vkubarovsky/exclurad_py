@@ -28,3 +28,4 @@ validation/vm_models/*.mod
 validation/vm_models/pts.txt
 validation/vm_models/vm_ref.out
 validation/eta_vs_fortran/del2_dump.dat
+exclurad_out/
