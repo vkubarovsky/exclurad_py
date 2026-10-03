@@ -17,7 +17,10 @@
     Вектор с такой веткой получает отказ сразу, не тихую ошибку.
 
 Скалярный модуль остаётся источником истины: он побайтово совпадает с
-amplitudes.py из rc_iter1, которым фитились параметры.
+amplitudes.py из pi0eta_ampmodel_fit, которым фитились параметры.
+
+03.10.2026: перенесён блок <Htilde> (слоты 37-42).  Включается только при
+len(p) > 41, поэтому все 27- и 37-слотовые модели идут прежним путём.
 """
 import math
 
@@ -79,6 +82,11 @@ def structure_arr(p, ch, t, xB, Q2):
         bxL = p[21] if len(p) > 21 else 0.0
         Lu = p[15] * np.exp((p[16] + bxL * L) * t) * q ** (p[17] / 2.0)
         Ld = p[18] * Lu
+        # --- _htilde, строка в строку (2026-10-03) -------------------------
+        has_ht = len(p) > 41
+        if has_ht:
+            Htu = p[37] * np.exp((p[38] + p[39] * L) * t) * q ** (p[40] / 2.0)
+            Htd = p[41] * Htu
 
         # --- фазы u-d (живая ветка боевого вектора) -----------------------
         HTd_c = HTd.astype(complex)
@@ -88,6 +96,11 @@ def structure_arr(p, ch, t, xB, Q2):
             HTd_c = HTd * np.exp(1j * p[34])
             ETd_c = ETd * np.exp(1j * p[35])
             Ld_c = Ld * np.exp(1j * p[36])
+        # Htilde shares the Etilde u-d phase, p[36], as in the scalar module.
+        if has_ht:
+            Htd_c = Htd.astype(complex)
+            if len(p) > 36:
+                Htd_c = Htd * np.exp(1j * p[36])
 
         # --- _combine ------------------------------------------------------
         def comb(u, d, k):
@@ -109,6 +122,7 @@ def structure_arr(p, ch, t, xB, Q2):
         HT = comb(HTu, HTd_c, K_T)
         ET = comb(ETu, ETd_c, K_T)
         LL = comb(Lu, Ld_c, K_L)
+        HTIL = comb(Htu, Htd_c, K_L) if has_ht else None
 
         # --- amplitudes() ---------------------------------------------------
         lam = W2 * W2 + q * q + Mp ** 4 + 2 * W2 * q - 2 * W2 * Mp * Mp \
@@ -132,6 +146,17 @@ def structure_arr(p, ch, t, xB, Q2):
             T01p = np.zeros_like(T00m)
             U01c = U01p.astype(complex)
             T00p = np.zeros_like(T00m)
+        if has_ht:
+            # Longitudinal sector with the correct forward behaviour; the old
+            # L block is re-read as <Etilde> and <Htilde> populates the
+            # non-flip amplitude, which survives t' -> 0.
+            xi2 = np.minimum(xi * xi, 0.999999)
+            Ec = LL * np.exp(1j * delta)
+            Hc = HTIL * np.exp(1j * p[26])
+            nx = p[42] if len(p) > 42 else 0.0
+            T00m = np.sqrt(np.maximum(A * kin, 0.0)) * (xi ** nx) * Ec
+            T00p = np.sqrt(np.maximum(A * (1.0 - xi2), 0.0)) \
+                * (Hc - xi2 / (1.0 - xi2) * Ec)
         T01m = D / 2.0
 
         # --- structure(): грамова таблица -----------------------------------

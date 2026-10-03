@@ -109,6 +109,23 @@ def _flavour(p, t, xB, Q2):
     Ld  = p[18]*Lu
     return (HTu, HTd), (ETu, ETd), (Lu, Ld)
 
+def _htilde(p, t, xB, Q2):
+    """The Htilde GFF block, present only if len(p) > 41 (2026-09-30).
+
+    Angular momentum makes the longitudinal NON-flip amplitude M_{0+,0+}
+    survive the forward limit, and it is <Htilde> that populates it.  Before
+    this block existed the model had no Htilde at all: T00p was set to
+    rho_nf*|T00m|, so it inherited the sqrt(-t') of the flip amplitude and
+    sigma_L vanished linearly in t' at the forward peak.
+      p[37] N   p[38] b   p[39] b'   p[40] nQ   p[41] R_d
+    Kept in step with pi0eta_ampmodel_fit/amplitudes.py; the closure test in
+    validation/ compares the two and must stay exact.
+    """
+    if len(p) <= 41: return None
+    L = math.log(xB)
+    Hu = p[37]*math.exp((p[38] + p[39]*L)*t)*Q2**(p[40]/2)
+    return (Hu, p[41]*Hu)
+
 def _combine(pair, ch, k):
     u, d = pair
     if ch == "pi0p": return (2*u + d)/(3*S2)
@@ -125,6 +142,7 @@ def amplitudes(p, ch, t, xB, Q2):
     tp = t - tmin(mM, Q2, xB)
     if tp >= 0: return None
     HT, ET, LL = _flavour(p, t, xB, Q2)
+    HTIL = _htilde(p, t, xB, Q2)
     if len(p) > 36 and p[35] <= -9.0:
         # phases COMPUTED from the convolution (phase_table.npz), not fitted:
         # phi_du(xi) = arg<F^d> - arg<F^u> for a GK-like x shape.
@@ -141,6 +159,10 @@ def amplitudes(p, ch, t, xB, Q2):
         HT = (HT[0], HT[1]*cmath.exp(1j*p[34]))
         ET = (ET[0], ET[1]*cmath.exp(1j*p[35]))
         LL = (LL[0], LL[1]*cmath.exp(1j*p[36]))
+        # Htilde and Etilde are both twist-2 longitudinal; their u-d relative
+        # phase is tied to one parameter, p[36], rather than fitted twice.
+        if HTIL is not None:
+            HTIL = (HTIL[0], HTIL[1]*cmath.exp(1j*p[36]))
     A  = Afac(Q2, xB)
     xi = ksi(xB, Q2)
     kin = -tp/(8*Mp*Mp)
@@ -156,6 +178,18 @@ def amplitudes(p, ch, t, xB, Q2):
         T00p = rho_nf*abs(Lmag)*cmath.exp(1j*phi_nf)
     else:
         T01p, U01c, T00p = 0.0+0j, U01p+0j, 0.0+0j
+    if HTIL is not None:
+        # Longitudinal sector with the correct forward behaviour (2026-09-30).
+        #   M_{0+,0+} ~ sqrt(1-xi^2) [ <Htilde> - xi^2/(1-xi^2) <Etilde> ]
+        #   M_{0-,0+} ~ sqrt(-t')/(2m) xi <Etilde>
+        # so the old L block is re-read as <Etilde> and <Htilde> is new.  p[42]
+        # is the power of xi written explicitly in front of <Etilde>.
+        xi2  = min(xi*xi, 0.999999)
+        Ec   = _combine(LL, ch, K_L)*cmath.exp(1j*delta)
+        Hc   = _combine(HTIL, ch, K_L)*cmath.exp(1j*p[26])
+        nx   = p[42] if len(p) > 42 else 0.0
+        T00m = math.sqrt(A*kin)*(xi**nx)*Ec
+        T00p = math.sqrt(A*(1 - xi2))*(Hc - xi2/(1 - xi2)*Ec)
     return dict(T00p=T00p, T00m=T00m,
                 T01p=T01p, T01m=D/2+0j,
                 U01p=U01c, U01m=D/2+0j)
