@@ -188,7 +188,11 @@ fi
 HPID=${HPID:-2212}
 echo "hadron pid: $HPID (model ${MODEL:-unknown})"
 NTG="$R/hipo_to_ntuple.groovy"
-[ -f "$NTG" ] || NTG="$(dirname "$(dirname "$0")")/gemc_check/hipo_to_ntuple.groovy"
+# NOT $0.  slurm runs a COPY of this script from its spool directory, so $0
+# points there and not at the checkout -- the fallback silently resolved to
+# nothing and 50 tasks died after GEMC and reconstruction had already run.
+# $EXRU is the checkout the job was told to use, and gen_array uses it too.
+[ -f "$NTG" ] || NTG="${EXRU:-$HOME/exclurad_py}/production/gemc_check/hipo_to_ntuple.groovy"
 [ -f "$NTG" ] || { echo "FATAL: hipo_to_ntuple.groovy found neither in $R nor in the checkout"; exit 1; }
 /group/clas12/packages/coatjava/9.0.2/bin/run-groovy "$NTG" \
     recon.hipo 1000000 "$R/$MODE/out_$POL/$OUTTAG.f32" 0 "$HPID" 2>&1 | grep -E "DONE|FATAL|Exception" || true
