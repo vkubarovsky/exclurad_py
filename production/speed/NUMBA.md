@@ -55,7 +55,53 @@ tail sampler -- the two halves of the point count -- are both covered.
 The structure-function model stays outside the kernel: it is a Python
 object, it cannot be jitted, and it is already evaluated once per block.
 
-## Correctness: not byte-identical, and much closer than that sounds
+## What production produces now — read this before quoting "byte-identical"
+
+**The accurate sentence is: bit-identical cross sections, different photon
+draws.**  Both halves matter and they are easy to conflate.
+
+`byte-identical` is a property of the **numpy backend against its own
+baseline**, and it still holds exactly -- 300 events, same seed and tables,
+pre-speed `64a6906` against current production with `RC_NUMBA=0`: byte for
+byte the same file.
+
+It is **not** a property of production as it now ships, because numba is the
+default.  With the kernel on, ~25 % of LUND lines differ in trailing digits:
+different photon draws, same events statistically, and the integral
+unmoved.  Measured two ways independently:
+
+| | lines differing |
+|---|---|
+| 300 events, mini | 486 of 1962 = **24.8 %** |
+| 20 chunks x 5000, farm, vs the banked campaign | ~8000 of ~33000 = **24.2 %** |
+
+And the thing that makes it safe, from the campaign canary -- regenerating
+20 chunks of the finished pi0 reference campaign and comparing against the
+LUND files actually banked:
+
+    sigma_nb canary == sigma_nb campaign, BIT-IDENTICAL:  20 / 20
+    max relative difference:                              0.0e+00
+
+Sixteen digits, twenty times, against real banked production data.  The
+specific photons moved; the cross section did not move by one unit in the
+last place.  That is what a reassociation inside the sampler should do, and
+it is a stronger statement than byte-identity because it is measured
+against real production output rather than against a baseline we generated
+ourselves.
+
+**The operational consequence, which belongs in the sample registry:** a
+sample extended with new chunks on current production is statistically the
+same sample but is **not reproducible event-by-event from the old one**.
+For a reference million that is worth writing down.  Set `RC_NUMBA=0` to
+reproduce a pre-2026-10-02 sample exactly.
+
+**A trap for anyone writing an A/B after 2026-10-02.**  numba became the
+default, so `unset` no longer means numpy.  A harness that selects arms as
+"unset vs `RC_NUMBA=1`" now runs numba twice, agrees with itself perfectly,
+and looks like a clean comparison.  Use `RC_NUMBA=0` explicitly, and check
+`rc_backend` (under `stamp` in config.json) rather than the flag.
+
+## How numba and numpy differ, point by point
 
 The bar drops from byte-identity, so it was replaced with three stronger-
 than-usual checks rather than a hand-wave.
