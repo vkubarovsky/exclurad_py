@@ -1,4 +1,9 @@
 #!/bin/bash
+#
+# HOW TO RUN A CAMPAIGN WITH THESE: docs/farm_practice.md
+# It carries the sizing, the chaining, and every trap that has cost
+# a run here.  Read it before writing a chain of your own.
+#
 # Stage B: GEMC, background merge, reconstruction, ntuple and DST, for one chunk.
 #
 #   sbatch --array=1-200 --job-name=sim_rad_inb  --time=10:00:00 sim_array.sbatch rad inb

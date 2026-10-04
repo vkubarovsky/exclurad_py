@@ -31,6 +31,35 @@ axes for every run, so two runs can be laid side by side. Panel 6 is the
 rad/born shape test against the majorant cell edges — the test that caught the
 2026-09-25 sampler bug, and the reason it is on every page now.
 
+
+## 2026-09-28 — pi0 on the proton, RG-A fa18, t box to -2.50
+
+`/volatile/clas12/vpk/prod_pi0_rga_t25_20260928`, 100 GB.
+
+**2 million generated events** — 1 M born + 1 M rad, 200 chunks of 5000
+each — and **each one simulated twice**, inbending and outbending, for
+800 DST and 4 M passes through GEMC. One LUND feeds both polarities
+because the generator knows nothing about the torus, so the two differ in
+acceptance only and not in statistics. Stating it as "4 x 1 M events" is
+wrong and I wrote it that way first: there are two million distinct events.
+
+    LUND   400 files, 2 000 000 events
+    DST    800 files (born/rad x inb/outb, 200 each)
+    FATAL  0
+
+Box: Q2 0.8-10, W 1.8-4.0, |t| to 2.50, vcut 0, theta_e > 5 deg, model
+pi0.amp2609, beam 10.6 GeV, 50 nA background, gemc 5.13 + coatjava 10.0.7.
+
+    sigma_nb   born 0.898874 +- 1.3 %,  rad 1.123679 +- 1.4 %
+    C_rad      1.250 integrated over the box at vcut = 0
+    b_viol     0.0044 % (98 of 2 222 953), worst excess x1.87
+               against 0.56 % and x3.35 before the 2026-09-27 bound fix
+
+Three chunks were lost to the 12 h limit and recovered: 2 by post_array,
+1 by a full rerun. See `docs/farm_practice.md` for why 5000 events per
+task was the wrong size.
+
+
 ## Where things live
 
 | what | where |

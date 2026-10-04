@@ -1,4 +1,9 @@
 #!/bin/bash
+#
+# HOW TO RUN A CAMPAIGN WITH THESE: docs/farm_practice.md
+# It carries the sizing, the chaining, and every trap that has cost
+# a run here.  Read it before writing a chain of your own.
+#
 # Stage A of the two-stage chain: generate one chunk of events.
 #
 #   sbatch --array=1-200 --job-name=gen_rad  --time=04:00:00 gen_array.sbatch rad
