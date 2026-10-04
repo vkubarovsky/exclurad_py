@@ -149,7 +149,12 @@ Answering it means instrumenting sigma_F, which should not be done blind.
 
 ## Status of the tags
 
-* `amp2609` -- unchanged, byte-identity of its output verified on this branch.
+* `amp2609` -- unchanged.  Byte-identity of its output verified on this branch
+  for **four of six** paths: pi0 rad, pi0 born, eta rad, pi0 neutron -- all
+  identical including headers.  The polarised-target case and a 27-slot model
+  (amp2021, which goes through `_amplitude_fit.py`) were still running when the
+  work was stopped and are **not** verified.  They must be run before anything
+  on this branch is merged.
 * `amp2610` -- H~, free Etilde slope.  Correct against the fit to 2.1e-15.  NOT
   usable in the generator.
 * `amp2611` -- H~ with b'(Etilde) tied to b'(Htilde).  Correct to 5.4e-16.  Also
