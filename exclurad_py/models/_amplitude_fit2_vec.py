@@ -63,7 +63,13 @@ def structure_arr(p, ch, t, xB, Q2):
         P3 = np.sqrt(np.maximum(e3sq, 0.0))
         tmin = (q + mM * mM) ** 2 / (4.0 * W2) - (P1 - P3) ** 2
         tp = t - tmin
-        ok = (x > 0.0) & (x < 1.0) & (q > 0.0) & (e3sq >= 0.0) & (tp < 0.0)
+        # t_max, the backward edge.  Until 2026-10-03 only t < t_min was tested,
+        # so the model was evaluated at |t| far beyond where the process exists
+        # -- the radiative integral reached |t| = 14 at W2 = 1.23, against a
+        # physical limit of 0.42.
+        tmax = (q + mM * mM) ** 2 / (4.0 * W2) - (P1 + P3) ** 2
+        ok = ((x > 0.0) & (x < 1.0) & (q > 0.0) & (e3sq >= 0.0)
+              & (tp < 0.0) & (t >= tmax))
 
         # --- _flavour, строка в строку -----------------------------------
         L = np.log(np.where(x > 0.0, x, 1.0))

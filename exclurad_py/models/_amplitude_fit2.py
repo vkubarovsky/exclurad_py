@@ -70,6 +70,21 @@ def tmin(mM, Q2, xB):
     E3 = (W2 - mM*mM + Mp*Mp)/(2*W); P3 = math.sqrt(E3*E3 - Mp*Mp)
     return (Q2 + mM*mM)**2/(4*W2) - (P1 - P3)**2   # true (negative) t_min
 
+def tmax(mM, Q2, xB):
+    """The far edge of the physical t range -- backward production.
+
+    Added 2026-10-03.  Only t < t_min was ever tested, so the model was being
+    evaluated at |t| far BEYOND t_max, where the process does not exist: the
+    radiative integral reached |t| = 14 at W2 = 1.23, where the physical range
+    ends at 0.42.  Both models extrapolate there; the old one happened to decay
+    fast enough that the nonsense was small, the new one does not.
+    """
+    W2 = Q2*(1/xB - 1) + Mp*Mp
+    W = math.sqrt(W2)
+    E1 = (W2 + Q2 + Mp*Mp)/(2*W); P1 = math.sqrt(max(E1*E1 - Mp*Mp, 0.0))
+    E3 = (W2 - mM*mM + Mp*Mp)/(2*W); P3 = math.sqrt(max(E3*E3 - Mp*Mp, 0.0))
+    return (Q2 + mM*mM)**2/(4*W2) - (P1 + P3)**2
+
 def phase_factor(Q2, xB):
     W2 = Q2*(1/xB - 1) + Mp*Mp
     lam = W2*W2 + Q2*Q2 + Mp**4 + 2*W2*Q2 - 2*W2*Mp*Mp + 2*Q2*Mp*Mp
@@ -141,6 +156,7 @@ def amplitudes(p, ch, t, xB, Q2):
     mM = Meta if ch in ("etap", "etan") else Mpi0
     tp = t - tmin(mM, Q2, xB)
     if tp >= 0: return None
+    if t < tmax(mM, Q2, xB): return None      # beyond the backward edge
     HT, ET, LL = _flavour(p, t, xB, Q2)
     HTIL = _htilde(p, t, xB, Q2)
     if len(p) > 36 and p[35] <= -9.0:
