@@ -58,6 +58,7 @@ ALPHA, HC2, PI = 0.00729927, 389379.36, math.pi
 # xB = 0.15; convert old parameter files with reparam.py (b_new = b + 1.897 b').
 # NOTE exclurad_py/models/_amplitude_fit.py and its amp2021/amp2026 .npy files
 # are still in the OLD convention - convert on install, never copy raw.
+XI_MAX = 0.8     # see the guard in amplitudes(): the xi -> 1 pole of <Etilde>
 K_T = 0.863
 K_L = 1.0/((math.cos(math.radians(-21.2))
             - math.sqrt(2)*(1.17/1.26)*math.sin(math.radians(-9.2)))*1.26)  # = 0.695
@@ -163,7 +164,14 @@ def amplitudes(p, ch, t, xB, Q2):
     # there.  Clamping xi^2 just below 1, as the first version of this block
     # did, turned that coefficient into 1e6 and gave sigma_L = 3e13.  The point
     # has no physical meaning; reject it.
-    if ksi(xB, Q2) >= 1.0: return None
+    # The GK longitudinal non-flip amplitude carries xi^2/(1-xi^2) in front of
+    # <Etilde> -- libGKPi0.cpp:1281 has exactly this -- so it has a pole at
+    # xi -> 1.  GK never evaluate there; our radiative tail does, and at
+    # xi = 0.995 the coefficient is 99, which is where sigma_L = 3e13 came from.
+    # Guard it the way GK guard the other edge (libGKPi0.cpp:1289 zeroes M0mp
+    # for |t'| < 1e-5): refuse the point.  At the model's own Q2 >= 1.15 this
+    # needs xB > 0.65, so it costs nothing anywhere data exist.
+    if ksi(xB, Q2) >= XI_MAX: return None
     HT, ET, LL = _flavour(p, t, xB, Q2)
     HTIL = _htilde(p, t, xB, Q2)
     if len(p) > 36 and p[35] <= -9.0:

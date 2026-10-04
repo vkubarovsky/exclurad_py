@@ -68,11 +68,12 @@ def structure_arr(p, ch, t, xB, Q2):
         # -- the radiative integral reached |t| = 14 at W2 = 1.23, against a
         # physical limit of 0.42.
         tmax = (q + mM * mM) ** 2 / (4.0 * W2) - (P1 + P3) ** 2
-        # xi > 1 is outside the GPD support; the Htilde block's xi^2/(1-xi^2)
-        # diverges there and clamping it gave sigma_L = 3e13 at W2 = 1.23.
+        # The xi -> 1 pole of the GK longitudinal non-flip amplitude
+        # (xi^2/(1-xi^2) in front of <Etilde>, libGKPi0.cpp:1281).  At
+        # xi = 0.995 the coefficient is 99 and sigma_L came out 3e13.
         xi_pre = x / (2.0 - x) * (1.0 + Mp * Mp / np.where(q > 0, q, 1.0))
         ok = ((x > 0.0) & (x < 1.0) & (q > 0.0) & (e3sq >= 0.0)
-              & (tp < 0.0) & (t >= tmax) & (xi_pre < 1.0))
+              & (tp < 0.0) & (t >= tmax) & (xi_pre < _S.XI_MAX))
 
         # --- _flavour, строка в строку -----------------------------------
         L = np.log(np.where(x > 0.0, x, 1.0))
