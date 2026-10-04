@@ -1,4 +1,9 @@
 #!/bin/bash
+#
+# HOW TO RUN A CAMPAIGN WITH THESE: docs/farm_practice.md
+# It carries the sizing, the chaining, and every trap that has cost
+# a run here.  Read it before writing a chain of your own.
+#
 # Catch-up pass: the GEMC output already exists, so redo only what failed.
 #
 # The 2026-09-25 born array ran GEMC for 3.3 h per chunk and then died in

@@ -1,4 +1,9 @@
 #!/bin/bash
+#
+# HOW TO RUN A CAMPAIGN WITH THESE: docs/farm_practice.md
+# It carries the sizing, the chaining, and every trap that has cost
+# a run here.  Read it before writing a chain of your own.
+#
 # Stage 0: build the shared eta table and the two majorants, ONCE, for a box.
 #
 #   export PROD_DIR=/volatile/clas12/vpk/prod_pi0_rga_fa18_inb_<date>
