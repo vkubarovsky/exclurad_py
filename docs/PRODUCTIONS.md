@@ -159,10 +159,14 @@ the median of `u` is shifted by +0.50 GeV² in BOTH samples.
 
 *Not the absolute normalisation.* `pi0n.amp2609` rests on four Hall A points
 with 42–90 % errors and is stamped INDICATIVE ONLY in the model's own
-provenance (reported by the amplitude-fit session, 2026-10-04, while comparing
-amp2609 with amp2612). The ratio above survives that — it is between two arms
-with the same model, so the model cancels — but a cross section read off these
-files does not.
+provenance. How much that is worth is now measured rather than feared: the
+successor `amp2612`, which gives the amplitude model an explicit `H~` block,
+moves `sigma_U` for `pi0n` **by up to a factor 2** against `amp2609` — the
+largest shift of any channel, because `H~` changes the forward longitudinal
+piece most where `sigma_L` was smallest (amplitude-fit session, 2026-10-04).
+The ratio above survives that — it is between two arms with the same model, so
+the model cancels — but any cross section read off these files moves by about
+that factor.
 
 *Not `MX²(e'n)`.* Built from the measured hadron it is the right variable on a
 proton and the wrong one here: CLAS12 measures a neutron by time of flight, so
