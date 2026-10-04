@@ -130,6 +130,55 @@ measure, so **the Fermi-versus-no-Fermi comparison stands as published**; only
 the absolute deuteron normalisation is low by two parts in a thousand. (An
 earlier single-seed probe said −1.9 %; it had no error bar and was noise.)
 
+### RG-B neutron, 2026-09-28: pi0 off the neutron on deuterium, 2 x 100k radiative
+
+`/volatile/clas12/vpk/rgb_pi0n_20260928/{none,av18}` — the two arms differ in
+one card field. `pi0n.amp2609`, 10.6 GeV, `rgb_spring2019` inbending, torus
+−1.00, gemc 5.11 + coatjava 11.1.0, background 50 nA / 10599 MeV merged over
+eleven detectors. Box `W2 3.24–16`, `Q2 0.80–10`, `t −2.00…−0.001`, `vcut 0`.
+
+**What it measures.** The exclusivity cut, at reconstructed level, on the
+variable a neutron analysis would actually use — `MX²(e'γγ)`, the missing mass
+against the electron and the two photons, with all three required to be
+*identified* as such and the neutron never measured:
+
+| cut on `u = MX²(e'γγ) − M_N²` | free nucleon | deuteron | ratio |
+|---|---:|---:|---:|
+| `\|u\| < 0.1` GeV² | 14.37 % | 12.67 % | **0.882** |
+| `\|u\| < 0.2` | 26.24 % | 24.06 % | 0.917 |
+| `\|u\| < 0.3` | 35.25 % | 33.58 % | 0.953 |
+| `\|u\| < 0.5` | 47.02 % | 46.12 % | 0.981 |
+| `\|u\| < 1.0` | 60.00 % | 60.17 % | 1.003 |
+
+Fermi motion costs 12 % at a tight cut and nothing at a loose one. This is far
+milder than the Born-level 99.2 % / 53.5 %, and the reason is that radiation
+and detector resolution dominate the width of `u` and enter both arms equally:
+the median of `u` is shifted by +0.50 GeV² in BOTH samples.
+
+**Two things not to take from these samples.**
+
+*Not the absolute normalisation.* `pi0n.amp2609` rests on four Hall A points
+with 42–90 % errors and is stamped INDICATIVE ONLY in the model's own
+provenance (reported by the amplitude-fit session, 2026-10-04, while comparing
+amp2609 with amp2612). The ratio above survives that — it is between two arms
+with the same model, so the model cancels — but a cross section read off these
+files does not.
+
+*Not `MX²(e'n)`.* Built from the measured hadron it is the right variable on a
+proton and the wrong one here: CLAS12 measures a neutron by time of flight, so
+its momentum is poor and the variable inherits 1.53 GeV² rms on a FREE nucleon,
+which swamps everything. `production/gemc_check/fermi_compare.py` computes that
+one; it needs `--nucleon n` and its `v` column should be read as a detector
+statement, not a physics one.
+
+**The truth-matching level is not usable for this topology.** `MC::GenMatch`
+reports a match for 45 % of electrons, but 54 % of those matched rows are
+reconstructed as *photons* — an electron whose track was not found leaves a
+neutral EM cluster. Requiring the matched pid to be the expected one leaves
+4.5 % of generated events with a correctly identified `e' γ γ`. That is
+acceptance and identification, not Fermi motion, and it is the same in both
+arms.
+
 ### The result that reaches beyond this branch
 
 **A missing-mass cut tuned on hydrogen is a different cut on deuterium.**
