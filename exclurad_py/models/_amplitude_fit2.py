@@ -157,6 +157,13 @@ def amplitudes(p, ch, t, xB, Q2):
     tp = t - tmin(mM, Q2, xB)
     if tp >= 0: return None
     if t < tmax(mM, Q2, xB): return None      # beyond the backward edge
+    # xi > 1 is outside the GPD support: the skewness cannot exceed one.  It
+    # happens at low Q2 and large xB -- the threshold corner the radiative tail
+    # reaches -- and the Htilde block's xi^2/(1-xi^2) coefficient diverges
+    # there.  Clamping xi^2 just below 1, as the first version of this block
+    # did, turned that coefficient into 1e6 and gave sigma_L = 3e13.  The point
+    # has no physical meaning; reject it.
+    if ksi(xB, Q2) >= 1.0: return None
     HT, ET, LL = _flavour(p, t, xB, Q2)
     HTIL = _htilde(p, t, xB, Q2)
     if len(p) > 36 and p[35] <= -9.0:
@@ -200,7 +207,7 @@ def amplitudes(p, ch, t, xB, Q2):
         #   M_{0-,0+} ~ sqrt(-t')/(2m) xi <Etilde>
         # so the old L block is re-read as <Etilde> and <Htilde> is new.  p[42]
         # is the power of xi written explicitly in front of <Etilde>.
-        xi2  = min(xi*xi, 0.999999)
+        xi2  = xi*xi                 # < 1, guaranteed by the ksi test above
         Ec   = _combine(LL, ch, K_L)*cmath.exp(1j*delta)
         Hc   = _combine(HTIL, ch, K_L)*cmath.exp(1j*p[26])
         nx   = p[42] if len(p) > 42 else 0.0
