@@ -33,10 +33,10 @@ NW=${NW:-32}           # probe workers for the bound
 PER=${PER:-400}        # probes per bound cell
 
 # channel : source card : model : seed base
-SPECS="pi0p:rad_pi0_rga.txt:pi0.amp2614:631000000
-etap:rad_eta_rga.txt:eta.amp2614:632000000
-pi0n:rad_pi0n_rgb_none.txt:pi0n.amp2614:633000000
-etan:rad_etan_rgb_none.txt:etan.amp2614:634000000"
+SPECS="pi0p:rad_pi0_rga.txt:pi0.amp2614:641000000
+etap:rad_eta_rga.txt:eta.amp2614:642000000
+pi0n:rad_pi0n_rgb_none.txt:pi0n.amp2614:643000000
+etan:rad_etan_rgb_none.txt:etan.amp2614:644000000"
 
 cards() {
   for spec in $SPECS; do
