@@ -34,7 +34,8 @@ FIT_REPO = os.environ.get("AMPFIT_REPO",
                           os.path.expanduser("~/pi0eta_ampmodel_fit"))
 VECTORS = [("amp2609 (37 slots, no H~)", "runs/C1_with_compass/fitpar.npy"),
            ("Htil_free2 (43 slots, H~)", "runs/Htil_free2/fitpar.npy"),
-           ("Rosen_B = amp2613 (43 slots)", "runs/Rosen_B/fitpar.npy")]
+           ("Rosen_B = amp2613 (43 slots)", "runs/Rosen_B/fitpar.npy"),
+           ("Mom_B12 = amp2614 (43 slots)", "runs/Mom_B12/fitpar.npy")]
 CHANNELS = ("pi0p", "etap", "pi0n", "etan")
 KEYS = ("L", "T", "TT", "LT", "LTp", "LTpLL", "LTUL", "Tp", "TTUL")
 TOL = 1e-12
