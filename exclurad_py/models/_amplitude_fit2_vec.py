@@ -17,7 +17,10 @@
     Вектор с такой веткой получает отказ сразу, не тихую ошибку.
 
 Скалярный модуль остаётся источником истины: он побайтово совпадает с
-amplitudes.py из rc_iter1, которым фитились параметры.
+amplitudes.py из pi0eta_ampmodel_fit, которым фитились параметры.
+
+03.10.2026: перенесён блок <Htilde> (слоты 37-42).  Включается только при
+len(p) > 41, поэтому все 27- и 37-слотовые модели идут прежним путём.
 """
 import math
 
@@ -60,7 +63,17 @@ def structure_arr(p, ch, t, xB, Q2):
         P3 = np.sqrt(np.maximum(e3sq, 0.0))
         tmin = (q + mM * mM) ** 2 / (4.0 * W2) - (P1 - P3) ** 2
         tp = t - tmin
-        ok = (x > 0.0) & (x < 1.0) & (q > 0.0) & (e3sq >= 0.0) & (tp < 0.0)
+        # t_max, the backward edge.  Until 2026-10-03 only t < t_min was tested,
+        # so the model was evaluated at |t| far beyond where the process exists
+        # -- the radiative integral reached |t| = 14 at W2 = 1.23, against a
+        # physical limit of 0.42.
+        tmax = (q + mM * mM) ** 2 / (4.0 * W2) - (P1 + P3) ** 2
+        # The xi -> 1 pole of the GK longitudinal non-flip amplitude
+        # (xi^2/(1-xi^2) in front of <Etilde>, libGKPi0.cpp:1281).  At
+        # xi = 0.995 the coefficient is 99 and sigma_L came out 3e13.
+        xi_pre = x / (2.0 - x) * (1.0 + Mp * Mp / np.where(q > 0, q, 1.0))
+        ok = ((x > 0.0) & (x < 1.0) & (q > 0.0) & (e3sq >= 0.0)
+              & (tp < 0.0) & (t >= tmax) & (xi_pre < _S.XI_MAX))
 
         # --- _flavour, строка в строку -----------------------------------
         L = np.log(np.where(x > 0.0, x, 1.0))
@@ -79,6 +92,11 @@ def structure_arr(p, ch, t, xB, Q2):
         bxL = p[21] if len(p) > 21 else 0.0
         Lu = p[15] * np.exp((p[16] + bxL * L) * t) * q ** (p[17] / 2.0)
         Ld = p[18] * Lu
+        # --- _htilde, строка в строку (2026-10-03) -------------------------
+        has_ht = len(p) > 41
+        if has_ht:
+            Htu = p[37] * np.exp((p[38] + p[39] * L) * t) * q ** (p[40] / 2.0)
+            Htd = p[41] * Htu
 
         # --- фазы u-d (живая ветка боевого вектора) -----------------------
         HTd_c = HTd.astype(complex)
@@ -88,6 +106,11 @@ def structure_arr(p, ch, t, xB, Q2):
             HTd_c = HTd * np.exp(1j * p[34])
             ETd_c = ETd * np.exp(1j * p[35])
             Ld_c = Ld * np.exp(1j * p[36])
+        # Htilde shares the Etilde u-d phase, p[36], as in the scalar module.
+        if has_ht:
+            Htd_c = Htd.astype(complex)
+            if len(p) > 36:
+                Htd_c = Htd * np.exp(1j * p[36])
 
         # --- _combine ------------------------------------------------------
         def comb(u, d, k):
@@ -109,6 +132,7 @@ def structure_arr(p, ch, t, xB, Q2):
         HT = comb(HTu, HTd_c, K_T)
         ET = comb(ETu, ETd_c, K_T)
         LL = comb(Lu, Ld_c, K_L)
+        HTIL = comb(Htu, Htd_c, K_L) if has_ht else None
 
         # --- amplitudes() ---------------------------------------------------
         lam = W2 * W2 + q * q + Mp ** 4 + 2 * W2 * q - 2 * W2 * Mp * Mp \
@@ -132,6 +156,17 @@ def structure_arr(p, ch, t, xB, Q2):
             T01p = np.zeros_like(T00m)
             U01c = U01p.astype(complex)
             T00p = np.zeros_like(T00m)
+        if has_ht:
+            # Longitudinal sector with the correct forward behaviour; the old
+            # L block is re-read as <Etilde> and <Htilde> populates the
+            # non-flip amplitude, which survives t' -> 0.
+            xi2 = xi * xi            # < 1, guaranteed by the ok mask
+            Ec = LL * np.exp(1j * delta)
+            Hc = HTIL * np.exp(1j * p[26])
+            nx = p[42] if len(p) > 42 else 0.0
+            T00m = np.sqrt(np.maximum(A * kin, 0.0)) * (xi ** nx) * Ec
+            T00p = np.sqrt(np.maximum(A * (1.0 - xi2), 0.0)) \
+                * (Hc - xi2 / (1.0 - xi2) * Ec)
         T01m = D / 2.0
 
         # --- structure(): грамова таблица -----------------------------------
