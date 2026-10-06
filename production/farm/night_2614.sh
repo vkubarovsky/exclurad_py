@@ -1,6 +1,13 @@
 #!/bin/bash
 # Campaign 2026-10-05: amp2614 (run Mom_B12), LUND only.
 #
+# NOTE ON THE JOB NAME.  This file was made from night_2613.sh with
+# sed s/amp2613/amp2614/g, which did NOT touch --job-name=g13_*, because that
+# string contains no "amp2613".  The amp2614 born samples therefore ran under
+# names that said g13, i.e. the previous model.  Fixed here to g14_, but the
+# lesson is the file name: a tag that encodes a version must be derived from the
+# version, not written twice.  If you copy this file again, derive the prefix.
+#
 #   8 samples x 100 k events: pi0/eta x proton/neutron x rad/born,
 #   unpolarised target (ptarg 0.0, ihel 0), vcut = 0.
 #
@@ -96,7 +103,7 @@ submit() {
       mkdir -p "$R/$ch/$mode/logs"
       if [ "$mode" = born ]; then tm=01:00:00; off=5000000; else tm=06:00:00; off=0; fi
       seedbase=$(( sb + off ))
-      sbatch --array=1-$NJOB --job-name=g13_${ch}_${mode} --time=$tm \
+      sbatch --array=1-$NJOB --job-name=g14_${ch}_${mode} --time=$tm \
              --account=clas12 --partition=production --mem=4G --cpus-per-task=1 \
              --output="$R/$ch/$mode/logs/job_%a.log" \
              --export="ALL,PROD_DIR=$R/$ch,EXRU=$V,EXRU_PY=$PY,NEV=$NEV,SEEDBASE=$seedbase,GEN_TAG=$ch" \
