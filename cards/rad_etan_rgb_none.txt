@@ -15,7 +15,7 @@
 ! Box kept identical to the RG-A fa18 card so the two run groups stay comparable;
 ! it was chosen from the GEMC acceptance of the RG-A aao_norad pass2 samples.
 ! Twin of this card: the same file with `fermi none` -- apple to apple.
-etan.amp2612                       ! model  pi0 off the neutron, same vintage as pi0.amp2609 used for the proton
+etan.amp2609                       ! model  pi0 off the neutron, same vintage as pi0.amp2609 used for the proton
 10.6                               ! ebeam (GeV) -- RG-B spring 2019 ran 10599 MeV
 100000                             ! nev
 0                                  ! iborn  0 = full RC (RADIATIVE)
