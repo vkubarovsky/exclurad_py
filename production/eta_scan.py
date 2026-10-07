@@ -35,6 +35,14 @@ SAMPLE sees it, do not use this script at all -- use the two-histogram identity
 in docs/farm_practice.md, which averages phi correctly, needs no model
 evaluation, and cannot inherit a bug from the RC engine it is measuring.
 
+THE HEALTH THRESHOLD IS ALSO A phi = 0 THRESHOLD.  The screen we have been
+using -- "90th percentile below about 5" -- was calibrated on the table above,
+which is phi = 0 throughout, and amp2614's 5.52 was judged marginal against it
+on exactly those terms.  That is defensible as a conservative screen, but it is
+NOT a statement about eta at average phi, and the two must not be mixed: a
+phi-integrated scan compared against this threshold will pass a model the
+threshold never cleared.  Either compare phi = 0 to phi = 0, or recalibrate.
+
 UNIFORM POINTS, NOT CROSS-SECTION WEIGHT.  The percentiles are over points
 drawn uniformly in the box, so the large-|t| corners -- big eta, negligible
 cross-section -- carry the same vote as the bulk.  For "what would a
