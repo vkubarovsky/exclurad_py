@@ -187,6 +187,61 @@ Assert `maj_from_cache` and `setup < 1 s` in any harness and this class of
 error cannot reach a number you report. An environment guard proves what you
 *asked for*; only the artefact proves what you *got*.
 
+## Reading a finished campaign
+
+**The provenance copy is renamed, and the same search gives opposite answers
+in one tree.** `gen_array` copies the run's `inputs/config.json` to
+`$R/$MODE/prov/<mode>_<NNN>.config.json`, so a search by basename finds
+nothing — but only in campaigns made after the rename:
+
+```
+prod_pi0_rga_t25_20260928   find -name config.json          ->   0
+                            find -path '*prov*' -name '*.config.json' -> 400
+
+night_amp2612_20261003      find -name config.json          -> 320
+                            prov/*.config.json              ->   0
+```
+
+Anyone checking a mixed set with one search gets a confident negative on half
+of it, which is worse than silence because it stops the search. Search
+`*.config.json`, both ways, and count the files before concluding anything.
+
+**What that file answers.** The whole `report` block: `sigma_nb` (the
+normalisation), and `b_viol` / `max_b_viol` / `accepted` — the stage-2 numbers
+that say whether the sample is exactly unweighted. Since 96555d9 the count is
+also in the `.info` sidecar as `run.bound.*`, which survives any pipeline, but
+older campaigns have it only in `prov/`.
+
+**Do not read `health: clean` as zero violations.** `health()` warns above
+0.1 % of accepts and said nothing below it until 96555d9. For scale, measured
+over whole campaigns this way:
+
+| campaign | b_viol / accepted | rate | worst |
+|---|---:|---:|---:|
+| reference million (amp2609) | — | 0.0044 % | x1.87 |
+| night amp2613, 160 jobs | 316 / 2 145 731 | 0.0147 % | x5.41 |
+| night amp2614, 160 jobs | 46 / 1 201 080 | 0.0038 % | x1.69 |
+
+**`sf_usage.out_of_range_frac` in the sidecar is the model's own confession,
+and on the current box it is about half.** The reference campaign reports
+0.55-0.59 of structure-function CALLS outside `sf.validity`. Per EVENT, from
+the generated LUND, it splits almost entirely one way:
+
+| edge | born | rad |
+|---|---:|---:|
+| Q2 < 1.15 (validity floor) | 47.5 % | 49.1 % |
+| \|t\| > 1.8 | 4.0 % | 4.0 % |
+| W2 > 16.0 | 0.02 % | 0.06 % |
+| any | 50.3 % | 52.0 % |
+
+So the box's Q2 floor of 0.80 is where half the sample lives relative to the
+model, not the `t` ceiling of 2.50 that looks like the aggressive edge. That
+is a deliberate choice -- outbending acceptance reaches down to ~0.9 -- but it
+is a choice to re-make before a 100 M run, not a detail. The t-SHAPE out there
+is not pathological: the generated \|t\| spectrum below Q2 = 1 has
+b = 1.3-1.95 GeV^-2 over windows from 0.10 to 1.20, which is the range
+measured in photoproduction.
+
 **A guard that can hang costs more than it saves.** `hipo-utils -dump` to
 count events in a gemc.hipo is not header-only — it dumps every event and
 does not return; `| head -1` does not save it. Two catch-up jobs burned six
