@@ -234,6 +234,34 @@ the generated LUND, it splits almost entirely one way:
 | W2 > 16.0 | 0.02 % | 0.06 % |
 | any | 50.3 % | 52.0 % |
 
+**The xB floor is breached by the same edge, and the rad arm twice as often.**
+Same events, xB = Q2/(2 M nu):
+
+| | born | rad |
+|---|---:|---:|
+| mean xB | 0.256 | 0.232 |
+| xB < 0.128 (the fit's lowest point) | 8.3 % | 17.0 % |
+| xB < 0.10 | 3.4 % | 9.5 % |
+| xB < 0.05 | 0.00 % | 0.00 % |
+| both xB < 0.128 AND Q2 < 1.15 | 6.4 % | 12.4 % |
+
+The rad arm is not smeared there -- in measured-first sampling the generator
+draws OBSERVED kinematics from `sigma_obs`, and `eta = sigma_obs/sigma_Born` is
+simply larger at low xB, which is the radiative corner. So the factor two is
+where the observed cross-section is, not an artefact to unfold. The same table
+measured on amp2614 by the fit session agrees to a few tenths of a per cent, so
+this is the box and not the model. Note also that the two floors are largely
+independent: most of the half-sample below Q2 = 1.15 has an ordinary xB.
+
+**And the t-slope parameter is unbounded as xB -> 0.** The block's slope is
+b + b' ln(xB): 2.33 at xB = 0.168 (which matches the measured 2.34 above), and
+14-15 at the photon point, against 1.0-1.9 measured in photoproduction. Nothing
+samples that today -- xB < 0.05 is 0.00 % in both arms, and zeroing the model
+below xB = 0.05 changes `sigma_obs` by 0.00 % at every box point tested, so
+radiation does not reach it either. It stops being harmless the moment anyone
+lowers the Q2 floor below 0.80 to chase outbending acceptance, and no check in
+the code would say so.
+
 So the box's Q2 floor of 0.80 is where half the sample lives relative to the
 model, not the `t` ceiling of 2.50 that looks like the aggressive edge. That
 is a deliberate choice -- outbending acceptance reaches down to ~0.9 -- but it
