@@ -76,6 +76,16 @@ for nm in NAMES:
     e = []
     for q, w, t in pts:
         try:
+            # t_nucl PER POINT.  The model's t dependence lives in t_nucl, not
+            # in the t handed to rc_factor (which is the SHIFTED transfer
+            # inside the radiative integral).  Frozen at -0.30 the model has
+            # no t dependence at all, and this scan then integrates a
+            # t-independent cross section over |t| = 0.001-2.50: measured on
+            # pi0.amp2609, C_rad = integral(sigma_obs)/integral(sigma_Born)
+            # came out 1.143 frozen against 1.294 per point, against the
+            # campaign's 1.25010 +- 0.00175.  Every percentile this script
+            # printed before 2026-10-07 was computed frozen.
+            m.t_nucl = float(t)
             d = rc_factor(10.6, q, w, t, 0.0, m, h=+1)
             v = d["eta"]
             if np.isfinite(v) and v > 0: e.append(v)
