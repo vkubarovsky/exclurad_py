@@ -16,6 +16,9 @@
 ! reconstructed sample, so that migration through resolution is simulated.
 ! The reference's W upper edge of 100 GeV means "unbounded"; at 10.6 GeV the
 ! kinematic limit is W^2 ~ 20.7, so 20.80 is the same statement.
+! idecay = 2 since 2026-10-07: J/psi -> e+e-(gamma), exact matrix element,
+! generator/decay_rad.py; validation/jpsi_decay_fsr.py.  ~15% of decays end
+! below M(ee) = 3.0 GeV.  The decay happens ONCE, before the lepton cuts.
 ! Acceptance windows are transcribed in generator/decay.py (ACCEPTANCE).
 jpsi.diffrad_vm                    ! model  <channel>.<vintage>   (--models to list)
 10.6                               ! ebeam (GeV)
@@ -28,7 +31,7 @@ jpsi.diffrad_vm                    ! model  <channel>.<vintage>   (--models to l
 -0.30                              ! t_nucl  (GeV^2) for pi0/eta models; ignored for vector mesons
 0                                  ! ihel    +1, -1, or 0 = helicity-averaged
 333522                             ! seed
-1                                  ! idecay  1 = decay vector meson to h+h- isotropically, 0 = no decay
+2                                  ! idecay  2 = e+e- decay WITH radiation of the decay leptons (1 = without)
 ./exclurad_out                     ! output root -- RELATIVE on purpose.
 !   The production wrappers substitute this field with the job's own work
 !   directory (gen_array.sbatch, field 13), so in production the card value
