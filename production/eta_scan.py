@@ -17,9 +17,30 @@ so the two numbers can move in opposite directions and both be right.  Measured
 on the two campaigns:
 
     model     eta 90th pct (pi0p)   bound    b_viol rate      worst excess
-    amp2609          4.42           1.947      0.0044 %          x1.87
+    amp2609          7.64           1.947      0.0044 %          x1.87
     amp2613          ~              2.64       0.0147 %          x5.41
-    amp2614          5.52           1.819      0.0038 %          x1.69
+    amp2614         12.64           1.819      0.0038 %          x1.69
+
+The 90th percentiles above are the CORRECTED ones, t_nucl per point, 1200
+points, 2026-10-07.  The frozen-t_nucl figures this docstring carried until
+then were 4.42 and 5.52, and they understated the gap: the corrected ratio
+amp2614/amp2609 is 1.65 against 1.25 frozen, so amp2614 is relatively WORSE
+than the old table implied, not better.  Full corrected scan:
+
+    model          n ok   median    90%     99%     max   eta>5
+    pi0.amp2609   912/1200   2.14   7.64   13.02    18.2    26 %
+    pi0.amp2614   912/1200   3.09  12.64   20.03    35.4    38 %
+
+Note 912 of 1200: with t_nucl per point the model declines ~24 % of uniform box
+points outright, which a frozen t_nucl hid completely.
+
+THE SCREEN ITSELF NO LONGER HAS A CALIBRATION.  "90th percentile below about
+5" was fitted to the frozen numbers; on the corrected scan both models fail it
+and amp2609 is the reference sample we have been shipping.  Do not read the
+threshold as a pass/fail until someone re-derives it against a sample whose
+b_viol rate is known good -- the bound column, which comes from build_bound.py
+and is NOT affected by this (it calls _set_event_t), is the quantity that
+actually governs whether a sample is exactly unweighted.
 
 amp2614 has the heaviest eta of the three and the lowest violation rate.  Read
 this scan to decide whether a model is samplable at all; read b_viol out of
