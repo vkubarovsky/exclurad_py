@@ -1,0 +1,17 @@
+# untagged bremsstrahlung J/psi photoproduction, d2
+model = jpsin.roberts2026
+ebeam = 10.6
+kmin  = 6.5
+kmax  = 10.6
+tmin  = -6.0
+tmax  = -0.001
+nev   = 20000000
+seed  = 2027
+fermi = av18
+fermi_mstar_min = 0.10
+target_length_cm = 5.0
+target_X0_cm = 769.1
+vz = -5.5 -0.5
+idecay = 1
+maj_safety = 1.05
+outroot = /Volumes/wd_14tb/aao_norad_kin/jpsi_fermi/photo20M/d2

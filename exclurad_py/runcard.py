@@ -60,6 +60,7 @@ FIELDS = [
     ("ptarg", float, "ptarg   longitudinal target polarisation, -1..+1; 0 = unpolarised"),
     ("fermi", str, "fermi   deuteron target: none | av18"),
     ("theta_e", "pair", "scattered-electron polar angle window, degrees"),
+    ("fermi_mstar_min", float, "fermi_mstar_min  floor on the struck nucleon's off-shell mass m* (GeV); 0.30 for pi0/eta, 0.10 for near-threshold J/psi"),
 ]
 N_REQUIRED = 13          # fields up to and including outroot
 # itarg defaults OFF and vz to a point target: a card written before the
@@ -83,7 +84,7 @@ N_REQUIRED = 13          # fields up to and including outroot
 # radiative integral.
 DEFAULT_OPT = dict(y=(0.0, 1.0), xB=(0.0, 1.0), iacc="none", vmin=1.0e-4,
                    itarg=0, vz=(0.0, 0.0), ptarg=0.0, fermi="none",
-                   theta_e=(0.0, 180.0))
+                   theta_e=(0.0, 180.0), fermi_mstar_min=0.30)
 
 
 def _num(tok):
@@ -172,6 +173,8 @@ def _validate(cfg, path):
     # Caught here rather than deep in the generator: a typo in the wave
     # function silently falling back to a free nucleon would produce a sample
     # that looks fine and is not the one that was asked for.
+    if not 0.0 < cfg.get("fermi_mstar_min", 0.30) < 0.9:
+        raise ValueError(f"{path}: fermi_mstar_min must lie in (0, 0.9) GeV")
     from .generator.fermi import WAVEFUNCTIONS
     if cfg["fermi"] not in ("none",) + tuple(WAVEFUNCTIONS):
         raise ValueError(f"{path}: unknown deuteron wave function "
@@ -214,6 +217,8 @@ TEMPLATE = """! exclurad_py run card -- plain text, one value per line, ! starts
 {vz:<34} ! vz      vertex z range (cm) -- the target cell
 {ptarg:<34} ! ptarg   longitudinal target polarisation, -1..+1; 0 = unpolarised
 {fermi:<34} ! fermi   deuteron target: none | av18  (Fermi motion + spectator)
+{theta_e:<34} ! theta_e  scattered-electron polar angle window, deg
+{fermi_mstar_min:<34} ! fermi_mstar_min  m* floor (GeV)
 """
 
 
@@ -222,8 +227,9 @@ def write_template(path, **kw):
              W2="4.5 12.0", Q2="1.0 5.0", t="-2.0 -0.10", vcut="0.20",
              t_nucl="-0.30", ihel="0", seed="20260813", idecay="1",
              outroot="/Volumes/wd_14tb/mc/exclurad_py",
-             y="0.0 1.0", xB="0.0 1.0", iacc="none", vmin="0.0",
-             itarg="0", vz="0.0 0.0", ptarg="0.0", fermi="none")
+             y="0.0 1.0", xB="0.0 1.0", iacc="none", vmin="1.0e-4",
+             itarg="0", vz="0.0 0.0", ptarg="0.0", fermi="none",
+             theta_e="0.0 180.0", fermi_mstar_min="0.30")
     d.update({k: str(v) for k, v in kw.items()})
     with open(path, "w") as fh:
         fh.write(TEMPLATE.format(**d))

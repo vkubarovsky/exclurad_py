@@ -45,6 +45,7 @@ DECAY = {
 # 5, with no error anywhere.
 DECAY["pi0n"] = DECAY["pi0"]
 DECAY["etan"] = DECAY["eta"]
+DECAY["jpsin"] = DECAY["jpsi"]
 
 
 # Which event slot holds the MESON.  The core kinematics names its slots by

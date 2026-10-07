@@ -57,8 +57,10 @@ DECAY_PID = {"rho":  (211, -211, 0.13957039),
 # and wrote 3-particle events where GEMC needs 5.
 DECAY_PID["pi0n"] = DECAY_PID["pi0"]
 DECAY_PID["etan"] = DECAY_PID["eta"]
+DECAY_PID["jpsin"] = DECAY_PID["jpsi"]
 CHANNEL_PID["pi0n"] = CHANNEL_PID["pi0"]
 CHANNEL_PID["etan"] = CHANNEL_PID["eta"]
+CHANNEL_PID["jpsin"] = CHANNEL_PID["jpsi"]
 
 
 def event_lines(ev, channel, topology=None, target_pid=None,

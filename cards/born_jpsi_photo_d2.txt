@@ -1,0 +1,31 @@
+! exclurad_py run card -- quasi-real J/psi photoproduction near threshold: gamma n -> J/psi n on a DEUTERON (AV18 Fermi motion, proton spectator)
+! Positional: the ORDER of the lines is the format (exclurad_py/runcard.py FIELDS).
+! CLAS12 "photoproduction" = electroproduction at Q2 0.01-0.1 (electron in the Forward Tagger);
+! the flux convention is the code's own (|q| flux at the core, see FERMI_NOTE.md section 5).
+! No y cut: with Fermi motion the generator's y is evaluated in the struck-nucleon frame, not in the
+! lab, so the lab photon energy E_gamma = E - E' must be selected OFFLINE from the written electron.
+! Born only: no radiative corrections at Q2 -> 0 here.  itarg = 0 means the vertex z line is not
+! used (the generator writes vz = 0 unless the pre-vertex radiator is on).
+jpsin.roberts2026                  ! model  (jpsin = sigma_n set equal to sigma_p, neutron topology)
+10.6                               ! ebeam (GeV)
+20000                              ! nev per run
+1                                  ! iborn  1 = Born
+16.29 30.00                        ! W2 range (GeV^2): from the free-nucleon threshold (4.036 GeV)^2; the deuteron reaches W2 ~ 29 through Fermi motion
+0.01 0.10                          ! Q2 range (GeV^2): quasi-real
+-6.00 -0.001                       ! t range (GeV^2)
+0                                  ! vcut  (no missing-mass cut)
+-0.30                              ! t_nucl (unused for vector mesons)
+0                                  ! ihel
+20260926                           ! seed
+1                                  ! idecay  J/psi -> e+ e-
+/Volumes/wd_14tb/aao_norad_kin/jpsi_fermi   ! output root
+0.00 1.00                          ! y range: NO cut (see header; lab E_gamma is selected offline)
+0.00 1.00                          ! xB range (no cut)
+none                               ! iacc
+1.0d-4                             ! vmin
+0                                  ! itarg  no pre-vertex radiator in this study
+-5.5 -0.5                          ! vertex z range, cm
+0.0                                ! ptarg
+av18                               ! fermi   deuteron target: none | av18
+0.0 180.0                          ! theta_e  scattered-electron polar angle window, deg (whole range: the electron is not detected)
+0.10                               ! fermi_mstar_min  m* floor (GeV): 0.10 keeps 99.85 % of the kinematically allowed configurations at E_gamma = 7.0 (0.30 would drop 2.2 %)

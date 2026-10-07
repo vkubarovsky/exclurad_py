@@ -1,0 +1,17 @@
+# untagged bremsstrahlung J/psi photoproduction, p
+model = jpsi.roberts2026
+ebeam = 10.6
+kmin  = 6.5
+kmax  = 10.6
+tmin  = -6.0
+tmax  = -0.001
+nev   = 200000
+seed  = 26
+fermi = none
+fermi_mstar_min = 0.10
+target_length_cm = 5.0
+target_X0_cm = 890.4
+vz = -5.5 -0.5
+idecay = 1
+maj_safety = 1.5
+outroot = /Volumes/wd_14tb/exclurad_py   # set your own

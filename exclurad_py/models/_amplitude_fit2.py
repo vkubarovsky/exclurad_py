@@ -58,6 +58,7 @@ ALPHA, HC2, PI = 0.00729927, 389379.36, math.pi
 # xB = 0.15; convert old parameter files with reparam.py (b_new = b + 1.897 b').
 # NOTE exclurad_py/models/_amplitude_fit.py and its amp2021/amp2026 .npy files
 # are still in the OLD convention - convert on install, never copy raw.
+XI_MAX = 0.8     # see the guard in amplitudes(): the xi -> 1 pole of <Etilde>
 K_T = 0.863
 K_L = 1.0/((math.cos(math.radians(-21.2))
             - math.sqrt(2)*(1.17/1.26)*math.sin(math.radians(-9.2)))*1.26)  # = 0.695
@@ -69,6 +70,21 @@ def tmin(mM, Q2, xB):
     E1 = (W2 + Q2 + Mp*Mp)/(2*W); P1 = math.sqrt(E1*E1 - Mp*Mp)
     E3 = (W2 - mM*mM + Mp*Mp)/(2*W); P3 = math.sqrt(E3*E3 - Mp*Mp)
     return (Q2 + mM*mM)**2/(4*W2) - (P1 - P3)**2   # true (negative) t_min
+
+def tmax(mM, Q2, xB):
+    """The far edge of the physical t range -- backward production.
+
+    Added 2026-10-03.  Only t < t_min was ever tested, so the model was being
+    evaluated at |t| far BEYOND t_max, where the process does not exist: the
+    radiative integral reached |t| = 14 at W2 = 1.23, where the physical range
+    ends at 0.42.  Both models extrapolate there; the old one happened to decay
+    fast enough that the nonsense was small, the new one does not.
+    """
+    W2 = Q2*(1/xB - 1) + Mp*Mp
+    W = math.sqrt(W2)
+    E1 = (W2 + Q2 + Mp*Mp)/(2*W); P1 = math.sqrt(max(E1*E1 - Mp*Mp, 0.0))
+    E3 = (W2 - mM*mM + Mp*Mp)/(2*W); P3 = math.sqrt(max(E3*E3 - Mp*Mp, 0.0))
+    return (Q2 + mM*mM)**2/(4*W2) - (P1 + P3)**2
 
 def phase_factor(Q2, xB):
     W2 = Q2*(1/xB - 1) + Mp*Mp
@@ -109,6 +125,23 @@ def _flavour(p, t, xB, Q2):
     Ld  = p[18]*Lu
     return (HTu, HTd), (ETu, ETd), (Lu, Ld)
 
+def _htilde(p, t, xB, Q2):
+    """The Htilde GFF block, present only if len(p) > 41 (2026-09-30).
+
+    Angular momentum makes the longitudinal NON-flip amplitude M_{0+,0+}
+    survive the forward limit, and it is <Htilde> that populates it.  Before
+    this block existed the model had no Htilde at all: T00p was set to
+    rho_nf*|T00m|, so it inherited the sqrt(-t') of the flip amplitude and
+    sigma_L vanished linearly in t' at the forward peak.
+      p[37] N   p[38] b   p[39] b'   p[40] nQ   p[41] R_d
+    Kept in step with pi0eta_ampmodel_fit/amplitudes.py; the closure test in
+    validation/ compares the two and must stay exact.
+    """
+    if len(p) <= 41: return None
+    L = math.log(xB)
+    Hu = p[37]*math.exp((p[38] + p[39]*L)*t)*Q2**(p[40]/2)
+    return (Hu, p[41]*Hu)
+
 def _combine(pair, ch, k):
     u, d = pair
     if ch == "pi0p": return (2*u + d)/(3*S2)
@@ -124,7 +157,23 @@ def amplitudes(p, ch, t, xB, Q2):
     mM = Meta if ch in ("etap", "etan") else Mpi0
     tp = t - tmin(mM, Q2, xB)
     if tp >= 0: return None
+    if t < tmax(mM, Q2, xB): return None      # beyond the backward edge
+    # xi > 1 is outside the GPD support: the skewness cannot exceed one.  It
+    # happens at low Q2 and large xB -- the threshold corner the radiative tail
+    # reaches -- and the Htilde block's xi^2/(1-xi^2) coefficient diverges
+    # there.  Clamping xi^2 just below 1, as the first version of this block
+    # did, turned that coefficient into 1e6 and gave sigma_L = 3e13.  The point
+    # has no physical meaning; reject it.
+    # The GK longitudinal non-flip amplitude carries xi^2/(1-xi^2) in front of
+    # <Etilde> -- libGKPi0.cpp:1281 has exactly this -- so it has a pole at
+    # xi -> 1.  GK never evaluate there; our radiative tail does, and at
+    # xi = 0.995 the coefficient is 99, which is where sigma_L = 3e13 came from.
+    # Guard it the way GK guard the other edge (libGKPi0.cpp:1289 zeroes M0mp
+    # for |t'| < 1e-5): refuse the point.  At the model's own Q2 >= 1.15 this
+    # needs xB > 0.65, so it costs nothing anywhere data exist.
+    if ksi(xB, Q2) >= XI_MAX: return None
     HT, ET, LL = _flavour(p, t, xB, Q2)
+    HTIL = _htilde(p, t, xB, Q2)
     if len(p) > 36 and p[35] <= -9.0:
         # phases COMPUTED from the convolution (phase_table.npz), not fitted:
         # phi_du(xi) = arg<F^d> - arg<F^u> for a GK-like x shape.
@@ -141,6 +190,10 @@ def amplitudes(p, ch, t, xB, Q2):
         HT = (HT[0], HT[1]*cmath.exp(1j*p[34]))
         ET = (ET[0], ET[1]*cmath.exp(1j*p[35]))
         LL = (LL[0], LL[1]*cmath.exp(1j*p[36]))
+        # Htilde and Etilde are both twist-2 longitudinal; their u-d relative
+        # phase is tied to one parameter, p[36], rather than fitted twice.
+        if HTIL is not None:
+            HTIL = (HTIL[0], HTIL[1]*cmath.exp(1j*p[36]))
     A  = Afac(Q2, xB)
     xi = ksi(xB, Q2)
     kin = -tp/(8*Mp*Mp)
@@ -156,6 +209,18 @@ def amplitudes(p, ch, t, xB, Q2):
         T00p = rho_nf*abs(Lmag)*cmath.exp(1j*phi_nf)
     else:
         T01p, U01c, T00p = 0.0+0j, U01p+0j, 0.0+0j
+    if HTIL is not None:
+        # Longitudinal sector with the correct forward behaviour (2026-09-30).
+        #   M_{0+,0+} ~ sqrt(1-xi^2) [ <Htilde> - xi^2/(1-xi^2) <Etilde> ]
+        #   M_{0-,0+} ~ sqrt(-t')/(2m) xi <Etilde>
+        # so the old L block is re-read as <Etilde> and <Htilde> is new.  p[42]
+        # is the power of xi written explicitly in front of <Etilde>.
+        xi2  = xi*xi                 # < 1, guaranteed by the ksi test above
+        Ec   = _combine(LL, ch, K_L)*cmath.exp(1j*delta)
+        Hc   = _combine(HTIL, ch, K_L)*cmath.exp(1j*p[26])
+        nx   = p[42] if len(p) > 42 else 0.0
+        T00m = math.sqrt(A*kin)*(xi**nx)*Ec
+        T00p = math.sqrt(A*(1 - xi2))*(Hc - xi2/(1 - xi2)*Ec)
     return dict(T00p=T00p, T00m=T00m,
                 T01p=T01p, T01m=D/2+0j,
                 U01p=U01c, U01m=D/2+0j)

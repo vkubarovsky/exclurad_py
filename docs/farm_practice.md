@@ -97,6 +97,47 @@ simulation chain. Jobs are free; waiting is not. We share one account, so a
 150-task array with a 10 h limit starves everyone else — my own two-chunk
 catch-up sat PENDING on (Priority) for a full day.
 
+## Waiting for a job, without waiting forever
+
+Use `production/wait_for.sh`. Do not write `until grep -q WORD log; do sleep`.
+
+    bash production/wait_for.sh slurm <name-or-jobid> [timeout_s] [poll_s]
+    bash production/wait_for.sh ssh   <host> <cmd>    [timeout_s]
+    bash production/wait_for.sh pid   <pid>           [timeout_s]
+    bash production/wait_for.sh file  <sentinel>      [timeout_s]
+
+A watcher must key on something the work writes **unconditionally** — its
+own exit — and must carry a deadline that says why it gave up. A word that
+appears only on success turns every failure into an infinite sleep, and
+silence is the commonest failure mode there is. Four processes were found
+on the mini on 2026-10-05 that had been sleeping six and seven days; one
+was watching for `RESULT|ERROR` in a log whose job had died with
+`AttributeError`, which is neither word.
+
+For a job you launch yourself, write the sentinel from a trap rather than
+from the success path, so it fires on a crash and on a kill too:
+
+    trap 'echo "__DONE rc=$?" >> "$LOG"' EXIT
+
+My own watchers during the reference campaign were half right and worth
+contrasting. The one on the campaign finishing asked the scheduler and
+exited on either outcome:
+
+    [ "$n" -ge 200 ] && break                        # done
+    [ -n "$n" ] && [ "$q" -eq 0 ] && break           # job gone, still short
+
+That is the correct shape. Others in the same run were `until grep -q
+"wrote " $LOG`, which survived only because the jobs happened to succeed.
+
+## One more failure mode to recognise
+
+A `exclurad_py.run` that has written `etatable.npz` and then sits at 100 %
+CPU with an unreaped pool worker will not recover — kill it. Observed three
+times, 41 hours each, while twins with the same card finished in 48 s; and
+eleven orphaned multiprocessing workers (PPID 1) idle for seven days after
+a `build_bound.py` that had exited normally. Same place both times, leaving
+the multiprocessing block after the table is written. Cause not found.
+
 ## Traps
 
 **The background is on tape.** `/cache` is tape-backed and the 50 nA

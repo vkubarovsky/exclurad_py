@@ -115,7 +115,10 @@ echo "events written: $(grep -c '^ *[0-9]* *1 *1 ' "$SRC" 2>/dev/null || echo '?
 # sim_array.sbatch puts the polarity into ITS output names, where it is
 # true.  Until 2026-09-28 this said "inb", so every outbending sample would
 # have been built from a file whose name claimed otherwise.
-NAME=excluradpy_pi0_${MODE}_fa18_$I
+# GEN_TAG names the sample; four channels now share this script and a
+# file called excluradpy_pi0_* in the eta directory is a trap for whoever
+# merges them later.  Default keeps the old RG-A pi0 name.
+NAME=excluradpy_${GEN_TAG:-pi0_fa18}_${MODE}_$I
 # MAKE THE OUTPUT DIRECTORIES.  This script used to assume they existed,
 # which they did in the RG-A directory because earlier campaigns had made
 # them.  In a FRESH production directory they do not, and on 2026-09-29 that
