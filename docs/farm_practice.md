@@ -210,11 +210,39 @@ native library and both `bg-merger` and `recon-util` die. The scripts set
 `JDK_JAVA_OPTIONS` to put the JVM temp directory on `/volatile`. It does
 **not** reproduce on a login node — test with a short sbatch job.
 
-**Do not work in the shared checkout.** `/home/vpk/exclurad_py` is what
-`gen_array` runs from. A feature branch merged into it to "try something"
-leaves a branch named `production` that is actually something else, and
-production arrays then get the wrong scripts with nothing to say so. Use
-your own worktree or your own clone.
+## The shared checkout, and where work happens
+
+**`~/exclurad_py` is the shared checkout and has no owner.** It is the copy on
+`production` that everyone reads and merges into, and it is what `gen_array`
+runs from. Work happens in per-agent worktrees beside it:
+
+```
+~/exclurad_py               shared, production, no owner -- do not leave it dirty
+~/exclurad_py_speed         speed-numba
+~/exclurad_py_fermi         fermi-flux
+~/exclurad_py_htilde        htilde-model
+~/exclurad_py_jpsi_fermi    jpsi-fermi
+~/exclurad_py_ref           detached, for byte comparisons
+```
+
+`git worktree add ~/exclurad_py_<name> -b <branch>` makes another, and
+`git worktree list` shows what exists.
+
+Two separate reasons, and the second is the one that nearly bit on
+2026-10-07:
+
+- A feature branch merged into the shared checkout to "try something" leaves a
+  branch named `production` that is actually something else, and production
+  arrays then get the wrong scripts with nothing to say so.
+- **Git cannot tell whose uncommitted file is whose.** A `git stash`,
+  `git checkout <branch>` or `git reset --hard` by anyone in that directory
+  takes EVERY uncommitted change with it, including another session's. Two
+  sessions were editing different files there ten minutes apart; it stayed
+  harmless only because each staged its own path and committed within minutes.
+
+So: a change that takes longer than a few minutes goes in your own worktree. A
+one-line fix in a file you own may stay here, but then commit it now, not at
+the end of the conversation.
 
 ## The interpreter is not the code checkout
 
