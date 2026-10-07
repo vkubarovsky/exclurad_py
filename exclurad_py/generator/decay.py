@@ -47,6 +47,21 @@ DECAY["pi0n"] = DECAY["pi0"]
 DECAY["etan"] = DECAY["eta"]
 DECAY["jpsin"] = DECAY["jpsi"]
 
+# Channels whose daughters are leptons and may radiate in the decay (idecay 2).
+LEPTONIC = ("jpsi", "jpsin")
+
+
+def decay_meson(channel, p4_meson, rng, fsr=None):
+    """Decay the meson once: (daughter_a, daughter_b, decay_photon or None).
+
+    fsr: a decay_rad.DecayFSR (idecay = 2, J/psi -> e+ e- (gamma)), or None for
+    the plain isotropic two-body decay (idecay = 1).  Daughter order follows
+    DECAY[channel] in both cases."""
+    if fsr is not None:
+        return fsr.decay(p4_meson, rng)
+    a, b = decay_two_body(p4_meson, DECAY[channel][2], rng)
+    return a, b, None
+
 
 # Which event slot holds the MESON.  The core kinematics names its slots by
 # role, not by particle: ev["meson"] is the DETECTED hadron and ev["recoil"]
