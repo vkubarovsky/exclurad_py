@@ -253,6 +253,46 @@ measured on amp2614 by the fit session agrees to a few tenths of a per cent, so
 this is the box and not the model. Note also that the two floors are largely
 independent: most of the half-sample below Q2 = 1.15 has an ordinary xB.
 
+**Two arms on the same box give you `etabar` in any binning, for free.** born
+events are distributed as `sigma_B` and rad events as `sigma_obs` over the
+identical box, so for any bin
+
+```
+f_rad(i) / f_born(i) = etabar_i / etabar_total,   etabar_total = C_rad
+```
+
+and `C_rad` is the measured `sigma_nb` ratio. Two histograms and one division
+give the CROSS-SECTION-WEIGHTED mean of eta in every bin, with no model
+evaluation, no table and no assumption beyond both arms having finished. It
+reads eta where the SAMPLE is, which is what a measurement contends with --
+not where the box is. On the reference campaign, 2 million events,
+C_rad = 1.2501:
+
+| xB bin | born | rad | f_r/f_b | etabar |
+|---|---:|---:|---:|---:|
+| 0.000-0.080 | 12494 | 47433 | 3.796 | **4.75** |
+| 0.080-0.100 | 21837 | 47003 | 2.152 | 2.69 |
+| 0.100-0.128 | 48968 | 74631 | 1.524 | 1.91 |
+| 0.128-0.180 | 146791 | 167405 | 1.140 | 1.43 |
+| 0.180-0.250 | 297492 | 275932 | 0.928 | 1.16 |
+| 0.250-0.350 | 312696 | 261178 | 0.835 | 1.04 |
+| 0.350-1.000 | 159722 | 126418 | 0.791 | **0.99** |
+
+So in `xB < 0.08` the observed cross-section is nearly five times its own Born
+value: anyone measuring there is measuring mostly radiation. And at the top
+`etabar < 1` -- the virtual plus soft correction goes negative and the real
+tail does not make it up, which is worth knowing because the intuition that
+"radiative corrections increase the yield" comes from the other end of this
+same curve.
+
+**A weighted mean and a median over box points are different numbers.** A
+uniform scan of the box gives medians 2.49 and 1.77 in the 0.128-0.180 and
+0.180-0.250 bins where the weighted means above are 1.43 and 1.16. Neither is
+wrong: the large-|t| corners where eta is big carry almost no cross-section, so
+they dominate a median over POINTS and are nearly absent from a mean over
+EVENTS. Quote the weighted one when the question is about a measurement, the
+scan when the question is about the sampler.
+
 **And the t-slope parameter is unbounded as xB -> 0.** The block's slope is
 b + b' ln(xB): 2.33 at xB = 0.168 (which matches the measured 2.34 above), and
 14-15 at the photon point, against 1.0-1.9 measured in photoproduction. Nothing
