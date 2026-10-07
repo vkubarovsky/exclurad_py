@@ -139,6 +139,16 @@ ln -sf "$R/$MODE/lund_osg/$NAME.lund" "$R/$MODE/chunks/lund_$I.dat"
 # generator writes, and its own config.json, which carries sigma_nb -- the
 # normalisation, without which the sample cannot be turned into barns.  The
 # previous version of this script deleted config.json with the work directory.
+#
+# THE COPY IS RENAMED, AND THAT MATTERS WHEN YOU GO LOOKING.  It lands as
+# $R/$MODE/prov/${MODE}_$I.config.json, NOT as config.json, so
+# `find <campaign> -name config.json` finds nothing and reads as "the record
+# was discarded".  It was not: prov/ is the surviving copy and it holds the
+# whole `report` block -- sigma_nb, and also b_viol / max_b_viol / accepted,
+# the stage-2 numbers that say whether the sample is exactly unweighted.
+# Measured this way on 2026-10-07 across two 160-job campaigns: amp2614
+# 46/1201080 = 0.0038 % worst x1.69, amp2613 316/2145731 = 0.0147 % worst
+# x5.41.  Search for '*.config.json'.
 mkdir -p "$R/$MODE/prov"
 cp "$SRC.info" "$R/$MODE/lund_osg/$NAME.lund.info" 2>/dev/null || echo "WARNING: no .info sidecar"
 cp "$(dirname "$(dirname "$SRC")")/inputs/config.json" "$R/$MODE/prov/${MODE}_$I.config.json" 2>/dev/null \

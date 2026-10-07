@@ -309,6 +309,7 @@ def run(card_path, date=None, verbose=True, _part=None):
     # spins, and without them the files are indistinguishable once they leave
     # the directory that named them.  That is exactly how 36 GB of vpk2021
     # came to be labelled amp2609.
+    rep0 = g.report()
     st = stamp(sf, extra=dict(runcard=os.path.abspath(card_path), mode=mode,
                               box=box.as_dict(), vcut=cfg["vcut"],
                               mx2_cut=mx2, Ebeam=cfg["ebeam"],
@@ -346,7 +347,24 @@ def run(card_path, date=None, verbose=True, _part=None):
                               # knowing they were sliced differently.
                               vmin_mode=("fixed" if cfg["vmin"] else "per-event"),
                               n_events=len(ev), seed=cfg["seed"],
-                              eta_interp=interp))
+                              eta_interp=interp,
+                              # THE STAGE-2 BOUND, IN THE FILE THAT SURVIVES.
+                              # b_viol decides whether the sample is exactly
+                              # unweighted, and it lived only in
+                              # inputs/config.json -- which a farm pipeline
+                              # that moves the LUND out and drops the run
+                              # directory throws away.  The 2026-10-05
+                              # amp2614 campaign did exactly that, and the
+                              # only surviving evidence was health(), which
+                              # warns at 0.1 % of accepts and is SILENT below
+                              # it: our own measured 0.0044 % printed "health:
+                              # clean".  Absence of the warning was then read
+                              # as zero violations.  It is not; now the count
+                              # travels with the LUND.
+                              bound=dict(b_viol=rep0.get("b_viol", 0),
+                                         max_b_viol=rep0.get("max_b_viol", 0.0),
+                                         accepted=rep0.get("accepted", 0)),
+                              ))
     lund = os.path.join(d, "lund",
                         f"{ch}_exclurad_py_{mode}_{cfg['ebeam']:g}GeV{part_tag}.lund")
     # Header column 8 is the TARGET.  With Fermi motion the target is the
@@ -392,7 +410,12 @@ def run(card_path, date=None, verbose=True, _part=None):
         print(f" wrote {n} events -> {lund}")
         print(f" setup {t_setup:.0f}s, generate {t_gen:.0f}s "
               f"({1e3*t_gen/max(len(ev),1):.2f} ms/event)")
-        print(" health:", "; ".join(g.health()) or "clean")
+        # the count ALWAYS, not only when it crosses the warning threshold:
+        # a health line that says "clean" must not be readable as "zero".
+        nb, na = rep.get("b_viol", 0), rep.get("accepted", 0)
+        print(" health:", "; ".join(g.health()) or "clean",
+              f"| stage-2 b_viol {nb}/{na}"
+              + (f" max x{rep.get('max_b_viol', 0.0):.2f}" if nb else ""))
     return dict(outdir=d, lund=lund, n=n, report=rep, health=g.health())
 
 

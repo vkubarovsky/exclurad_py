@@ -1562,6 +1562,17 @@ Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
         # W, which normalisation then mirrored into a 20% "excess" at low W --
         # 9 sigma, and the only axis still failing after the phi fix.
         nb, tot = r.get("b_viol", 0), max(r.get("accepted", 0), 1)
+        # TWO thresholds, because the two readings are different questions.
+        # Above 0.1 % of accepts the sample is unusable and the message says
+        # so.  BELOW it the sample is fine -- our 2026-09-28 million broke the
+        # bound in 0.0044 % of accepts, worst by x1.87, and is good -- but
+        # "clean" was then quoted as "zero violations" for a campaign whose
+        # per-job config.json had been discarded.  A non-zero count now always
+        # says itself, marked as a note rather than a fault.
+        if 0 < nb <= 1e-3 * tot:
+            msgs.append(f"note: stage-2 bound exceeded in {nb}/{tot} accepts "
+                        f"(max x{r.get('max_b_viol', 0):.2f}), below the 0.1% "
+                        f"threshold -- the sample stands")
         if nb > 1e-3 * tot:
             msgs.append(f"stage-2 bound exceeded in {nb}/{tot} accepts (max "
                         f"x{r.get('max_b_viol', 0):.2f}) -- the sample is NOT "
