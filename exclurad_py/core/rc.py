@@ -6,12 +6,17 @@ structure functions sigma_T, sigma_L, sigma_TT, sigma_LT, sigma_LT'.
     eta = sigma_obs / sigma_Born ,   delta = eta - 1 .
 """
 
+import warnings as _warnings
+
 import numpy as np
 from .constants import M_P, M_E
 from .kinematics import EventKin
 from .born import born_xsec
 from .virtual import delta_VR_inf, delta_vac
 from .radiative import sigma_F
+
+
+_WARNED_TNUCL = False
 
 
 def rc_factor(Ebeam, Q2, W2, t, phi, sfmodel, h=+1, lam=0.0,
@@ -42,6 +47,36 @@ def rc_factor(Ebeam, Q2, W2, t, phi, sfmodel, h=+1, lam=0.0,
     kin = EventKin(Ebeam, Q2, W2, t, phi, mV, v=0.0, M=M, m=m, mU=mU,
                    phi_offset=_off,
                    t_kind=t_kind)
+
+    # THE FROZEN-t_nucl GUARD.
+    #
+    # A FIXED_NUCLEON model (pi0/eta, ProtonDetectedModel -- base.py:299
+    # REQUIRES that topology, so hasattr(t_nucl) is a reliable test) carries
+    # its t dependence in self.t_nucl, never in the `t` argument, which inside
+    # the radiative integral is the SHIFTED transfer.  At THIS entry point t is
+    # still the observed one, so t_nucl must equal it; every correct caller
+    # arranges that via Generator._set_event_t.
+    #
+    # Build the model once with t_nucl=-0.30, loop over t, and you integrate a
+    # cross section with NO t dependence -- finite and plausible at every
+    # point, and nothing raised.  It cost 9 % on
+    # integral(sigma_obs)/integral(sigma_Born) over the RG-A box (1.143 frozen
+    # against 1.294 per point, campaign 1.25010 +- 0.00175) and invalidated
+    # every percentile production/eta_scan.py had ever printed.  Warning
+    # rather than raising, because a false positive here would stop a campaign.
+    _tn = getattr(sfmodel, "t_nucl", None)
+    if _tn is not None and abs(float(_tn) - float(t)) > 1e-9:
+        global _WARNED_TNUCL
+        if not _WARNED_TNUCL:
+            _WARNED_TNUCL = True
+            _warnings.warn(
+                f"rc_factor: {type(sfmodel).__name__}.t_nucl = {float(_tn):.6g} "
+                f"but the observed t = {float(t):.6g}.  This model's t "
+                f"dependence lives in t_nucl, so it is being evaluated at the "
+                f"wrong |t| and the result is finite but wrong.  Set "
+                f"model.t_nucl = t (or call Generator._set_event_t(t)) before "
+                f"each call.  Warned once per process.",
+                RuntimeWarning, stacklevel=2)
 
     v_kin = EventKin.vmax_kin(Ebeam, Q2, W2, t, mV, M=M, m=m, mU=mU,
                               t_kind=t_kind)

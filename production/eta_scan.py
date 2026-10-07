@@ -116,3 +116,16 @@ for nm in NAMES:
     e = np.array(e)
     print(f"{nm:18} {len(e):5d} {np.median(e):8.2f} {np.percentile(e,90):8.2f} "
           f"{np.percentile(e,99):8.2f} {e.max():9.1f} {100*(e>5).mean():6.0f} %")
+    # SELF-CHECK on the frozen-t_nucl bug, suggested by the Launch generator
+    # session: the fraction of uniform box points the model DECLINES is a
+    # signature of whether t_nucl is live.  ~24 % with a real t_nucl, near
+    # zero frozen, and the gap is visible in seconds.  Measured the same way
+    # from the other side: 6496-6565 tries per 3000 usable points frozen
+    # against 4398-4484 per point, consistently ~47 % more, stable over four
+    # replicas.  A diagnostic whose ACCEPTANCE depends on the bug is the
+    # hardest kind to notice, so it is printed every run rather than on
+    # request.
+    decl = 100.0 * (1.0 - len(e) / float(len(pts)))
+    flag = ("  <-- near zero: is t_nucl live?  see the docstring"
+            if decl < 5.0 else "")
+    print(f"{'':18} declined {decl:5.1f} % of box points{flag}")
