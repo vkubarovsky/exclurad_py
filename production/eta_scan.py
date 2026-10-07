@@ -26,6 +26,21 @@ this scan to decide whether a model is samplable at all; read b_viol out of
 prov/<mode>_<NNN>.config.json to decide whether a finished sample is exactly
 unweighted.  Do not substitute one for the other.
 
+PHI = 0.  Every point is evaluated at phi = 0, where eta is LARGEST.  This is
+a scan of the worst case, not of the average, and the percentiles below are
+inflated by it: integrating phi drops the box-wide ratio
+sum(sigma_obs)/sum(sigma_Born) from 1.42 to 1.17.  Quoting these numbers as
+"eta in this region" overstates it, which I did on 7 October.  For eta as the
+SAMPLE sees it, do not use this script at all -- use the two-histogram identity
+in docs/farm_practice.md, which averages phi correctly, needs no model
+evaluation, and cannot inherit a bug from the RC engine it is measuring.
+
+UNIFORM POINTS, NOT CROSS-SECTION WEIGHT.  The percentiles are over points
+drawn uniformly in the box, so the large-|t| corners -- big eta, negligible
+cross-section -- carry the same vote as the bulk.  For "what would a
+measurement in this bin contend with", take sum(sigma_obs)/sum(sigma_Born)
+over the bin instead of a median over its points.
+
 SAMPLE SIZE.  The rng is seeded, so a smaller N is a prefix of the same point
 set and the percentiles converge rather than scatter.  They converge slowly:
 pi0.amp2614 gives 5.03 at N=300, 5.43 at N=500, 5.52 at N=1200.  N=220 gave
