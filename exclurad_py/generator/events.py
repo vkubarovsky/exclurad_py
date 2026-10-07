@@ -516,6 +516,31 @@ class Generator:
                     self._B_global = float(d["B_global"])
                     self.b_shape = tuple(int(x) for x in d["b_shape"])
                     self.b_from_cache = True
+                    # Mtot IS NOT IN THE NPZ AND MUST BE REBUILT HERE.
+                    #
+                    # calibrate() sets maj["Mtot"] = M * b_full and draws the
+                    # cell from its cdf; save_majorant persists that cdf but
+                    # only M, so a cache HIT used to leave Mtot absent while
+                    # the cdf still carried B.  sigma_total's
+                    # `maj.get("Mtot", maj["M"])` then normalised with
+                    # integral(M*vol) a sample drawn from M*B -- the EVENTS
+                    # were correct and the reported sigma_nb was low by <B>,
+                    # measured as x1.45 on a (3,3,3,4) test box and ~x1.95 on
+                    # the production one.  born_only has Mtot == M, so only
+                    # the rad arm would move: eta = sigma_obs/sigma_Born read
+                    # from two arms' quoted sigma would come out BELOW 1
+                    # everywhere, which is wrong but entirely plausible.
+                    #
+                    # Unreachable today only because run_prod_v1.sh never
+                    # calls run_parallel, so no shared majorant.npz exists
+                    # (run.py:278).  Pre-building one is the obvious way to
+                    # stop 200 jobs running 200 independent B lotteries, and
+                    # it would have silently halved every quoted cross
+                    # section in the campaign that did it.
+                    if self.exact_accept:
+                        self.maj["Mtot"] = (self.maj["M"]
+                                            * self._b_full(self.maj["shape"]))
+                self.maj.setdefault("Mtot", self.maj["M"])
                 if verbose:
                     print(f" majorant loaded from {os.path.basename(self.maj_cache)}"
                           + (" (with stage-2 bound)" if self.b_from_cache else ""))
@@ -611,8 +636,13 @@ class Generator:
         if not np.isfinite(tot) or tot <= 0:
             raise RuntimeError(
                 "мажоранта вышла нулевой: коробка целиком за катами?")
+        # maj["Mtot"] is DEFINED as the array the cdf was built from, so that
+        # sigma_total never has to guess which one that was.  Here the cell is
+        # drawn from M itself (no stage-2 bound yet; an uncalibrated run uses
+        # the constant _B_global, which cancels), so Mtot IS M.  calibrate()
+        # overwrites both together, and the cache-hit path restores both.
         self.maj = dict(edges=edges, M=M, shape=self.majorant_shape,
-                        cdf=_cell_cdf(M, edges),
+                        cdf=_cell_cdf(M, edges), Mtot=M,
                         eta_hi=eta_hi)
         return self
 
@@ -1501,9 +1531,18 @@ Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
         # for a sample distributed as sigma_exact -- shape and normalisation
         # from two different densities.
         if self.exact_accept and not self.born_only and self.n_accept2 > 0:
-            Mt = self.maj.get("Mtot", self.maj["M"])
+            # NO FALLBACK.  The cell is drawn from a cdf built on Mtot, so
+            # normalising with M instead is wrong by <B> and silent -- see the
+            # cache-hit block in setup().  A sample that lies about its own
+            # normalisation is worse than one that refuses to quote it.
+            if "Mtot" not in self.maj:
+                raise RuntimeError(
+                    "sigma_total: the majorant carries no Mtot, so the cell "
+                    "density and the normalisation would come from different "
+                    "arrays (low by <B>).  Every path that builds or loads a "
+                    "majorant sets it; a hand-built maj dict must too.")
             return float((self.n_accept2 / self.n_trials)
-                         * float((Mt * vol).sum()))
+                         * float((self.maj["Mtot"] * vol).sum()))
         return float((self.n_accept / self.n_trials)
                      * float((self.maj["M"] * vol).sum()))
 
