@@ -64,14 +64,40 @@ def rc_factor(Ebeam, Q2, W2, t, phi, sfmodel, h=+1, lam=0.0,
     # against 1.294 per point, campaign 1.25010 +- 0.00175) and invalidated
     # every percentile production/eta_scan.py had ever printed.  Warning
     # rather than raising, because a false positive here would stop a campaign.
+    # FALSE POSITIVE FIXED 2026-10-08.  The first version asserted t_nucl == t
+    # at entry.  That holds in the generator path, where _set_event_t(t) is
+    # called with the same observed t, and is FALSE in the EXCLURAD
+    # baryon-detected convention, where the `t` argument is the MESON-side
+    # transfer: for gamma*(-Q2) p -> h p', s + t_N + u = -Q2 + 2M^2 + m^2 with
+    # s = W2 and u = (q - p')^2, so t_kin = -Q2 + 2M^2 + m^2 - W2 - t_N
+    # (validation/legacy.py excl_to_mesonrc).  The guard fired on a CORRECT
+    # eta-vs-Fortran run.  So accept either parameterisation and warn only
+    # when t_nucl matches neither -- which a frozen t_nucl still does not,
+    # because it is a constant while both t and the reconstructed t_N move.
     _tn = getattr(sfmodel, "t_nucl", None)
-    if _tn is not None and abs(float(_tn) - float(t)) > 1e-9:
+    if _tn is not None:
+        _tn = float(_tn)
+        # mU, the UNDETECTED particle (the meson in the baryon-detected
+        # topology), not mV which is the detected proton.  Measured at the
+        # published eta bin: mU reconstructs t_N to 6e-4, mV is out by 0.58.
+        _mh = float(getattr(sfmodel, "mU", 0.0) or 0.0)
+        _tN_recon = (-float(Q2) + 2.0 * float(M) ** 2 + _mh ** 2
+                     - float(W2) - float(t))
+        _off = min(abs(_tn - float(t)), abs(_tn - _tN_recon))
+    else:
+        _off = 0.0
+    # Tolerance 1e-2 in t, not machine epsilon: the validation drivers carry
+    # their own meson mass (0.5473 against the model's 0.547862), which alone
+    # shifts the reconstruction by 6e-4.  A genuinely frozen t_nucl is out by
+    # O(0.1-1), so 1e-2 separates them with three orders of margin.
+    if _tn is not None and _off > 1e-2:
         global _WARNED_TNUCL
         if not _WARNED_TNUCL:
             _WARNED_TNUCL = True
             _warnings.warn(
-                f"rc_factor: {type(sfmodel).__name__}.t_nucl = {float(_tn):.6g} "
-                f"but the observed t = {float(t):.6g}.  This model's t "
+                f"rc_factor: {type(sfmodel).__name__}.t_nucl = {_tn:.6g} "
+                f"matches neither the t argument ({float(t):.6g}) nor the "
+                f"nucleon t it implies ({_tN_recon:.6g}).  This model's t "
                 f"dependence lives in t_nucl, so it is being evaluated at the "
                 f"wrong |t| and the result is finite but wrong.  Set "
                 f"model.t_nucl = t (or call Generator._set_event_t(t)) before "
