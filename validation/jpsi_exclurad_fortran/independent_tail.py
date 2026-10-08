@@ -136,6 +136,24 @@ class Point:
                                  t_sf=np.array([tN]))[0]
             return
         self.mdet, self.mmis = MP, MJ
+        if mode == "target":
+            # PHYSICAL bin: t_N = (p - p')^2 held FIXED, so the detected
+            # proton's DIRECTION moves with v while cm_angle freezes it.
+            # Phase-space factor 1, derived rather than asserted: at fixed
+            # E', t_N = 2M^2 - 2(Ep E' + |q| p' cos th) gives
+            # dt_N = -2 |q| p' dcos, so
+            #   d3p'/(2E') = p'^2 dp' dcos dphi/(2E') = (p'/2) dE' dcos dphi
+            #              = dE' dt_N dphi / (4 |q|)
+            # and p' cancels.  cm_angle freezes dcos instead, which leaves
+            # (p'/2) dE' and hence the p'(v)/p'(0) that 79a053f restored.
+            self.ph0 = np.sqrt(((self.W2 + MP ** 2 - MJ ** 2) / (2 * self.W)) ** 2
+                               - MP ** 2)
+            self.nh = self._dir_target(0.0)
+            if self.nh is None:
+                raise ValueError("Born point unphysical in the target bin")
+            self.vmax = self._vmax_target()
+            self.LH_B = self._LH(self._LB(), self.q[None, :], np.array([True]))[0]
+            return
         # detected proton: direction frozen at its v = 0 value (t_N), azimuth
         # phi + pi (the meson goes to phi, Trento), energy follows v
         Ep0 = self.p[0]
@@ -150,6 +168,31 @@ class Point:
         self.vmax = (self.W - MP) ** 2 - MJ ** 2
         # Born leptonic . hadronic at the observed point
         self.LH_B = self._LH(self._LB(), self.q[None, :], np.array([True]))[0]
+
+    def _dir_target(self, v):
+        """Detected-proton direction at this v with t_N fixed (None if unphysical)."""
+        Eh = (self.W2 + MP ** 2 - MJ ** 2 - v) / (2 * self.W)
+        if Eh <= MP:
+            return None
+        ph = np.sqrt(Eh ** 2 - MP ** 2)
+        c = (2 * MP ** 2 - self.tN - 2 * self.p[0] * Eh) / (2 * self.qv * ph)
+        if abs(c) > 1:
+            return None
+        s_ = np.sqrt(1 - c * c)
+        az = self.phi + np.pi            # the meson goes to phi (Trento)
+        return np.array([s_ * np.cos(az), s_ * np.sin(az), c])
+
+    def _vmax_target(self):
+        lo, hi = 0.0, (self.W - MP) ** 2 - MJ ** 2
+        if self._dir_target(hi * (1 - 1e-12)) is not None:
+            return hi
+        for _ in range(200):
+            mid = 0.5 * (lo + hi)
+            if self._dir_target(mid) is None:
+                hi = mid
+            else:
+                lo = mid
+        return lo
 
     def _dir_meson_t(self, v):
         """J/psi direction at this v with t = (q - p_V)^2 held fixed (None if unphysical)."""
@@ -244,6 +287,15 @@ class Point:
             # p cancels, the detected-particle factor is 1 (not p(v)/p(0))
             jacv = 1.0
             pdet = np.concatenate([[Eh], pvec])
+        elif self.mode == "target":
+            nd = self._dir_target(v)
+            if nd is None:
+                return 0.0
+            Eh = (self.W2 + MP ** 2 - MJ ** 2 - v) / (2 * W)
+            phv = np.sqrt(Eh ** 2 - MP ** 2)
+            pvec = phv * nd
+            jacv = 1.0            # see _dir_target: p' cancels at fixed t_N
+            pdet = None
         else:
             Eh = (self.W2 + MP ** 2 - MJ ** 2 - v) / (2 * W)
             if Eh <= MP:

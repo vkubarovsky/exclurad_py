@@ -1,0 +1,23 @@
+
+Q2 0.03  W2 17.00  t_N -2.5925  phi 20   v_max(target) 0.5320
+  soft check |M_R|^2/|M_B|^2 over the eikonal: 0.999954  (must be 1)
+  v interval          independent    exclurad_py     diff %
+    0.03 - 0.10         0.0561033       0.055837      -0.47
+    0.10 - 0.20         0.0295051      0.0291604      -1.17
+    0.20 - 0.50         0.0302889      0.0295277      -2.51
+
+Q2 0.03  W2 18.50  t_N -1.3319  phi 20   v_max(target) 1.1866
+  soft check |M_R|^2/|M_B|^2 over the eikonal: 0.999953  (must be 1)
+  v interval          independent    exclurad_py     diff %
+    0.03 - 0.10         0.0557661      0.0554712      -0.53
+    0.10 - 0.20         0.0295738      0.0291883      -1.30
+    0.20 - 0.50         0.0339887      0.0330126      -2.87
+
+Q2 0.10  W2 18.00  t_N -1.5000  phi 60   v_max(target) 0.9960
+  soft check |M_R|^2/|M_B|^2 over the eikonal: 0.999985  (must be 1)
+  v interval          independent    exclurad_py     diff %
+    0.03 - 0.10         0.0626198      0.0622998      -0.51
+    0.10 - 0.20         0.0334166      0.0329949      -1.26
+    0.20 - 0.50         0.0384184      0.0373482      -2.79
+
+worst |diff| over all intervals: 2.87 %
