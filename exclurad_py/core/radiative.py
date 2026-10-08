@@ -187,6 +187,23 @@ def sigma_F(kin0, sfmodel, h, v_m, lam=0.0,
                       mU=kin0.mU, t_kind=getattr(kin0, "t_kind", "photon"))
              for v in vs]
 
+    # DETECTED-HADRON PHASE SPACE in the cm_angle bin (2026-10-08).
+    # There the detected hadron's DIRECTION is frozen and its energy follows
+    # v, so d3p/2E = (p/2) dE dOmega carries p_det(v) against the Born's
+    # p_det(0).  In the fixed-t bins (photon, target) the same measure is
+    # dE dt/(4|q|) and p cancels -- which is why the core never had the
+    # factor, and why only this mode was wrong.  Missing it made the hard tail
+    # 8-18 % too large (validation/jpsi_exclurad_fortran: an independent
+    # spinor calculation agrees with EXCLURAD to 1 % of the tail once it is
+    # there).  Applied to the exact integrand only: the subtracted soft term
+    # is compensated analytically by delta_inf, and p_det(v)/p_det(0) -> 1
+    # as v -> 0, so the IR cancellation is untouched.
+    if getattr(kin0, "t_kind", "photon") == EventKin.T_CMANGLE:
+        p0 = np.linalg.norm(kin0.pv[1:])
+        jac_v = np.array([np.linalg.norm(kv.pv[1:]) / p0 for kv in kinvs])
+    else:
+        jac_v = np.ones(n_v_act)
+
     sums = np.empty((len(channels), n_v_act))
     for ci, chd in enumerate(channels):
         nhat, wang = chd['nhat'], chd['wang']
@@ -233,7 +250,7 @@ def sigma_F(kin0, sfmodel, h, v_m, lam=0.0,
                             np.tile(p, (len(om), 1)), pv_f, W2t, sf, M, lam)
 
             fir = F_IR(Q2, m, kap1, kap2)
-            exact = np.where(good, LRH / Q2t ** 2, 0.0)
+            exact = np.where(good, LRH / Q2t ** 2, 0.0) * np.repeat(jac_v[i0:i1], N)
             sub = 4.0 * fir * LH0 / Q2 ** 2 if subtract else 0.0
             integrand = (v_f / z ** 2) * (exact - sub)
             sums[ci, i0:i1] = (wang * wch * integrand.reshape(nb, N)).sum(axis=1)

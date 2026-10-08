@@ -222,6 +222,10 @@ class TailSampler:
                         np.broadcast_to(p, pv.shape).copy(), pv,
                         W2t, sf, k0.M)
         f = np.where(good, (v / z ** 2) * LRH / Q2t ** 2, 0.0)
+        # cm_angle bin: the detected-hadron phase-space factor p_det(v)/p_det(0),
+        # exactly as in core.radiative.sigma_F (see the comment there)
+        if getattr(k0, "t_kind", EventKin.T_PHOTON) == EventKin.T_CMANGLE:
+            f = f * np.linalg.norm(pv[:, 1:], axis=1) / np.linalg.norm(k0.pv[1:])
         return np.maximum(f, 0.0), k4, om
 
     # ------------------------------------------------------------------ #
