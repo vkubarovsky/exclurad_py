@@ -1,4 +1,12 @@
 #!/bin/bash
+# Defaults, so a bare `sbatch sim_array.sbatch` cannot run with the farm's
+# 512 MB default memory: on 2026-10-08 a J/psi test submitted without --mem
+# had GEMC and recon-util (Xmx1536m) OOM-killed in all three jobs.  Flags on
+# the sbatch command line still override these.
+#SBATCH --account=clas12
+#SBATCH --partition=production
+#SBATCH --mem=6G
+#SBATCH --cpus-per-task=1
 #
 # HOW TO RUN A CAMPAIGN WITH THESE: docs/farm_practice.md
 # It carries the sizing, the chaining, and every trap that has cost
