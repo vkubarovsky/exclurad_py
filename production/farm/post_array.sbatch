@@ -37,12 +37,32 @@ esac
 R=${PROD_DIR:-/volatile/clas12/vpk/prod_pi0_rga_fa18_inb_t2_20260925}
 I=$(printf "%03d" "$SLURM_ARRAY_TASK_ID")
 W=$R/$MODE/work_$POL/w_$I
-BGDIR=/cache/clas12/rg-a/production/background/rga_fall2018/$BGPOL/50nA_10604MeV/10k
+# THE RUN PERIOD MUST BE PARAMETERISED HERE TOO, and until 2026-10-07 it was
+# not: BGDIR, YAML and OUTTAG all pinned rga_fall2018 / coatjava 10.0.7 /
+# 50nA_10604MeV / "fa18" while sim_array.sbatch took them from RGCFG, COATV,
+# BGTREE, BGCUR and RGTAG.  A catch-up job on any other period would have
+# merged FALL 2018 background, at the wrong beam energy, into a surviving
+# gemc.hipo of a different period, reconstructed it with the wrong yaml, and
+# written it under a name claiming fa18 -- the same class of silent mismatch
+# the polarity comment above warns about, and in the most expensive place to
+# fail, after gemc has already run.  Defaults are unchanged, so fall-2018
+# inbending behaves exactly as before.
+#
+# Export the SAME values sim_array was given.  Spring 2019 is
+#   RGCFG=rga_spring2019 COATV=10.0.7 RGTAG=sp19 \
+#   BGTREE=rg-a/production/background/rga_spring2019 BGCUR=50nA_10200MeV
+RGCFG=${RGCFG:-rga_fall2018}
+COATV=${COATV:-10.0.7}
+BGTREE=${BGTREE:-rg-a/production/background/rga_fall2018}
+BGCUR=${BGCUR:-50nA_10604MeV}
+RGTAG=${RGTAG:-fa18}
+BGDIR=/cache/clas12/$BGTREE/$BGPOL/$BGCUR/10k
 BG=$(printf "%s/%05d.hipo" "$BGDIR" $(( (SLURM_ARRAY_TASK_ID - 1) % 100 + 1 )))
 DET='DC,FTOF,ECAL,HTCC,LTCC,BST,BMT,CND,CTOF,FTCAL,FTHODO'
 CFG=/cvmfs/oasis.opensciencegrid.org/jlab/hallb/clas12/sw/noarch/clas12-config/prod
-YAML=$CFG/coatjava/10.0.7/rga_fall2018.yaml
-OUTTAG=excluradpy_pi0_${MODE}_fa18_${POL}_bg50nA_$I
+YAML=$CFG/coatjava/$COATV/$RGCFG.yaml
+[ -f "$YAML" ] || { echo "FATAL: no yaml at $YAML -- rga_spring2018 has one only in coatjava 11.1.0 and 6.5.6.1"; exit 1; }
+OUTTAG=excluradpy_pi0_${MODE}_${RGTAG}_${POL}_bg${BGCUR%%_*}_$I
 
 [ -s "$W/gemc.hipo" ] || { echo "FATAL: no gemc.hipo in $W -- nothing to catch up"; exit 1; }
 SZ=$(stat -c %s "$W/gemc.hipo")
