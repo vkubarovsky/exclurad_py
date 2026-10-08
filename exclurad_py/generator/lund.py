@@ -133,6 +133,13 @@ def event_lines(ev, channel, topology=None, target_pid=None,
             parts[mi][5] = len(parts) + 1        # first daughter (1-based)
             for pid_d, p4_d in ((pid_a, d[0]), (pid_b, d[1])):
                 parts.append([pid_d, m_d, p4_d, 1, mi + 1, 0])
+            # Radiation of the decay leptons (idecay 2): a real photon, status
+            # 1 so GEMC tracks it, PARENT = the meson -- that is what tells it
+            # apart from the production photon (parent 0), and what the decay
+            # closure in check_lund sums over.
+            gd = ev.get("decay_photon")
+            if gd is not None:
+                parts.append([PID["gamma"], 0.0, gd, 1, mi + 1, 0])
 
     # Beam polarisation is LUND header column 5, and it is where the event's
     # own helicity belongs.  The generator already draws h per event when the

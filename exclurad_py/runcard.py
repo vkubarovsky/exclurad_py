@@ -48,7 +48,7 @@ FIELDS = [
     ("t_nucl", float, "t_nucl  (GeV^2), pi0/eta only"),
     ("ihel", int, "ihel    +1, -1, or 0 = helicity-averaged"),
     ("seed", int, "seed"),
-    ("idecay", int, "idecay  1 = decay vector meson h+h-, 0 = leave it"),
+    ("idecay", int, "idecay  1 = decay vector meson h+h-, 2 = same + radiation of the decay leptons (J/psi), 0 = leave it"),
     ("outroot", str, "output root"),
     # --- optional trailing fields (cards without them still parse) ---
     ("y", "pair", "y range (inelasticity nu/E)"),
@@ -159,6 +159,13 @@ def _validate(cfg, path):
         print("runcard: ihel = 0 with ptarg != 0 -- the helicity is drawn per "
               "event and written to LUND column 5; split on it to get A_LL. "
               "Requires EXACT_ACCEPT=1, or the RC is built at one helicity.")
+    if cfg["idecay"] not in (0, 1, 2):
+        raise ValueError(f"{path}: idecay must be 0, 1 or 2")
+    if cfg["idecay"] == 2:
+        from .generator.decay import LEPTONIC
+        if cfg["model"].split(".")[0] not in LEPTONIC:
+            raise ValueError(f"{path}: idecay 2 (radiation of the decay "
+                             f"leptons) is for {LEPTONIC} only")
     if cfg["iborn"] not in (0, 1):
         raise ValueError(f"{path}: iborn must be 0 or 1")
     if cfg["nev"] <= 0:
@@ -207,7 +214,7 @@ TEMPLATE = """! exclurad_py run card -- plain text, one value per line, ! starts
 {t_nucl:<34} ! t_nucl  (GeV^2) for pi0/eta models; ignored for vector mesons
 {ihel:<34} ! ihel    +1, -1, or 0 = helicity-averaged
 {seed:<34} ! seed
-{idecay:<34} ! idecay  1 = decay vector meson to h+h- isotropically, 0 = no decay
+{idecay:<34} ! idecay  1 = decay vector meson to h+h- isotropically, 2 = + decay-lepton radiation (J/psi), 0 = no decay
 {outroot:<34} ! output root (<channel>/<date>_<E>_<mode>_v1/ created under it)
 {y:<34} ! y range  (nu/E)   -- match the reference generator's cut
 {xB:<34} ! xB range          -- match the reference generator's cut

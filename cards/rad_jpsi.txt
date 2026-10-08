@@ -1,17 +1,25 @@
 ! exclurad_py run card -- plain text, one value per line, ! starts a comment.
 ! Positional (exclugen convention): the ORDER of the lines is the format.
 !
-! Aligned 2026-08-18 with the reference DIFFRAD card that VPK supplied
-! ("DIFFRAD J/psi -- full RC, Ebeam=10.6 GeV").  Everything matched except
-! cutv, which we had at 0.0 (no cut at all) against the reference's 1.2.
-! Numerically that barely moves anything here -- near threshold there is
-! almost no phase space for radiation, so v_max is already below 1.2 over
-! most of the box, and the correction factor sits at 0.90-1.01 whatever the
-! cut -- but the card should say what the reference says.
+! J/psi electroproduction on the proton, quasi-real (FT electron), full RC.
+! Born twin: cards/born_jpsi.txt -- IDENTICAL except iborn (field 4).  Keep
+! them that way: compare the two with
+!   diff <(sed 's/!.*//' cards/rad_jpsi.txt) <(sed 's/!.*//' cards/born_jpsi.txt)
 !
+! Model jpsi.diffrad_vm = the CLAS12-fitted model: W-shape from the fit to the
+! photoproduction sigma(W) (alf2=0.5, alf3=7.8), Q2 power n=3.114 and dipole
+! t-mass mg2=2.637 from Mariana Tenorio Pita's CLAS12 fits, normalisation
+! anchored to her bin 3.  Fitted Q2 range is 0.015-0.1 GeV^2.
+!
+! vcut = 0 since 2026-10-07 (was 1.20, inherited from the reference DIFFRAD
+! card): no cut at generation, the exclusivity cut is applied OFFLINE to the
+! reconstructed sample, so that migration through resolution is simulated.
 ! The reference's W upper edge of 100 GeV means "unbounded"; at 10.6 GeV the
 ! kinematic limit is W^2 ~ 20.7, so 20.80 is the same statement.
-! Acceptance windows are already transcribed in generator/decay.py:94.
+! idecay = 2 since 2026-10-07: J/psi -> e+e-(gamma), exact matrix element,
+! generator/decay_rad.py; validation/jpsi_decay_fsr.py.  ~15% of decays end
+! below M(ee) = 3.0 GeV.  The decay happens ONCE, before the lepton cuts.
+! Acceptance windows are transcribed in generator/decay.py (ACCEPTANCE).
 jpsi.diffrad_vm                    ! model  <channel>.<vintage>   (--models to list)
 10.6                               ! ebeam (GeV)
 10000                              ! nev
@@ -19,11 +27,11 @@ jpsi.diffrad_vm                    ! model  <channel>.<vintage>   (--models to l
 16.40 20.80                        ! W2 range (GeV^2); threshold (M+mJ)^2 = 16.283
 0.001 0.25                         ! Q2 range (GeV^2) -- quasi-real photoproduction
 -7.00 -0.45                        ! t range (GeV^2, both negative).  |t|min по всей коробке 0.4513
-1.20                               ! vcut    MX^2 - m_miss^2 (GeV^2);  0 = no cut (kinematic limit)
+0.0                                ! vcut    MX^2 - m_miss^2 (GeV^2);  0 = no cut (kinematic limit) -- cut offline
 -0.30                              ! t_nucl  (GeV^2) for pi0/eta models; ignored for vector mesons
 0                                  ! ihel    +1, -1, or 0 = helicity-averaged
 333522                             ! seed
-1                                  ! idecay  1 = decay vector meson to h+h- isotropically, 0 = no decay
+2                                  ! idecay  2 = e+e- decay WITH radiation of the decay leptons (1 = without)
 ./exclurad_out                     ! output root -- RELATIVE on purpose.
 !   The production wrappers substitute this field with the job's own work
 !   directory (gen_array.sbatch, field 13), so in production the card value
@@ -36,3 +44,6 @@ jpsi                               ! iacc    acceptance preset: none | jpsi  (|p
 1.0d-4                             ! vmin    soft/hard split (GeV^2); 0 = auto.  exclugen uses 1.0d-4
 1                                  ! itarg   1 = pre-vertex external radiator (target straggling)
 -7.5 -2.5                          ! vertex z range, cm -- the 5 cm LH2 cell
+0.0                                ! ptarg   unpolarised target
+none                               ! fermi   free proton
+2.0 5.5                            ! theta_e  scattered electron 2.0-5.5 deg: Forward Tagger only (VPK 08.10)

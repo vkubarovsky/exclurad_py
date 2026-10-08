@@ -34,6 +34,7 @@ import numpy as np
 from . import models, stamp
 from .generator import (Generator, Box, write_lund, decay_two_body, DECAY,
                         meson_slot)
+from .generator.decay import decay_meson
 from .core.radiative import quad_default
 from .core.integrand import USE_NUMBA as _USE_NUMBA
 from .generator.tables import RCTable
@@ -212,6 +213,7 @@ def run(card_path, date=None, verbose=True, _part=None):
                   itarg=cfg["itarg"], vz=cfg["vz"],
                   fermi=cfg.get("fermi", "none"),
                   fermi_m_star_min=cfg.get("fermi_mstar_min", 0.30),
+                  decay_fsr=(cfg["idecay"] == 2),
                   v_min=cfg["vmin"] or None,
                   maj_cache=_cache_paths(d)[1],
                   cache=None if cfg["iborn"] else _cache_paths(d)[0])
@@ -291,16 +293,20 @@ def run(card_path, date=None, verbose=True, _part=None):
     # does, pi0/eta -> gamma gamma as exclugen does.
     if cfg["idecay"] and ch in DECAY:
         rng = np.random.default_rng(cfg["seed"] + 1)
-        m_d = DECAY[ch][2]
         # NOT always ev["meson"] -- slots are named by role, and under the
         # EXCLURAD pi0/eta topology the detected hadron is the PROTON.
         slot = meson_slot(getattr(sf, "topology", None), ch)
         n_bad = 0
         for e in ev:
-            a, b = decay_two_body(e[slot], m_d, rng)
+            # An event the generator already decayed (acceptance preset with
+            # daughter cuts) keeps THAT decay: it is the one the cut saw.
+            if e.get("daughters") is not None:
+                continue
+            a, b, gd = decay_meson(ch, e[slot], rng, g.fsr)
             if a is None:
                 n_bad += 1
             e["daughters"] = (a, b)
+            e["decay_photon"] = gd
         if verbose and n_bad:
             print(f" {n_bad} events below the {ch} decay threshold, left undecayed")
 
@@ -314,6 +320,15 @@ def run(card_path, date=None, verbose=True, _part=None):
                               box=box.as_dict(), vcut=cfg["vcut"],
                               mx2_cut=mx2, Ebeam=cfg["ebeam"],
                               ihel=cfg["ihel"], ptarg=cfg.get("ptarg", 0.0),
+                              # 2 = the decay leptons radiate; a sample with and
+                              # one without differ only in M(ee), so the file
+                              # has to say which it is
+                              idecay=cfg["idecay"],
+                              decay_rad=(None if g.fsr is None else dict(
+                                  model="exact tree ME V->l+l-gamma, Ehlotzky "
+                                        "spectrum exponentiated (YFS)",
+                                  eps_GeV=g.fsr.eps, beta=g.fsr.spec.beta,
+                                  bound_violations=g.fsr.n_viol)),
                               # The target is part of what a sample IS.  A
                               # deuteron file and a free-nucleon file are
                               # otherwise indistinguishable from their

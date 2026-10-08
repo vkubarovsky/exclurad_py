@@ -112,7 +112,7 @@ class Generator:
                  table_shape=(5, 5, 5, 8), tail_shape=(2, 2, 2, 2),
                  safety=1.6, cache=None, born_only=False, cuts=None,
                  v_min=None, maj_cache=None, itarg=0, vz=(0.0, 0.0),
-                 fermi="none", fermi_m_star_min=0.30):
+                 fermi="none", fermi_m_star_min=0.30, decay_fsr=False):
         """born_only=True: no radiative corrections at all.
 
         sigma_obs == sigma_Born, eta == 1, no photon is ever emitted, and
@@ -238,6 +238,20 @@ class Generator:
         # on it, so nothing is computed and nothing changes.
         self.ptarg = float(ptarg)
         self.rng = np.random.default_rng(seed)
+        # The meson decay draws from its OWN stream, spawned from the seed, so
+        # switching the decay radiation on or off (idecay 1 <-> 2) leaves the
+        # production events -- kinematics, photons, acceptance trials --
+        # identical, and the two samples can be compared event by event.
+        self.rng_decay = np.random.default_rng(
+            np.random.SeedSequence(seed).spawn(1)[0])
+        self.fsr = None
+        if decay_fsr:
+            from .decay import LEPTONIC
+            from .decay_rad import DecayFSR
+            if sfmodel.channel not in LEPTONIC:
+                raise ValueError(f"decay radiation (idecay 2) is defined for "
+                                 f"{LEPTONIC}, not {sfmodel.channel!r}")
+            self.fsr = DecayFSR(float(sfmodel.mV))
         # MAJ_SHAPE / MAJ_SAFETY override the defaults, because one setting
         # does not fit every channel.  J/psi sits against a kinematic
         # boundary that moves fast with W2, so its majorant cells straddle
@@ -1489,15 +1503,22 @@ Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
 
             acc = self.cuts.get("iacc", "none")
             if acc != "none":
-                from .decay import in_acceptance, DECAY, decay_two_body
+                from .decay import in_acceptance, DECAY, decay_meson
                 dau = None
                 ch = self.sf.channel
                 if ch in DECAY:
-                    a, bq = decay_two_body(ev["meson"], DECAY[ch][2], self.rng)
+                    # THE decay of this event: what is cut here is what is
+                    # written.  run.py used to decay the meson a second time
+                    # and overwrite these daughters, so the lepton cut acted
+                    # on a decay that was thrown away -- 37% of written J/psi
+                    # events had a lepton outside the window (2026-10-07).
+                    a, bq, gd = decay_meson(ch, ev["meson"], self.rng_decay,
+                                            self.fsr)
                     if a is None:
                         self.n_cut_acc += 1
                         continue
                     ev["daughters"] = (a, bq)
+                    ev["decay_photon"] = gd
                     dau = (a, bq)
                 if not in_acceptance(acc, ev["scattered"], ev["recoil"], dau)[0]:
                     self.n_cut_acc += 1

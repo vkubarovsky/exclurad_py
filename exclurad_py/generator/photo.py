@@ -71,7 +71,7 @@ _trapz = getattr(np, "trapezoid", None) or getattr(np, "trapz")
 
 from ..core.constants import M_P, M_N
 from .. import models
-from .decay import DECAY, decay_two_body
+from .decay import DECAY, decay_two_body, decay_meson
 from .fermi import CONFIG, FermiSampler, split_deuteron, M_D
 from .frames import boost_matrix
 from .lund import PID, CHANNEL_PID, DECAY_PID
@@ -363,6 +363,8 @@ def write_photo_lund(path, events, channel, sf, target_pid, comments):
                     parts.append([e["spectator_pid"], M_P if e["spectator_pid"] == 2212 else M_N, e["spectator"], 1, 0, 0])
                 parts.append([d1, md, d[0], 1, 1, 0])
                 parts.append([d2, md, d[1], 1, 1, 0])
+                if e.get("decay_photon") is not None:   # idecay 2: parent = the meson
+                    parts.append([PID["gamma"], 0.0, e["decay_photon"], 1, 1, 0])
             else:
                 parts.append([det_pid, sf.topology.m_detected, e["meson"], 1, 0, 0])
                 parts.append([rec_pid, sf.topology.m_missing, e["recoil"], 1, 0, 0])
@@ -412,8 +414,14 @@ def run(card_path, part=None, nev=None, seed_offset=0):
     t0 = time.time(); ev = g.generate(n, progress=max(n // 5, 1) if part is None else None); t_gen = time.time() - t0
     if cfg["idecay"] and ch in DECAY:
         rng = np.random.default_rng(cfg["seed"] + seed_offset + 1)
+        fsr = None
+        if cfg["idecay"] == 2:
+            from .decay_rad import DecayFSR
+            fsr = DecayFSR(float(sf.mV))
         for e in ev:
-            e["daughters"] = decay_two_body(e["meson"], DECAY[ch][2], rng)
+            a, b, gd = decay_meson(ch, e["meson"], rng, fsr)
+            e["daughters"] = (a, b)
+            e["decay_photon"] = gd
     tag = "" if part is None else f"_{part:02d}"
     d = os.path.join(cfg["outroot"], ch, f"{_date.today():%Y%m%d}_{cfg['ebeam']:g}_photo_v1")
     for sub in ("lund", "inputs"):
