@@ -6,9 +6,22 @@
 The argument is written by the companion scan over the campaign's .f32 ntuples
 (columns [1..3] generated electron, [13] found, [14] rec pid).  This figure is
 the justification for the card's theta_e = 5.0: the window sits BELOW the box's
-own kinematic floor, so it removes nothing, and no larger value is admissible
-because one card feeds both polarities and outbending has real efficiency right
-down to that floor.
+own kinematic floor (5.273 deg, from Q2min = 0.80 and W2min = 3.24), so it
+removes nothing -- cut_eacceptance is 0 in all 400 jobs of the reference
+campaign -- and therefore cannot be argued to bias the sample.
+
+CORRECTION 2026-10-08.  An earlier version of this docstring said no larger
+value "is admissible because one card feeds both polarities".  That was wrong,
+and VPK said so: one could generate two LUNDs, or generate at 5 and select
+offline.  Selecting offline is the better of those two -- theta_e is a card cut
+counted in n_trials, so a second card would carry its own sigma_nb and the two
+polarities would no longer share one normalisation or one set of generated
+events.  The real reason to keep the GENERATOR at 5.0 is only that it is
+transparent.  Where a cut pays is the GEMC input, which costs ~5 s/event
+against the generator's ~0.7: feeding inbending a theta_e > 6 subset of the
+same LUND keeps 100 % of its identified electrons bar 19 in 130157 and saves
+about a fifth of that half of the simulation, while the inbending sample stays
+a SUBSET of the outbending one rather than an independent draw.
 """
 import sys
 import numpy as np
