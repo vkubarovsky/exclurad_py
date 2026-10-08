@@ -44,3 +44,6 @@ jpsi                               ! iacc    acceptance preset: none | jpsi  (|p
 1.0d-4                             ! vmin    soft/hard split (GeV^2); 0 = auto.  exclugen uses 1.0d-4
 1                                  ! itarg   1 = pre-vertex external radiator (target straggling)
 -7.5 -2.5                          ! vertex z range, cm -- the 5 cm LH2 cell
+0.0                                ! ptarg   unpolarised target
+none                               ! fermi   free proton
+2.0 5.5                            ! theta_e  scattered electron 2.0-5.5 deg: Forward Tagger only (VPK 08.10)
