@@ -97,8 +97,9 @@ def boost_to(p4, beta):
 class Point:
     """Observed kinematics in the gamma* p CM, q along +z, beam in the x-z plane."""
 
-    def __init__(self, Q2, W2, tN, phi_deg):
+    def __init__(self, Q2, W2, tN, phi_deg, mode="cm_angle"):
         from exclurad_py.models.vector import Jpsi_DiffradVM
+        self.mode = mode
         self.model = Jpsi_DiffradVM()
         self.Q2, self.W2, self.tN = Q2, W2, tN
         nu = (W2 - MP ** 2 + Q2) / (2 * MP)
@@ -122,6 +123,19 @@ class Point:
         rot = lambda x: np.concatenate([[x[0]], R @ x[1:]])         # noqa: E731
         self.k1, self.k2, self.q, self.p = (rot(x) for x in (k1, k2, q, p))
         self.W = np.sqrt(W2)
+        self.phi = np.radians(phi_deg)
+        self.qv = np.linalg.norm(self.q[1:])
+        if mode == "meson_t":
+            # generator bin: J/psi detected, t = (q - p_V)^2 fixed, proton missing
+            self.mdet, self.mmis = MJ, MP
+            Ev0 = (W2 + MJ ** 2 - MP ** 2) / (2 * self.W)
+            self.ph0 = np.sqrt(Ev0 ** 2 - MJ ** 2)
+            self.nh = self._dir_meson_t(0.0)
+            self.vmax = self._vmax_meson_t()
+            self.LH_B = self._LH(self._LB(), self.q[None, :], np.array([True]),
+                                 t_sf=np.array([tN]))[0]
+            return
+        self.mdet, self.mmis = MP, MJ
         # detected proton: direction frozen at its v = 0 value (t_N), azimuth
         # phi + pi (the meson goes to phi, Trento), energy follows v
         Ep0 = self.p[0]
@@ -136,6 +150,32 @@ class Point:
         self.vmax = (self.W - MP) ** 2 - MJ ** 2
         # Born leptonic . hadronic at the observed point
         self.LH_B = self._LH(self._LB(), self.q[None, :], np.array([True]))[0]
+
+    def _dir_meson_t(self, v):
+        """J/psi direction at this v with t = (q - p_V)^2 held fixed (None if unphysical)."""
+        W = self.W
+        Ev = (self.W2 + MJ ** 2 - MP ** 2 - v) / (2 * W)
+        if Ev <= MJ:
+            return None
+        pv = np.sqrt(Ev ** 2 - MJ ** 2)
+        q0 = self.q[0]
+        c = (self.tN + self.Q2 - MJ ** 2 + 2 * q0 * Ev) / (2 * self.qv * pv)
+        if abs(c) > 1:
+            return None
+        s_ = np.sqrt(1 - c * c)
+        return np.array([s_ * np.cos(self.phi), s_ * np.sin(self.phi), c])
+
+    def _vmax_meson_t(self):
+        lo, hi = 0.0, (self.W - MJ) ** 2 - MP ** 2
+        if self._dir_meson_t(hi * (1 - 1e-12)) is not None:
+            return hi
+        for _ in range(200):
+            mid = 0.5 * (lo + hi)
+            if self._dir_meson_t(mid) is None:
+                hi = mid
+            else:
+                lo = mid
+        return lo
 
     # -- leptonic tensors --------------------------------------------------
     def _LB(self):
@@ -167,7 +207,7 @@ class Point:
         return L
 
     # -- hadronic contraction ------------------------------------------------
-    def _LH(self, L, qt, ok):
+    def _LH(self, L, qt, ok, t_sf=None):
         """L_{mu nu} H^{mu nu}(qt) with sigma at (W~2, Q~2, t_N); (N,)."""
         p = self.p
         Q2t = -dot(qt, qt)
@@ -175,7 +215,8 @@ class Point:
         pq = dot(p[None], qt)
         P = p[None] - (pq / dot(qt, qt))[:, None] * qt
         Lv = P / np.sqrt(dot(P, P))[:, None]
-        sf = self.model._sfs(W2t, np.maximum(Q2t, 1e-9), np.full_like(W2t, self.tN))
+        tt = np.full_like(W2t, self.tN) if t_sf is None else np.broadcast_to(t_sf, W2t.shape)
+        sf = self.model._sfs(W2t, np.maximum(Q2t, 1e-9), tt)
         sT, sL = sf["sT"], sf["sL"]
         lamq = (W2t + Q2t - MP ** 2) ** 2 + 4 * MP ** 2 * Q2t
         N = (W2t - MP ** 2) ** 2 / np.sqrt(lamq)
@@ -192,12 +233,26 @@ class Point:
     def dtail_dv(self, v, nt=160, nps=48):
         """d(eta)/dv, first order, at this v (photon angles integrated)."""
         W = self.W
-        Eh = (self.W2 + MP ** 2 - MJ ** 2 - v) / (2 * W)
-        if Eh <= MP:
-            return 0.0
-        phv = np.sqrt(Eh ** 2 - MP ** 2)
-        pvec = phv * self.nh
-        Lam = np.concatenate([[W - Eh], -pvec])            # p + q - p_h in the CM
+        if self.mode == "meson_t":
+            nd = self._dir_meson_t(v)
+            if nd is None:
+                return 0.0
+            Eh = (self.W2 + MJ ** 2 - MP ** 2 - v) / (2 * W)
+            phv = np.sqrt(Eh ** 2 - MJ ** 2)
+            pvec = phv * nd
+            # at fixed t, d3p/2E = (p/2) dE dcos dphi and dcos = dt/(2|q|p):
+            # p cancels, the detected-particle factor is 1 (not p(v)/p(0))
+            jacv = 1.0
+            pdet = np.concatenate([[Eh], pvec])
+        else:
+            Eh = (self.W2 + MP ** 2 - MJ ** 2 - v) / (2 * W)
+            if Eh <= MP:
+                return 0.0
+            phv = np.sqrt(Eh ** 2 - MP ** 2)
+            pvec = phv * self.nh
+            jacv = phv / self.ph0
+            pdet = None
+        Lam = np.concatenate([[W - Eh], -pvec])            # p + q - p_det in the CM
         tot = 0.0
         xg, wg = np.polynomial.legendre.leggauss(nt)
         psi = (np.arange(nps) + 0.5) * 2 * np.pi / nps
@@ -229,9 +284,14 @@ class Point:
             qt = self.q[None] - k
             W2t = dot(self.p[None] + qt, self.p[None] + qt)
             ok = W2t > (MP + MJ) ** 2
-            LH = self._LH(self._LR(k), qt, ok)
+            if self.mode == "meson_t":
+                # the model's kinematic t at the shifted point: (q~ - p_V)^2
+                d_ = qt - pdet[None]
+                LH = self._LH(self._LR(k), qt, ok, t_sf=dot(d_, d_))
+            else:
+                LH = self._LH(self._LR(k), qt, ok)
             Q2t = -dot(qt, qt)
-            f = (phv / self.ph0) * om / (4 * D * (2 * np.pi) ** 3) * E2 \
+            f = jacv * om / (4 * D * (2 * np.pi) ** 3) * E2 \
                 * (self.Q2 / Q2t) ** 2 * LH / self.LH_B
             tot += np.sum(w * share * f)
         # dv: the proton-energy integral, d E_h = dv / (2W), is the J of the
@@ -239,6 +299,8 @@ class Point:
         return tot
 
     def soft_check(self, v=1e-7):
+        if self.mode == "meson_t":
+            return float("nan")
         """|M_R|^2/|M_B|^2 against the eikonal factor at a soft photon."""
         n = np.array([[0.3, 0.4, np.sqrt(1 - 0.25)]])
         om = 1e-6
@@ -251,8 +313,8 @@ class Point:
 
 
 def tail_between(args):
-    Q2, W2, tN, phi, va, vb, nv, nt, nps = args
-    pt = Point(Q2, W2, tN, phi)
+    Q2, W2, tN, phi, va, vb, nv, nt, nps = args[:9]
+    pt = Point(Q2, W2, tN, phi, mode=args[9] if len(args) > 9 else "cm_angle")
     vb = min(vb, pt.vmax * (1 - 1e-9))
     if vb <= va:
         return 0.0
@@ -323,6 +385,40 @@ def main(work, jobs, quality):
         print(f"    {'total >0.03':>14} {sum(ind):12.5f} {pyv[-1]-pyv[0]:12.5f} {exv[-1]-exv[0]:10.5f} {llv[-1]-llv[0]:10.5f}")
 
 
+def generator_mode(jobs, quality):
+    """J/psi as the generator sees it: compare with rc_factor(models.get('jpsi.diffrad_vm'))."""
+    nv, nt, nps = {"low": (8, 96, 32), "mid": (12, 160, 48), "high": (16, 256, 64)}[quality]
+    from exclurad_py import rc_factor, models
+    sf = models.get("jpsi.diffrad_vm")
+    tmin = lambda W2, Q2: (np.sqrt(((W2 + Q2 + MP**2) / (2*np.sqrt(W2)))**2 - MP**2)
+                           - np.sqrt(((W2 + MJ**2 - MP**2) / (2*np.sqrt(W2)))**2 - MJ**2))**2 \
+        - ((Q2 + MJ**2) / (2*np.sqrt(W2)))**2
+    pts = [(0.007, 20.3, 0.1), (0.007, 20.3, 0.8), (0.007, 18.5, 1.4), (0.02, 19.5, 0.5), (1.5, 17.0, 1.4)]
+    edges = [0.03, 0.1, 0.2, 0.5, 100.0]
+    for Q2, W2, tp in pts:
+        t = -(tmin(W2, Q2) + tp)
+        pt = Point(Q2, W2, t, 20.0, mode="meson_t")
+        tasks = [(Q2, W2, t, 20.0, edges[i], edges[i + 1], nv, nt, nps, "meson_t") for i in range(4)]
+        with mp.Pool(min(jobs, 4)) as pool:
+            ind = pool.map(tail_between, tasks)
+        pyv = []
+        for vc in [0.03, 0.1, 0.2, 0.5, 0.0]:
+            cut = None if vc == 0 else vc + MP ** 2
+            r = [rc_factor(Ebeam=EBEAM, Q2=Q2, W2=W2, t=t, phi=np.radians(20.0), sfmodel=sf,
+                           h=h, mx2_cut=cut, exponentiate=False) for h in (1, -1)]
+            pyv.append((r[0]["sigma_obs"] + r[1]["sigma_obs"]) / (r[0]["sigma_born"] + r[1]["sigma_born"]))
+        print(f"\n=== generator mode: Q2={Q2} W2={W2} t'={tp} (t={t:.4f})   v_max(fixed t) = {pt.vmax:.4f}")
+        print(f"    {'v interval':>14} {'independent':>12} {'exclurad_py':>12}")
+        names = ["0.03-0.1", "0.1-0.2", "0.2-0.5", "0.5-vmax"]
+        for i in range(4):
+            print(f"    {names[i]:>14} {ind[i]:12.5f} {pyv[i+1]-pyv[i]:12.5f}")
+        print(f"    {'total >0.03':>14} {sum(ind):12.5f} {pyv[-1]-pyv[0]:12.5f}")
+
+
 if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] == "generator":
+        generator_mode(int(sys.argv[2]) if len(sys.argv) > 2 else 16,
+                       sys.argv[3] if len(sys.argv) > 3 else "mid")
+        sys.exit()
     main(os.path.abspath(sys.argv[1]), int(sys.argv[2]) if len(sys.argv) > 2 else 16,
          sys.argv[3] if len(sys.argv) > 3 else "mid")
