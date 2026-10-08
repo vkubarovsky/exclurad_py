@@ -312,8 +312,134 @@ class Point:
         out = N * (sT * HT + sL * lLl)
         return np.where(ok, out, 0.0)
 
+
+    # -- the model's kinematic edge, and splitting the quadrature on it ------
+    def _model_on(self, tt, psi, beta, ex, ey, ez, Lam, v):
+        """Is the model non-zero at these (tt, psi) photon directions?
+
+        pi0/eta reject t' > 0 and t < t_max (_amplitude_fit2_vec: the
+        `tp < 0.0` and `t >= tmax` terms of `ok`), i.e. the forward and
+        backward kinematic edges, so sigma is EXACTLY ZERO on part of the
+        photon-angle domain -- a genuine step, not a cutoff to be smoothed.
+        The scan must out-resolve the THINNEST sliver, not the typical one:
+        measured 0.55 % of the tt range at v = 0.5 against a 96-node scan
+        spacing of 1.04 %, so slivers were being stepped over entirely and the
+        split silently did nothing there.  1024 nodes gives 0.10 %.
+
+        Gauss-Legendre straddling it gives O(1/N) error with scatter: at
+        v = 1.5 the result moved at the 1e-3 level with no trend as nps went
+        24 -> 768 and nt 80 -> 360.  So the panel boundaries are put ON the
+        step instead.
+        """
+        c = (1 - np.exp(tt)) / beta
+        sn = np.sqrt(np.clip(1 - c * c, 0, None))
+        n = (sn[..., None] * (np.cos(psi)[..., None] * ex
+                              + np.sin(psi)[..., None] * ey)
+             + c[..., None] * ez)
+        sh = n.shape[:-1]
+        n = n.reshape(-1, 3)
+        D = Lam[0] - n @ Lam[1:]
+        om = v / (2 * D)
+        k = np.concatenate([om[:, None], om[:, None] * n], axis=1)
+        qt = self.q[None] - k
+        Q2t = -dot(qt, qt)
+        W2t = dot(self.p[None] + qt, self.p[None] + qt)
+        sf = self.model(W2t, np.maximum(Q2t, 1e-9), np.full_like(W2t, self.tN))
+        return (np.ravel(sf["sT"]) != 0.0).reshape(sh)
+
+    def _edge_nodes(self, psi, beta, ex, ey, ez, Lam, v, nt, lo, hi, ncoarse=1024):
+        """Gauss-Legendre nodes in tt, per psi, with panels split on the edge.
+
+        Returns (nps, nt) node and weight arrays.  Where the model is on
+        throughout, this is the ordinary single-panel rule.
+        """
+        P = len(psi)
+        tc = np.linspace(lo, hi, ncoarse)
+        on = self._model_on(np.broadcast_to(tc, (P, ncoarse)),
+                            np.repeat(psi[:, None], ncoarse, axis=1),
+                            beta, ex, ey, ez, Lam, v)
+        bnds = []
+        for j in range(P):
+            o = on[j]
+            idx = np.where(o[1:] != o[:-1])[0]
+            b = []
+            for i in idx:                      # bisect each crossing
+                a_, c_ = tc[i], tc[i + 1]
+                for _ in range(60):
+                    mid = 0.5 * (a_ + c_)
+                    om_ = self._model_on(np.array([[mid]]), np.array([[psi[j]]]),
+                                         beta, ex, ey, ez, Lam, v)[0, 0]
+                    if om_ == o[i]:
+                        a_ = mid
+                    else:
+                        c_ = mid
+                b.append(0.5 * (a_ + c_))
+            bnds.append(b)
+        xg, wg = np.polynomial.legendre.leggauss(nt)
+        TT = np.empty((P, nt)); WT = np.empty((P, nt))
+        for j in range(P):
+            edges = [lo] + sorted(bnds[j]) + [hi]
+            npan = len(edges) - 1
+            per = max(nt // npan, 4)
+            tt_j, wt_j = [], []
+            for a_, b_ in zip(edges[:-1], edges[1:]):
+                x2, w2 = (xg, wg) if per == nt else \
+                    np.polynomial.legendre.leggauss(per)
+                tt_j.append(0.5 * (b_ - a_) * x2 + 0.5 * (b_ + a_))
+                wt_j.append(0.5 * (b_ - a_) * w2)
+            tt_j = np.concatenate(tt_j); wt_j = np.concatenate(wt_j)
+            if len(tt_j) < nt:                 # pad with zero-weight nodes
+                k = nt - len(tt_j)
+                tt_j = np.concatenate([tt_j, np.full(k, tt_j[-1])])
+                wt_j = np.concatenate([wt_j, np.zeros(k)])
+            TT[j], WT[j] = tt_j[:nt], wt_j[:nt]
+        return TT, WT
+
+
+    def _psi_panels(self, beta, ex, ey, ez, Lam, v, nps, lo, hi, ncoarse=256):
+        """Gauss-Legendre psi nodes with panels split on the off-patch edges.
+
+        The kinematically forbidden region is a LENS in (tt, psi), not a slab:
+        at v = 1.5 it spans psi 0.789-1.867 and covers at most 11.7 % of tt at
+        any one psi.  Splitting tt alone leaves the psi rule straddling the
+        two edges where the patch appears and disappears, which is why the
+        first attempt did not converge.  Both directions have to be split.
+        """
+        pc = np.linspace(0.0, 2 * np.pi, ncoarse)
+        tc = np.linspace(lo, hi, 512)
+        on = self._model_on(np.broadcast_to(tc, (ncoarse, 512)),
+                            np.repeat(pc[:, None], 512, axis=1),
+                            beta, ex, ey, ez, Lam, v)
+        has_off = ~on.all(axis=1)
+        if not has_off.any():
+            return None                      # no edge: caller keeps its rule
+        def _has_off(ps):
+            o = self._model_on(np.broadcast_to(tc, (1, 512)),
+                               np.full((1, 512), ps), beta, ex, ey, ez, Lam, v)
+            return not o.all()
+        cuts = []
+        idx = np.where(has_off[1:] != has_off[:-1])[0]
+        for i in idx:
+            a_, b_ = pc[i], pc[i + 1]
+            fa = has_off[i]
+            for _ in range(50):
+                mid = 0.5 * (a_ + b_)
+                if _has_off(mid) == fa:
+                    a_ = mid
+                else:
+                    b_ = mid
+            cuts.append(0.5 * (a_ + b_))
+        edges = [0.0] + sorted(cuts) + [2 * np.pi]
+        per = max(nps // (len(edges) - 1), 6)
+        xg, wg = np.polynomial.legendre.leggauss(per)
+        PSI, WPS = [], []
+        for a_, b_ in zip(edges[:-1], edges[1:]):
+            PSI.append(0.5 * (b_ - a_) * xg + 0.5 * (b_ + a_))
+            WPS.append(0.5 * (b_ - a_) * wg)
+        return np.concatenate(PSI), np.concatenate(WPS)
+
     # -- the tail at fixed v, integrated over the photon direction -----------
-    def dtail_dv(self, v, nt=160, nps=48):
+    def dtail_dv(self, v, nt=160, nps=48, split_edge=True):
         """d(eta)/dv, first order, at this v (photon angles integrated)."""
         W = self.W
         if self.mode == "target":
@@ -353,13 +479,30 @@ class Point:
             ex = np.cross(ez, tmp); ex /= np.linalg.norm(ex)
             ey = np.cross(ez, ex)
             lo, hi = np.log(1 - beta), np.log(1 + beta)
-            # nodes: tt = ln(1 - beta c) on [lo, hi]
-            tt = 0.5 * (hi - lo) * xg + 0.5 * (hi + lo)
-            wt = 0.5 * (hi - lo) * wg
-            c = (1 - np.exp(tt)) / beta
-            jac = np.exp(tt) / beta                         # |dc/dtt|
-            C, PS = np.meshgrid(c, psi, indexing="ij")
-            Wc = np.outer(wt * jac, np.full(nps, 2 * np.pi / nps))
+            # nodes: tt = ln(1 - beta c) on [lo, hi].  For pi0/eta the model
+            # has a genuine kinematic step inside this range, so the panels
+            # are split ON it (per psi); elsewhere this is the plain rule.
+            if self.model_name is not None and split_edge:
+                pp = self._psi_panels(beta, ex, ey, ez, Lam, v, nps, lo, hi)
+                if pp is None:
+                    psi_n = psi
+                    wpsi = np.full(len(psi), 2 * np.pi / nps)
+                else:
+                    psi_n, wpsi = pp
+                TT, WT = self._edge_nodes(psi_n, beta, ex, ey, ez, Lam, v, nt,
+                                          lo, hi)
+                C = (1 - np.exp(TT)) / beta                  # (P, nt)
+                jacTT = np.exp(TT) / beta
+                PS = np.repeat(psi_n[:, None], TT.shape[1], axis=1)
+                Wc = WT * jacTT * wpsi[:, None]
+                C, PS, Wc = C.T, PS.T, Wc.T                  # -> (nt, P)
+            else:
+                tt = 0.5 * (hi - lo) * xg + 0.5 * (hi + lo)
+                wt = 0.5 * (hi - lo) * wg
+                c = (1 - np.exp(tt)) / beta
+                jac = np.exp(tt) / beta                     # |dc/dtt|
+                C, PS = np.meshgrid(c, psi, indexing="ij")
+                Wc = np.outer(wt * jac, np.full(nps, 2 * np.pi / nps))
             S = np.sqrt(np.clip(1 - C * C, 0, None))
             n = (S[..., None] * (np.cos(PS)[..., None] * ex + np.sin(PS)[..., None] * ey)
                  + C[..., None] * ez).reshape(-1, 3)
