@@ -16,15 +16,32 @@ makes the two integrate the identical v window.
 """
 import numpy as np
 from exclurad_py import models
-from exclurad_py.validation.legacy import (excl_to_mesonrc, rc_over_points,
-                                       compare, format_comparison)
+from exclurad_py.validation.legacy import (rc_over_points, compare,
+                                           format_comparison)
 
 EBEAM, VCUT, M_ETA_EXCL = 5.75, 0.08, 0.5473
+M_P = 0.93827208816
 
 a = np.loadtxt("radcor_all.vec")
 Q2, xb, tabs, phid, delta_f = a[:, 0], a[:, 1], a[:, 2], a[:, 3], a[:, 5]
 tN, phi = -tabs, np.radians(phid)
-W2, tk, phik = excl_to_mesonrc(Q2, xb, tN, phi, M_ETA_EXCL)
+# DO NOT CALL excl_to_mesonrc HERE.  It predates t_kind and converts t to the
+# MESON side, which was right while baryon_detected took a meson-side t.
+# 72f8dc6 made baryon_detected select t_kind='target', which takes t_N
+# DIRECTLY -- so calling it converts TWICE and the comparison reads -7.99 %
+# instead of +0.20 %.  It stayed that way for eight weeks.  Crossing both t
+# inputs against all three t_kinds at vcut 0.08 (20 points, against the
+# Fortran column):
+#
+#     excl_to_mesonrc t + photon    +0.199 %     raw t_N + target    +0.198 %
+#     excl_to_mesonrc t + target    -7.992 %     raw t_N + cm_angle  +0.198 %
+#     excl_to_mesonrc t + cm_angle  -7.991 %     raw t_N + photon    -7.991 %
+#
+# CONSISTENT pairings agree; inconsistent ones are 8 % off.  The 8 % is
+# delta_inf via S' = 2 k1.Lam (0.425 against 7.630), because Lam is the Born
+# recoil that t_kind builds from whichever t it is given.
+W2 = Q2 * (1.0 / xb - 1.0) + M_P ** 2
+tk, phik = tN, phi
 
 rows = []
 for i in range(len(Q2)):

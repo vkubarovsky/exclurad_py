@@ -356,64 +356,65 @@ An intermediate matched-window comparison against EXCLURAD (both codes
 forced to v < 0.08) gave mean +0.199 %, rms 0.047 %; it lives in
 `validation/eta_matched/`.
 
-> **UNRESOLVED as of 2026-10-08. Do not quote +0.199 % as a pass, and do not
-> quote the explanations that were attached to it.**  What is measured:
+> **Broke 2026-08-12, found and fixed 2026-10-08. The driver converted t
+> twice; the physics was never wrong.**
 >
-> `72f8dc6` (12 Aug 10:51, "core: t_kind -- which invariant the t bin holds
-> fixed") is the first commit at which this driver stops reproducing its own
-> committed CSV (`d88f0ea`, recorded hours earlier the same day).  Bisected
-> over the 186 commits in `d88f0ea..8d28335`; forcing `t_kind` at HEAD
-> reproduces both numbers exactly, so nothing else moved it.  `72f8dc6` argues
-> `'target'` is the CORRECT convention for a t bin.
+> `excl_to_mesonrc` predates `t_kind`: it converts the published `t_N` to the
+> meson side, which was correct while `baryon_detected` took a meson-side t.
+> `72f8dc6` made `baryon_detected` select `t_kind='target'`, which takes `t_N`
+> DIRECTLY — and the driver was not updated. For eight weeks this comparison
+> read **-7.992 %, DISCREPANT**, and nobody ran it. Crossing both t inputs
+> against all three conventions, 20 points, against the Fortran:
 >
-> Sweeping vcut with the Fortran rerun at each point, all three conventions:
+> | t input | `photon` | `target` | `cm_angle` |
+> |---|---:|---:|---:|
+> | `excl_to_mesonrc` (converted) | **+0.199 %** | -7.992 % | -7.991 % |
+> | raw `t_N` | -7.991 % | **+0.198 %** | **+0.198 %** |
 >
-> | vcut | EXCLURAD | target | cm_angle | photon |
-> |---:|---:|---:|---:|---:|
-> | 0.02 | 0.8308 | -8.17 % | -8.17 % | **+0.00 %** |
-> | 0.05 | 0.8820 | -8.03 % | -8.03 % | **+0.16 %** |
-> | 0.08 | 0.9092 | -7.99 % | -7.99 % | **+0.20 %** |
-> | 0.12 | 0.9330 | -7.96 % | -7.96 % | -1.85 % |
-> | 0.17 | 0.9535 | -7.93 % | -7.92 % | -3.96 % |
-> | 0.20 | 0.9632 | -8.56 % | -7.91 % | -4.92 % |
-> | 0.50 | 1.0169 | -13.39 % | -7.75 % | -9.94 % |
+> CONSISTENT pairings agree; inconsistent ones are 8 % off. It was never a
+> question of which convention is right — `72f8dc6`'s `'target'` is right, and
+> `run_direct.py` (§3.2) and the full-grid drivers (§3.2b) were always
+> consistent, which is why they kept passing while this one did not.
 >
-> The 8 % is `delta_inf`, the soft-photon exponent, and nothing else: `d_VR`
-> agrees to 4e-4, `d_vac` is identical, `sigma_F/born` is identical and
-> negligible (and NEGATIVE on every path, see below).  `delta_VR_inf`
+> The 8 % is `delta_inf` alone: `d_VR` agrees to 4e-4, `d_vac` is identical,
+> `sigma_F/born` is identical and negligible. `delta_VR_inf`
 > (`core/virtual.py:77`) has `d_inf = (alpha/pi)(L_m-1) ln(v_m^2/(S'X'))` with
-> `S' = 2 k1.Lam`, `X' = 2 k2.Lam`, and `Lam` is the Born recoil that `t_kind`
-> constructs differently.  At point 0: `S'` 0.425 (photon) against 7.630
-> (target) while `X'` and `v_m` barely move, giving the measured `d_inf` ratio
-> 1.6568 to five digits.
+> `S' = 2 k1.Lam`; `Lam` is the Born recoil built from whichever t it is
+> handed, so `S'` moves 0.425 -> 7.630 while `X'` and `v_m` hold, giving the
+> measured `d_inf` ratio 1.6568 to five digits.
 >
-> **What is NOT explained.**  `'target'` and `'cm_angle'` are IDENTICAL here
-> below vcut 0.17 and both sit 8 % from the Fortran at every vcut; `'photon'`
-> -- the convention `72f8dc6` calls wrong -- is the one that agrees, and only
-> while its own kinematic limit (0.0862) does not bind.  Yet §3.2b has
-> `cm_angle` agreeing with the Fortran over 3104 + 1814 published bins.  Five
-> candidate explanations have been tested and all five fail:
+> **With the driver fixed the comparison passes at every vcut**, Fortran rerun
+> at each point:
 >
-> | hypothesis | killed by |
-> |---|---|
-> | `sigma_F` sign / tableB1 positivity | `sigma_F < 0` on BOTH paths, 20/20 points; it is -0.2 %, not 8 % |
-> | v integration bounds moved | `v_max` IDENTICAL across `72f8dc6`, 0.0793845 |
-> | the Fortran freezes `cosh`, so `cm_angle` is the path match | `cm_angle` lands on `target` (-7.991 %), not on agreement |
-> | the bin is in the documented `v_max(t) < v_cut` 10 % | kinematic limits are 0.086 / 0.179 / 3.530, all above the 0.08 cut |
-> | `cm_angle` converges at the published vcut 0.17-0.20, explaining §3.2b | it does not; flat at -7.9 % across the whole sweep |
+> | vcut | EXCLURAD | `target` | `cm_angle` |
+> |---:|---:|---:|---:|
+> | 0.02 | 0.8308 | -0.00 % | -0.00 % |
+> | 0.05 | 0.8820 | +0.16 % | +0.16 % |
+> | 0.08 | 0.9092 | +0.20 % | +0.20 % |
+> | 0.12 | 0.9330 | +0.24 % | +0.24 % |
+> | 0.17 | 0.9535 | +0.28 % | +0.28 % |
+> | 0.20 | 0.9632 | +0.30 % | +0.30 % |
+> | 0.30 | 0.9870 | +0.39 % | +0.39 % |
+> | 0.50 | 1.0169 | +0.51 % | +0.51 % |
 >
-> The bin is also not near `t_min`: `t_min = -0.0704` against bin
-> `t = -0.120`, i.e. 0.0496 outside the 0.02 window of §3.2c.
+> Monotone and sub-percent throughout, with no saturation. Driver fixed in
+> `run_matched.py`; sweep in `validation/eta_matched/scan_vcut.py`.
 >
-> So §3.2 and §3.2b are in genuine conflict at this bin and the cause is not
-> yet identified.  Driver and sweep: `validation/eta_matched/scan_vcut.py`.
+> **Two independent defects were surfaced by chasing this and are NOT part of
+> it.** (1) `eta.tableB1` violates `|sigma_TT| <= sigma_T` (1.72x below
+> W2~ = 2.0) and drives `sigma_F` negative on every convention — -0.2 % here,
+> but unphysical, and no production model does it (`eta.amp2614` 0.035,
+> `pi0.amp2609` 0.401, all positive). (2) The Fortran itself returns 2
+> non-finite points of 20 at `vcut = 0` and none at any binding cut, which is
+> the `sffun` `sqrt(<0)` failure the J/psi session found independently; the
+> Fortran cannot be the large-v reference for pi0/eta until that is guarded.
 >
-> Separately and independently, `eta.tableB1` violates `|sigma_TT| <= sigma_T`
-> (1.72x at worst, below W2~ = 2.0) and so drives `sigma_F` negative -- on
-> every path, including the agreeing one.  -0.2 % here, but unphysical, and it
-> makes tableB1 a poor reference regardless of how the above resolves.  No
-> production model violates it (`eta.amp2614` 0.035, `pi0.amp2609` 0.401, all
-> with positive `sigma_F`).
+> **The process lesson is the expensive one.** Five mechanisms were proposed
+> and refuted before the cause was found, by two sessions writing each other's
+> explanations into this file as fact between tests. The driver is a
+> standalone script, so no suite run would have caught the original breakage —
+> a short `run_matched.py` in `validation/selftest` would have gone red on
+> 12 August.
 
 ### 3.2b Full-grid validation, both channels — **PASSED**
 

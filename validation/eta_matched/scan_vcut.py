@@ -25,51 +25,20 @@ RESULT, 2026-10-08.  Two things, and the second is the important one.
    2.0 and at vcut = 0 (no cut).  The Fortran produces 2 non-finite points of
    20, at vcut = 0 only.  So the NaN question is clean on our side.
 
-2. THE +0.199 % PASS WAS UNDER A SUPERSEDED CONVENTION.  NOT A REGRESSION.
-   At the matched vcut = 0.08 this comparison gives -7.992 % today where the
-   committed CSV (d88f0ea, 2026-08-12) recorded +0.199 %.  The Fortran column
-   is BYTE-IDENTICAL to that CSV, so the move is entirely ours -- but it is
-   not a regression, and the first version of this docstring was wrong about
-   both the cause and the status.
+2. THE DRIVER CONVERTED t TWICE.  FOUND AND FIXED 2026-10-08.
+   `excl_to_mesonrc` predates t_kind and converts t_N to the meson side;
+   72f8dc6 made baryon_detected select t_kind='target', which takes t_N
+   directly.  The driver kept converting, so for eight weeks this read
+   -7.992 % instead of +0.198 %.  Crossing both t inputs with all three
+   conventions: consistent pairings give +0.198/+0.199 %, inconsistent ones
+   -7.99 %.  Not a convention question -- 'target' is correct, and 3.2/3.2b
+   kept passing because their drivers were always consistent.
 
-   Bisected by the Launch generator session over the 186 commits in
-   d88f0ea..8d28335: the first bad commit is 72f8dc6, "core: t_kind -- which
-   invariant the t bin holds fixed", 12 Aug 10:51, hours after the PASSED
-   number was recorded.  One line proves it is the convention and nothing
-   else -- forcing t_kind at today's HEAD, everything else current:
-
-       t_kind='target'   mean -7.992 %   eta[0] 0.84596
-       t_kind='photon'   mean +0.199 %   eta[0] 0.93077
-       the August CSV                    eta[0] 0.9308
-
-   The August value reproduces EXACTLY at HEAD.  And 72f8dc6 argues that
-   'target' is the CORRECT convention for a t bin, retracting an earlier
-   reported "4 % fixed-t effect" as having been this convention wrong.  So
-   the current code is right and the August pass is not a pass of it.
-
-   WHERE THE 8 % ACTUALLY LIVES: delta_inf, the soft-photon exponent.  NOT
-   sigma_F.  Decomposing point 0, eta = exp(d_inf)(1+d_VR+d_vac)+sigma_F/born:
-
-       t_kind    d_inf      d_VR     d_vac   exp*(1+..)  sigF/born      eta
-       target  -0.23974   0.04401   0.03387     0.84811   -0.00215   0.84596
-       photon  -0.14470   0.04442   0.03387     0.93303   -0.00226   0.93077
-
-   d_VR agrees to 4e-4, d_vac is identical, sigma_F/born is identical and
-   negligible.  The whole 0.0849 is exp(d_inf).  v_max is IDENTICAL across the
-   breaking commit, 0.0793845 both sides -- the mx2_cut binds, so the WINDOW
-   never moved and only the PATH did.  That also kills "the v integration
-   bounds moved" outright.
-
-   WHY THE TWO CODES CANNOT AGREE HERE.  In exclurad.F, `cosh` is assigned
-   once from the input at 177-183, sits in the /born/ common block and is
-   never reassigned, while qqtll and the tail routines use it with the RUNNING
-   eeh, pph (566-567, 695-696).  So EXCLURAD holds the CM HADRON ANGLE fixed
-   as v runs; 'target' holds t fixed, i.e. the proton's LAB energy, and lets
-   the angle move.  run_matched.py equalises the v RANGE, not the PATH.
-
-   WHAT IS NEEDED: a path-matched driver, i.e. exclurad_py integrating at
-   fixed hadron angle for the purpose of the comparison.  Window matching is
-   not enough and never was.
+   The 8 % is delta_inf alone, via S' = 2 k1.Lam moving 0.425 -> 7.630 while
+   X' and v_m hold (core/virtual.py:77); Lam is the Born recoil built from
+   whichever t it is handed.  Fixed, the sweep is monotone and sub-percent:
+   -0.00 % at vcut 0.02 rising to +0.51 % at 0.50, target and cm_angle
+   identical throughout.
 
 2b. A SEPARATE DEFECT OF THE REFERENCE MODEL: tableB1 violates positivity.
    Independent of the convention question and much smaller here.  Scanned down
@@ -178,8 +147,10 @@ def main():
             continue
         Q2, xb, tabs, phid, dF = a[:, 0], a[:, 1], a[:, 2], a[:, 3], a[:, 5]
         tN, phi = -tabs, np.radians(phid)
-        from exclurad_py.validation.legacy import excl_to_mesonrc
-        W2, tk, phik = excl_to_mesonrc(Q2, xb, tN, phi, M_ETA)
+        # raw t_N: t_kind='target' takes the NUCLEON transfer directly.
+        # excl_to_mesonrc would convert it a second time -- see run_matched.py.
+        W2 = Q2 * (1.0 / xb - 1.0) + 0.93827208816 ** 2
+        tk, phik = tN, phi
         etas, vmaxes = [], []
         for i in range(len(Q2)):
             sf = models.get("eta.tableB1", t_nucl=float(tN[i]))
