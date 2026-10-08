@@ -1503,16 +1503,35 @@ Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
 
             acc = self.cuts.get("iacc", "none")
             if acc != "none":
-                from .decay import in_acceptance, DECAY, decay_meson
+                from .decay import (in_acceptance, DECAY, decay_meson,
+                                    meson_slot)
                 dau = None
                 ch = self.sf.channel
+                # WHICH SLOT HOLDS THE MESON IS A PROPERTY OF THE TOPOLOGY,
+                # never of the slot's name.  Under baryon_detected the slots
+                # are SWAPPED -- ev["meson"] is the DETECTED NUCLEON and
+                # ev["recoil"] is the meson -- so reading ev["meson"] here
+                # decayed the PROTON (into e+e- for J/psi, into two photons
+                # for pi0/eta) and then applied the proton acceptance window
+                # to the meson.  run.py has gone through meson_slot since the
+                # neutron channels exposed the same thing; this block was
+                # written later and did not.  Reported by the J/psi
+                # electroproduction session, 2026-10-08, as the trap waiting
+                # for a vector channel switched to the proton-detected
+                # topology.
+                #
+                # No delivered sample is affected: every production card runs
+                # iacc = none, which skips this block entirely, and the decay
+                # then happens in run.py.
+                mslot = meson_slot(getattr(self.sf, "topology", None), ch)
+                bslot = "recoil" if mslot == "meson" else "meson"
                 if ch in DECAY:
                     # THE decay of this event: what is cut here is what is
                     # written.  run.py used to decay the meson a second time
                     # and overwrite these daughters, so the lepton cut acted
                     # on a decay that was thrown away -- 37% of written J/psi
                     # events had a lepton outside the window (2026-10-07).
-                    a, bq, gd = decay_meson(ch, ev["meson"], self.rng_decay,
+                    a, bq, gd = decay_meson(ch, ev[mslot], self.rng_decay,
                                             self.fsr)
                     if a is None:
                         self.n_cut_acc += 1
@@ -1520,7 +1539,9 @@ Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
                     ev["daughters"] = (a, bq)
                     ev["decay_photon"] = gd
                     dau = (a, bq)
-                if not in_acceptance(acc, ev["scattered"], ev["recoil"], dau)[0]:
+                # in_acceptance's third argument is matched against
+                # acc["proton"], so it must be the BARYON by role.
+                if not in_acceptance(acc, ev["scattered"], ev[bslot], dau)[0]:
                     self.n_cut_acc += 1
                     continue
             out.append(ev)
