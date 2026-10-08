@@ -30,13 +30,14 @@ from .base import StructureFunctions
 from .registry import register
 from ..core.constants import M_P, M_N, M_RHO, M_PHI, M_JPSI
 from ..core.kinematics import kallen
-from ..topology import meson_detected
+from ..topology import meson_detected, baryon_detected
 
 _MP = 0.938272          # value used in the ported Fortran
 
 _RHO_TOPO = meson_detected(M_RHO, meson="rho0")
 _PHI_TOPO = meson_detected(M_PHI, meson="phi")
 _JPSI_TOPO = meson_detected(M_JPSI, meson="J/psi")
+_JPSI_TOPO_PDET = baryon_detected(M_JPSI, meson="J/psi")
 _JPSIN_TOPO = meson_detected(M_JPSI, meson="J/psi", m_recoil=M_N, recoil="n")
 
 
@@ -362,3 +363,46 @@ class Rho_DiffradVM(StructureFunctions):
         sL = np.where(ok, self.AL * np.exp(self.bL * t) * xs / Q2 ** 2, 0.0)
         z = np.zeros_like(sT)
         return {"sT": sT, "sL": sL, "sTT": z, "sLT": z, "sLTp": z}
+
+
+@register
+class Jpsi_DiffradVM_Pdet(Jpsi_DiffradVM):
+    """jpsi.diffrad_vm in the PROTON-DETECTED bin.
+
+    Same structure functions as the parent; what changes is the bin:
+
+        detected   = the recoil proton   -> t = (p - p')^2 is held fixed
+        undetected = the J/psi           -> v = MX^2(e'p) - m_psi^2
+
+    At Born the two bins coincide -- (q - p_V)^2 = (p - p')^2 identically for
+    2 -> 2 -- so a card's t box carries over unchanged.  They part only for
+    radiative events, where the measured q is not the vertex q~, and that is
+    the whole point: in the proton bin t is built from the measured proton
+    alone and is therefore untouched by lepton radiation, while the
+    meson-side t computed from the measured lepton arm is displaced by
+    exactly v (measured, machine precision).
+
+    NO kf conversion.  ProtonDetectedModel exists for the pi0/eta fits, which
+    are in the Hand convention and need K_G/K_H at the model boundary; the
+    J/psi model is already in the core's |q|-flux convention, so inheriting
+    that base class would apply a conversion that does not belong here.
+    sigma_TT = sigma_LT = sigma_LT' = 0, so the lt_sign flip and phi_offset
+    pi of baryon_detected have no effect for this channel.
+
+    t_nucl is the OBSERVED nucleon transfer and is supplied per event by
+    Generator._set_event_t, exactly as for pi0/eta.  The `t` argument of
+    _sfs is the SHIFTED transfer inside the radiative integral and must not
+    be used -- see models/base.py and the rc_factor guard.
+    """
+    name = "jpsi.diffrad_vm_pdet"
+    topology = _JPSI_TOPO_PDET
+
+    def __init__(self, t_nucl=-0.30, **kw):
+        super().__init__(**kw)
+        if t_nucl > 0:
+            raise ValueError("t_nucl must be negative (spacelike)")
+        self.t_nucl = float(t_nucl)
+
+    def _sfs(self, W2, Q2, t):
+        tn = np.full_like(np.asarray(W2, dtype=float), self.t_nucl)
+        return super()._sfs(W2, Q2, tn)

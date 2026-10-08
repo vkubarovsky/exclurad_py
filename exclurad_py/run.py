@@ -69,12 +69,19 @@ def _cache_paths(d):
 def _needs_t_nucl(model_name):
     """True if the model is constructed with the bin's nucleon transfer.
 
-    Asked of the CLASS, not of a hardcoded channel list: pi0/eta off the
-    proton AND off the neutron (pi0n/etan) are all ProtonDetectedModel, and
-    a channel list silently missed the neutron ones when they were added.
+    Asked of the TOPOLOGY, not of a class or a channel list.  A hardcoded
+    channel list silently missed pi0n/etan when they were added; asking
+    `issubclass(..., ProtonDetectedModel)` then missed the proton-detected
+    VECTOR models, which deliberately do NOT inherit that base class -- it
+    carries the Hand-convention kf conversion the pi0/eta fits need and the
+    vector models must not have.  What actually decides it is
+    sf_t == FIXED_NUCLEON: the model is a function of t_N, which the core
+    kinematics does not build from the detected hadron, so the caller has to
+    supply it.
     """
-    from .models.base import ProtonDetectedModel
-    return issubclass(models.get_class(model_name), ProtonDetectedModel)
+    from .topology import FIXED_NUCLEON
+    topo = getattr(models.get_class(model_name), "topology", None)
+    return getattr(topo, "sf_t", None) == FIXED_NUCLEON
 
 
 def _outdir(cfg, date=None, version="v1"):
