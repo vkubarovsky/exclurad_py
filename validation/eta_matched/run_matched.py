@@ -16,15 +16,49 @@ makes the two integrate the identical v window.
 """
 import numpy as np
 from exclurad_py import models
-from exclurad_py.validation.legacy import (excl_to_mesonrc, rc_over_points,
-                                       compare, format_comparison)
+from exclurad_py.validation.legacy import (rc_over_points, compare,
+                                       format_comparison)
 
 EBEAM, VCUT, M_ETA_EXCL = 5.75, 0.08, 0.5473
+M_P = 0.93827208816
 
 a = np.loadtxt("radcor_all.vec")
 Q2, xb, tabs, phid, delta_f = a[:, 0], a[:, 1], a[:, 2], a[:, 3], a[:, 5]
 tN, phi = -tabs, np.radians(phid)
-W2, tk, phik = excl_to_mesonrc(Q2, xb, tN, phi, M_ETA_EXCL)
+
+# t IS PASSED STRAIGHT THROUGH.  Until 2026-10-08 this line read
+#     W2, tk, phik = excl_to_mesonrc(Q2, xb, tN, phi, M_ETA_EXCL)
+# and that converted t ONCE TOO OFTEN.  excl_to_mesonrc returns the MESON-side
+# transfer t_kin = (q - p')^2, and its docstring says why: "mesonrc's EventKin,
+# in the baryon_detected topology, is built from the DETECTED PROTON, so it
+# needs t_kin = (q - p')^2".  That was true until 72f8dc6 (2026-08-12) gave
+# `baryon_detected` t_kind="target", after which the topology takes t_N
+# directly -- and this driver was not updated.  So an already-converted t was
+# handed to a topology expecting the unconverted one.
+#
+# Measured against the Fortran column at vcut 0.08, 20 points, all six
+# combinations of t input and t_kind:
+#
+#     excl_to_mesonrc t + t_kind=photon     +0.199 %   consistent
+#     excl_to_mesonrc t + t_kind=target     -7.992 %   DOUBLE CONVERSION
+#     raw t_N           + t_kind=target     +0.198 %   consistent  <- this
+#     raw t_N           + t_kind=cm_angle   +0.198 %   consistent
+#     raw t_N           + t_kind=photon     -7.991 %   NO CONVERSION
+#
+# The 8 % was never a disagreement about which invariant is right: both
+# CONSISTENT pairings agree with EXCLURAD and both inconsistent ones fail by
+# the same amount.  'photon' appeared to be the one that worked only because
+# it is the correct partner of the conversion -- and it stops working as soon
+# as its own kinematic limit (0.0862 here) binds, which is why it agrees at
+# vcut 0.02-0.08 and walks away above.
+#
+# Over a Fortran vcut sweep with this fix, t_kind='target' throughout:
+#
+#     vcut   0.02   0.05   0.08   0.12   0.17   0.20   0.30   0.50
+#     diff  +0.01  +0.16  +0.20  +0.24  +0.28  +0.30  +0.39  +0.51  %
+#
+W2 = Q2 * (1.0 / xb - 1.0) + M_P * M_P
+tk, phik = tN, phi
 
 rows = []
 for i in range(len(Q2)):
