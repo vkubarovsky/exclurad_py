@@ -25,33 +25,76 @@ RESULT, 2026-10-08.  Two things, and the second is the important one.
    2.0 and at vcut = 0 (no cut).  The Fortran produces 2 non-finite points of
    20, at vcut = 0 only.  So the NaN question is clean on our side.
 
-2. THE ETA VALIDATION IS CURRENTLY BROKEN, AND REPORT.md SECTION 3.2 IS STALE.
-   At the matched vcut = 0.08 this comparison gave +0.199 % when the CSV was
-   committed (d88f0ea, 2026-08-12).  It now gives -7.992 %, verdict
-   DISCREPANT.  The Fortran column is BYTE-IDENTICAL to the committed CSV, so
-   the whole move is ours: every exclurad_py point is lower by 0.066-0.085.
+2. THE +0.199 % PASS WAS UNDER A SUPERSEDED CONVENTION.  NOT A REGRESSION.
+   At the matched vcut = 0.08 this comparison gives -7.992 % today where the
+   committed CSV (d88f0ea, 2026-08-12) recorded +0.199 %.  The Fortran column
+   is BYTE-IDENTICAL to that CSV, so the move is entirely ours -- but it is
+   not a regression, and the first version of this docstring was wrong about
+   both the cause and the status.
 
-   CAUSE: `eta.tableB1` violates positivity at low W2~ and drives sigma_F
-   NEGATIVE.  Scanned down in W2~ at Q2 = 1.15, t_nucl = -0.12 -- the path the
-   radiative integral takes -- sigma_TT and sigma_LT are exactly -0 between
-   W2~ = 2.5 and 4.0, then jump to large negative values below 2.0:
+   Bisected by the Launch generator session over the 186 commits in
+   d88f0ea..8d28335: the first bad commit is 72f8dc6, "core: t_kind -- which
+   invariant the t bin holds fixed", 12 Aug 10:51, hours after the PASSED
+   number was recorded.  One line proves it is the convention and nothing
+   else -- forcing t_kind at today's HEAD, everything else current:
+
+       t_kind='target'   mean -7.992 %   eta[0] 0.84596
+       t_kind='photon'   mean +0.199 %   eta[0] 0.93077
+       the August CSV                    eta[0] 0.9308
+
+   The August value reproduces EXACTLY at HEAD.  And 72f8dc6 argues that
+   'target' is the CORRECT convention for a t bin, retracting an earlier
+   reported "4 % fixed-t effect" as having been this convention wrong.  So
+   the current code is right and the August pass is not a pass of it.
+
+   WHERE THE 8 % ACTUALLY LIVES: delta_inf, the soft-photon exponent.  NOT
+   sigma_F.  Decomposing point 0, eta = exp(d_inf)(1+d_VR+d_vac)+sigma_F/born:
+
+       t_kind    d_inf      d_VR     d_vac   exp*(1+..)  sigF/born      eta
+       target  -0.23974   0.04401   0.03387     0.84811   -0.00215   0.84596
+       photon  -0.14470   0.04442   0.03387     0.93303   -0.00226   0.93077
+
+   d_VR agrees to 4e-4, d_vac is identical, sigma_F/born is identical and
+   negligible.  The whole 0.0849 is exp(d_inf).  v_max is IDENTICAL across the
+   breaking commit, 0.0793845 both sides -- the mx2_cut binds, so the WINDOW
+   never moved and only the PATH did.  That also kills "the v integration
+   bounds moved" outright.
+
+   WHY THE TWO CODES CANNOT AGREE HERE.  In exclurad.F, `cosh` is assigned
+   once from the input at 177-183, sits in the /born/ common block and is
+   never reassigned, while qqtll and the tail routines use it with the RUNNING
+   eeh, pph (566-567, 695-696).  So EXCLURAD holds the CM HADRON ANGLE fixed
+   as v runs; 'target' holds t fixed, i.e. the proton's LAB energy, and lets
+   the angle move.  run_matched.py equalises the v RANGE, not the PATH.
+
+   WHAT IS NEEDED: a path-matched driver, i.e. exclurad_py integrating at
+   fixed hadron angle for the purpose of the comparison.  Window matching is
+   not enough and never was.
+
+2b. A SEPARATE DEFECT OF THE REFERENCE MODEL: tableB1 violates positivity.
+   Independent of the convention question and much smaller here.  Scanned down
+   in W2~ at Q2 = 1.15, t_nucl = -0.12, sigma_TT and sigma_LT are exactly -0
+   between W2~ 2.5 and 4.0 and large negative below 2.0:
 
        W2~     sT      sL      sTT      sLT     |sTT|/sT
        4.00   56.4   440.7      -0       -0
-       2.50   83.5   651.9      -0       -0
        2.00  109.8   857.7  -177.9   -50.41       1.62
        1.50  181.2  1415.0  -305.4   -83.16       1.69
        1.30     --      --      --       --       1.72   (worst)
 
-   |sigma_TT| > sigma_T makes sigma_T + eps*sigma_TT*cos(2phi) negative at some
-   phi, so the Born cross section goes negative inside the photon phase space
-   and sigma_F comes out negative: -4.5e-06 against a Born of 2.1e-03.  eta is
-   then just the virtual-plus-soft factor exp(d_inf)(1+d_VR+d_vac) = 0.848,
-   which is the whole 8 %.  The model's declared validity is
-   W2 (1.15, 20.0), so the pathological region is INSIDE the window it claims.
+   |sigma_TT| > sigma_T makes sigma_T + eps*sigma_TT*cos(2phi) negative at
+   some phi, so the Born cross section goes negative inside the photon phase
+   space and sigma_F comes out NEGATIVE.  Its declared validity is
+   W2 (1.15, 20.0), so it is pathological inside the window it claims.
 
-   NO PRODUCTION MODEL IS AFFECTED, and this is the reason not to panic.
-   Worst |sigma_TT|/sigma_T on the same scan, with sigma_F's sign:
+   BUT sigma_F is negative on BOTH paths, 20/20 points each (-4.53e-06 on
+   'target', -4.77e-06 on 'photon'), i.e. also on the path that AGREES with
+   the Fortran.  It is -0.2 % of Born, not 8 %.  An earlier version of this
+   docstring claimed sigma_F's sign was the cause of the 8 %; it is not, and
+   the two findings are independent rather than composed.
+
+   NO PRODUCTION MODEL IS AFFECTED.  Worst |sigma_TT|/sigma_T with sigma_F's
+   sign at a production point:
 
        eta.tableB1     1.718   sigma_F -4.3e-05   <-- the only violator
        eta.amp2609     0.007   sigma_F +6.6e-04
@@ -60,16 +103,10 @@ RESULT, 2026-10-08.  Two things, and the second is the important one.
        pi0.amp2609     0.401   sigma_F +9.1e-03
        pi0.amp2614     0.409   sigma_F +1.3e-02
 
-   `eta.tableB1` is the frozen Table-B.1 reference used ONLY by this
-   validation; it is not a production model and no campaign uses it.  So the
-   defect is in the reference, not in the RC engine.
-
-   STILL OPEN: it passed on 2026-08-12 and fails now, with the Fortran
-   unchanged, so either the table interpolation moved or the v integration
-   bounds did and the integral now reaches W2~ it did not before.  25
-   core/model commits sit in between; `67f74f0` ("lo was shadowing the log-v
-   bound") and `8d28335` (quadrature 20,12,16,12) are the candidates to bisect
-   first.  Do not edit either code to make them agree -- quantify and report.
+   tableB1 is the frozen Table-B.1 reference this validation uses and nothing
+   else.  Taken with the convention result: it is a poor reference for a
+   t-binned radiative correction, because it is unphysical at the W2~ the
+   integral reaches on ANY path.
 
 3. WHERE THE TWO DEFINITIONS PART COMPANY, which is what the sweep was for.
    exclurad_py's eta stops moving above vcut ~ 0.15 because v_max(t) binds,
@@ -83,9 +120,9 @@ RESULT, 2026-10-08.  Two things, and the second is the important one.
        2.00      1.0855   0.8807   -18.85 %
        0 (none)  1.0942   0.8807   -19.61 %
 
-   Below 0.15 the residual is flat at -8.0 %, which is the sigma_F defect
-   alone; above it the growth is the bin definition on top.  That flatness is
-   what says the two effects are separable.
+   Below 0.15 the residual is flat at -8.0 %, which is the convention alone;
+   above it the growth is the v-range mismatch on top.  That flatness is what
+   says the two effects are separable.
 
 NOTE a second, smaller inconsistency found on the way: `rc_over_points` in
 validation/legacy.py computes its reported v_max_kin WITHOUT passing t_kind,

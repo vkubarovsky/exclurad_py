@@ -353,10 +353,45 @@ does matter and was the actual bug.  `"cm_angle"` is retained only as a
 verification of EXCLURAD's convention.
 
 An intermediate matched-window comparison against EXCLURAD (both codes
-forced to v < 0.08, where the conventions nearly coincide) gave mean
-+0.199 %, rms 0.047 %, and remains valid as a check of the RC machinery
-alone; it lives in `validation/eta_matched/`.  It is superseded by the
-direct comparison above.
+forced to v < 0.08) gave mean +0.199 %, rms 0.047 %; it lives in
+`validation/eta_matched/`.
+
+> **That +0.199 % was obtained under the superseded `t_kind='photon'`
+> convention and is NOT a pass of the current code** (noted 2026-10-08).
+> It was recorded on 2026-08-12 in `d88f0ea`; `72f8dc6` later the same day
+> ("core: t_kind -- which invariant the t bin holds fixed") made `'target'`
+> the convention for a t bin, which that commit argues is correct and which
+> retracted an earlier "4 % fixed-t effect" as having been this convention
+> wrong.  The driver run today gives **-7.992 %, DISCREPANT**.  Bisected over
+> the 186 commits in `d88f0ea..8d28335`; forcing `t_kind` at HEAD reproduces
+> both numbers exactly, so nothing else moved it:
+>
+> | t_kind | mean | eta[0] |
+> |---|---:|---:|
+> | `'target'` (current) | -7.992 % | 0.84596 |
+> | `'photon'` (superseded) | +0.199 % | 0.93077 |
+> | the August CSV | | 0.9308 |
+>
+> The 8 % is entirely `delta_inf`, the soft-photon exponent: -0.2397 against
+> -0.1447, with `delta_VR` agreeing to 4e-4, `delta_vac` identical and
+> `sigma_F/born` identical and negligible.  `v_max` is IDENTICAL across the
+> breaking commit (0.0793845), so the WINDOW never moved and only the PATH
+> did.  In `exclurad.F`, `cosh` is assigned once at 177-183 and never
+> reassigned while the tail routines use it with the running `eeh`/`pph`
+> (566-567, 695-696): EXCLURAD holds the CM HADRON ANGLE fixed as v runs,
+> `'target'` holds t fixed and lets the angle move.  `run_matched.py`
+> equalises the v RANGE, not the PATH.
+>
+> **To make this validation mean anything again it needs a path-matched
+> driver** -- exclurad_py integrating at fixed hadron angle for the purpose
+> of the comparison.  Window matching is not enough and never was.
+>
+> Separately, `eta.tableB1` violates `|sigma_TT| <= sigma_T` (1.72x at worst,
+> below W2~ = 2.0) and so drives `sigma_F` negative -- on BOTH paths, 20/20
+> points, i.e. also on the one that agrees with the Fortran.  That is -0.2 %
+> here, not the 8 %, and it is an independent defect of the reference model.
+> No production model violates it (`eta.amp2614` 0.035, `pi0.amp2609` 0.401,
+> all with positive `sigma_F`).  See `validation/eta_matched/scan_vcut.py`.
 
 ### 3.2b Full-grid validation, both channels — **PASSED**
 
