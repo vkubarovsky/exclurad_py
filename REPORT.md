@@ -356,42 +356,64 @@ An intermediate matched-window comparison against EXCLURAD (both codes
 forced to v < 0.08) gave mean +0.199 %, rms 0.047 %; it lives in
 `validation/eta_matched/`.
 
-> **That +0.199 % was obtained under the superseded `t_kind='photon'`
-> convention and is NOT a pass of the current code** (noted 2026-10-08).
-> It was recorded on 2026-08-12 in `d88f0ea`; `72f8dc6` later the same day
-> ("core: t_kind -- which invariant the t bin holds fixed") made `'target'`
-> the convention for a t bin, which that commit argues is correct and which
-> retracted an earlier "4 % fixed-t effect" as having been this convention
-> wrong.  The driver run today gives **-7.992 %, DISCREPANT**.  Bisected over
-> the 186 commits in `d88f0ea..8d28335`; forcing `t_kind` at HEAD reproduces
-> both numbers exactly, so nothing else moved it:
+> **UNRESOLVED as of 2026-10-08. Do not quote +0.199 % as a pass, and do not
+> quote the explanations that were attached to it.**  What is measured:
 >
-> | t_kind | mean | eta[0] |
-> |---|---:|---:|
-> | `'target'` (current) | -7.992 % | 0.84596 |
-> | `'photon'` (superseded) | +0.199 % | 0.93077 |
-> | the August CSV | | 0.9308 |
+> `72f8dc6` (12 Aug 10:51, "core: t_kind -- which invariant the t bin holds
+> fixed") is the first commit at which this driver stops reproducing its own
+> committed CSV (`d88f0ea`, recorded hours earlier the same day).  Bisected
+> over the 186 commits in `d88f0ea..8d28335`; forcing `t_kind` at HEAD
+> reproduces both numbers exactly, so nothing else moved it.  `72f8dc6` argues
+> `'target'` is the CORRECT convention for a t bin.
 >
-> The 8 % is entirely `delta_inf`, the soft-photon exponent: -0.2397 against
-> -0.1447, with `delta_VR` agreeing to 4e-4, `delta_vac` identical and
-> `sigma_F/born` identical and negligible.  `v_max` is IDENTICAL across the
-> breaking commit (0.0793845), so the WINDOW never moved and only the PATH
-> did.  In `exclurad.F`, `cosh` is assigned once at 177-183 and never
-> reassigned while the tail routines use it with the running `eeh`/`pph`
-> (566-567, 695-696): EXCLURAD holds the CM HADRON ANGLE fixed as v runs,
-> `'target'` holds t fixed and lets the angle move.  `run_matched.py`
-> equalises the v RANGE, not the PATH.
+> Sweeping vcut with the Fortran rerun at each point, all three conventions:
 >
-> **To make this validation mean anything again it needs a path-matched
-> driver** -- exclurad_py integrating at fixed hadron angle for the purpose
-> of the comparison.  Window matching is not enough and never was.
+> | vcut | EXCLURAD | target | cm_angle | photon |
+> |---:|---:|---:|---:|---:|
+> | 0.02 | 0.8308 | -8.17 % | -8.17 % | **+0.00 %** |
+> | 0.05 | 0.8820 | -8.03 % | -8.03 % | **+0.16 %** |
+> | 0.08 | 0.9092 | -7.99 % | -7.99 % | **+0.20 %** |
+> | 0.12 | 0.9330 | -7.96 % | -7.96 % | -1.85 % |
+> | 0.17 | 0.9535 | -7.93 % | -7.92 % | -3.96 % |
+> | 0.20 | 0.9632 | -8.56 % | -7.91 % | -4.92 % |
+> | 0.50 | 1.0169 | -13.39 % | -7.75 % | -9.94 % |
 >
-> Separately, `eta.tableB1` violates `|sigma_TT| <= sigma_T` (1.72x at worst,
-> below W2~ = 2.0) and so drives `sigma_F` negative -- on BOTH paths, 20/20
-> points, i.e. also on the one that agrees with the Fortran.  That is -0.2 %
-> here, not the 8 %, and it is an independent defect of the reference model.
-> No production model violates it (`eta.amp2614` 0.035, `pi0.amp2609` 0.401,
-> all with positive `sigma_F`).  See `validation/eta_matched/scan_vcut.py`.
+> The 8 % is `delta_inf`, the soft-photon exponent, and nothing else: `d_VR`
+> agrees to 4e-4, `d_vac` is identical, `sigma_F/born` is identical and
+> negligible (and NEGATIVE on every path, see below).  `delta_VR_inf`
+> (`core/virtual.py:77`) has `d_inf = (alpha/pi)(L_m-1) ln(v_m^2/(S'X'))` with
+> `S' = 2 k1.Lam`, `X' = 2 k2.Lam`, and `Lam` is the Born recoil that `t_kind`
+> constructs differently.  At point 0: `S'` 0.425 (photon) against 7.630
+> (target) while `X'` and `v_m` barely move, giving the measured `d_inf` ratio
+> 1.6568 to five digits.
+>
+> **What is NOT explained.**  `'target'` and `'cm_angle'` are IDENTICAL here
+> below vcut 0.17 and both sit 8 % from the Fortran at every vcut; `'photon'`
+> -- the convention `72f8dc6` calls wrong -- is the one that agrees, and only
+> while its own kinematic limit (0.0862) does not bind.  Yet §3.2b has
+> `cm_angle` agreeing with the Fortran over 3104 + 1814 published bins.  Five
+> candidate explanations have been tested and all five fail:
+>
+> | hypothesis | killed by |
+> |---|---|
+> | `sigma_F` sign / tableB1 positivity | `sigma_F < 0` on BOTH paths, 20/20 points; it is -0.2 %, not 8 % |
+> | v integration bounds moved | `v_max` IDENTICAL across `72f8dc6`, 0.0793845 |
+> | the Fortran freezes `cosh`, so `cm_angle` is the path match | `cm_angle` lands on `target` (-7.991 %), not on agreement |
+> | the bin is in the documented `v_max(t) < v_cut` 10 % | kinematic limits are 0.086 / 0.179 / 3.530, all above the 0.08 cut |
+> | `cm_angle` converges at the published vcut 0.17-0.20, explaining §3.2b | it does not; flat at -7.9 % across the whole sweep |
+>
+> The bin is also not near `t_min`: `t_min = -0.0704` against bin
+> `t = -0.120`, i.e. 0.0496 outside the 0.02 window of §3.2c.
+>
+> So §3.2 and §3.2b are in genuine conflict at this bin and the cause is not
+> yet identified.  Driver and sweep: `validation/eta_matched/scan_vcut.py`.
+>
+> Separately and independently, `eta.tableB1` violates `|sigma_TT| <= sigma_T`
+> (1.72x at worst, below W2~ = 2.0) and so drives `sigma_F` negative -- on
+> every path, including the agreeing one.  -0.2 % here, but unphysical, and it
+> makes tableB1 a poor reference regardless of how the above resolves.  No
+> production model violates it (`eta.amp2614` 0.035, `pi0.amp2609` 0.401, all
+> with positive `sigma_F`).
 
 ### 3.2b Full-grid validation, both channels — **PASSED**
 
