@@ -182,6 +182,27 @@ def run_parallel(card_path, jobs, date=None, verbose=True):
         for r in res:
             if r["health"]:
                 print("  ", os.path.basename(r["lund"]), "->", "; ".join(r["health"]))
+        # THE SAME SUMMARY THE SERIAL PATH PRINTS, SUMMED OVER PARTS.  Until
+        # 2026-10-09 this loop printed only parts that had something to say,
+        # so a clean parallel run ended with an event count and nothing else
+        # -- no "health: clean", no stage-2 count, no word on which sampler
+        # ran.  I spent the day before closing exactly that hole in the
+        # serial path and left it open here, which is how three runs of my
+        # own finished with no health line at all and a waiter that could
+        # never fire.
+        nb = sum((r["report"].get("b_viol", 0) or 0) for r in res)
+        na = sum((r["report"].get("accepted", 0) or 0) for r in res)
+        a2 = sum((r["report"].get("accept2", 0) or 0) for r in res)
+        bad = sum(1 for r in res if r["health"])
+        if a2 > 0:
+            tail = (f"| stage-2 b_viol {nb}/{na}"
+                    + (f" max x{max((r['report'].get('max_b_viol', 0.0) or 0.0) for r in res):.2f}"
+                       if nb else ""))
+        else:
+            tail = ("| stage 2 DID NOT RUN (EXACT_ACCEPT unset or born only); "
+                    "photon density may be from the CELL-BASED sampler")
+        print(" health:", f"{bad} of {len(res)} parts had something to say"
+              if bad else "clean in all parts", tail)
     return res
 
 
