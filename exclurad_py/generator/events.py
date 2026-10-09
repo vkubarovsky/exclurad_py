@@ -251,7 +251,25 @@ class Generator:
             if sfmodel.channel not in LEPTONIC:
                 raise ValueError(f"decay radiation (idecay 2) is defined for "
                                  f"{LEPTONIC}, not {sfmodel.channel!r}")
-            self.fsr = DecayFSR(meson_mass(sfmodel))   # the MESON, not the detected hadron
+            # The decay radiator must be the MESON.  sfmodel.mV is the
+            # DETECTED hadron -- the proton under baryon_detected, the bin
+            # the vector cards use since 2026-10-09 -- and building from it
+            # gave M(ee) < 3.0 GeV in 6.4 % of decays instead of 14.7 %.
+            # meson_mass() takes it by role.  The assertion is the guard the
+            # Launch-generator session put on production (97cfdc3) while this
+            # fix was prepared, kept as an independent check: it derives the
+            # meson's mass from the topology a second way.
+            _topo = getattr(sfmodel, "topology", None)
+            _meson_is_missing = getattr(_topo, "missing", "") not in ("p", "n")
+            _m_meson = (getattr(_topo, "m_missing", None) if _meson_is_missing
+                        else getattr(_topo, "m_detected", None))
+            m_rad = meson_mass(sfmodel)
+            if _m_meson is not None and abs(m_rad - float(_m_meson)) > 1e-6:
+                raise ValueError(
+                    f"idecay = 2: decay radiator mass {m_rad:.6g} GeV is not the "
+                    f"meson's ({float(_m_meson):.6g} GeV) in the "
+                    f"{getattr(_topo, 'name', '?')} topology")
+            self.fsr = DecayFSR(m_rad)
         # MAJ_SHAPE / MAJ_SAFETY override the defaults, because one setting
         # does not fit every channel.  J/psi sits against a kinematic
         # boundary that moves fast with W2, so its majorant cells straddle
