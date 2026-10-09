@@ -24,9 +24,18 @@ jpsi.diffrad_vm_pdet                    ! model  <channel>.<vintage>   (--models
 10.6                               ! ebeam (GeV)
 10000                              ! nev
 0                                  ! iborn   1 = Born only, 0 = full RC
-16.40 20.80                        ! W2 range (GeV^2); threshold (M+mJ)^2 = 16.283
+16.29 20.80                        ! W2 range (GeV^2).  LOWERED 16.40 -> 16.29 (VPK note 09.10, Sec. 5
+!   field 5): 16.40 corresponds to E_gamma = 8.270 and the threshold is 16.283
+!   (E_gamma 8.208), so the band 8.21-8.27 GeV -- the near-threshold physics --
+!   was not generated at all.
 0.001 0.25                         ! Q2 range (GeV^2) -- quasi-real photoproduction
--7.00 -0.45                        ! t = (p-p')^2 from the MEASURED proton (t_kind=target, VPK 08.10). Box carries over: at Born (q-p_V)^2 = (p-p')^2 identically (GeV^2, both negative).  |t|min по всей коробке 0.4513
+-7.00 -0.30                        ! t = (p-p')^2 from the MEASURED proton (t_kind=target, VPK 08.10).
+!   The box carried over unchanged from the meson bin because at Born
+!   (q - p_V)^2 = (p - p')^2 identically.  |t|min WIDENED 0.45 -> 0.30 (note
+!   09.10, Sec. 5 field 7): the data reach |t| = 0.4065, below the old floor,
+!   and the t resolution is 0.047 GeV^2, so migration from below is real.
+!   Field 1 is confirmed by that note's Table 14: the proton t estimator has
+!   RMS 0.047 against 0.230 for the J/psi one, 5-6x more accurate.
 0.0                                ! vcut   MX^2(e'p) - m_V^2 now -- the missing system is the MESON in this bin (GeV^2);  0 = no cut (kinematic limit) -- cut offline
 -0.30                              ! t_nucl  (GeV^2) for pi0/eta models; ignored for vector mesons
 0                                  ! ihel    +1, -1, or 0 = helicity-averaged
@@ -38,12 +47,26 @@ jpsi.diffrad_vm_pdet                    ! model  <channel>.<vintage>   (--models
 !   is never used.  It used to read /Volumes/wd_14tb/... -- one Mac's external
 !   disk, in a card shared through git -- and anyone running the card directly
 !   on Linux got PermissionError from os.makedirs before anything else happened.
-0.79 0.99                          ! y range  (nu/E)   -- match the reference generator's cut
+0.76 0.99                          ! y range (nu/E).  LOWER EDGE 0.79 -> 0.76 (note 09.10, Sec. 5 field
+!   14): the data reach y = 0.7646, so 0.79 sat exactly ON the data edge.
+!   E'_max rises 2.23 -> 2.54 GeV.  The UPPER edge stays at 0.99: an earlier
+!   proposal to cut E' from below for CPU is retracted in Sec. 7 of that note
+!   -- the data PEAK in the lowest E' bin and 43.2 % of them have
+!   E' < 0.5 GeV.
 0.00001 0.016                      ! xB range          -- match the reference generator's cut
 jpsi                               ! iacc    acceptance preset: none | jpsi  (|p|,theta on e',p',daughters)
 1.0d-4                             ! vmin    soft/hard split (GeV^2); 0 = auto.  exclugen uses 1.0d-4
 1                                  ! itarg   1 = pre-vertex external radiator (target straggling)
--7.5 -2.5                          ! vertex z range, cm -- the 5 cm LH2 cell
+-5.5 -0.5                          ! vertex z range, cm -- the RG-A F18 nominal cell.  WAS -7.5 -2.5,
+!   a 2 cm offset from the data we compare against (note 09.10, Sec. 5 field
+!   19).  The generator DOES write vz per event into the LUND (verified in the
+!   files, last column, varying inside the window), so a vz = 0.000 seen in
+!   MC::Lund is lost downstream, in the HIPO conversion or GEMC, not here.
 0.0                                ! ptarg   unpolarised target
 none                               ! fermi   free proton
-2.0 5.5                            ! theta_e  scattered electron 2.0-5.5 deg: Forward Tagger only (VPK 08.10)
+2.0 9.0                            ! theta_e  scattered electron, degrees -- Forward Tagger.  WIDENED
+!   5.5 -> 9.0 (note 09.10, Sec. 5 field 22, "the most consequential field"):
+!   the data reach theta(e') = 7.72 deg in the J/psi window and 7.77 before
+!   the mass cut, so 5.5-7.8 had ZERO acceptance for events that exist.  The
+!   samples 11589/11590 were themselves generated to 18.35 deg, so 5.5 was a
+!   regression against what made them.

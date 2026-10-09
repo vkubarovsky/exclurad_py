@@ -146,7 +146,12 @@ def p_theta(p4):
 # (input_jpsi_{born,rc}_100k.txt).  phi/rho cards impose no |p|/theta cuts.
 ACCEPTANCE = {
     "jpsi": dict(electron=(0.1, 2.5, 2.0, 20.0),
-                 proton=(0.4, 4.5, 5.0, 30.0),
+                 # 2026-10-09, from the CLAS12 data edges (VPK's validation
+                 # note, Tables 2 and 9): the data reach theta(p) = 30.3 deg
+                 # and p(p) = 0.65 GeV, so a 5-30 deg window had zero
+                 # acceptance for 6.3 % of them.  3-45 deg and 0.2 GeV clear
+                 # the measured edge with margin for resolution.
+                 proton=(0.2, 4.5, 3.0, 45.0),
                  daughter=(1.0, 9.0, 5.0, 40.0)),
 }
 
