@@ -20,7 +20,20 @@ pi0n.amp2609                       ! model  pi0 off the neutron, same vintage as
 100000                             ! nev
 0                                  ! iborn  0 = full RC (RADIATIVE)
 3.24 16.00                         ! W2 range (GeV^2): W 1.8 - 4.0; nothing is accepted above W = 3.95
-0.80 10.00                         ! Q2 range (GeV^2): outbending acceptance reaches the aao edge 0.9; amp2609 extrapolates below 1.15 and reports
+0.80 10.00                         ! Q2 range (GeV^2).  THE FLOOR IS A DELIBERATE CHOICE, VPK 2026-10-09.
+!   The model declares validity Q2 = (1.15, 8.31), so the floor of 0.80 puts
+!   HALF THE SAMPLE OUTSIDE THE FIT: measured per event on the 2026-09-28
+!   reference campaign, 47.5 % of born and 49.1 % of rad events have
+!   Q2 < 1.15, against 4.0 % above |t| = 1.8 and 0.02 % above W2 = 16.  The
+!   model's own counter agrees -- sf_usage.out_of_range_frac is 0.55-0.59 in
+!   every .info sidecar.  out_of_range is REPORT, so those points are genuine
+!   EXTRAPOLATION, not clamped to the boundary.
+!   It is kept because the outbending acceptance reaches down to ~0.9 and
+!   raising the floor to 1.15 would throw away a region where the detector
+!   works.  The same edge sets the kinematic floor of theta_e at 5.273 deg
+!   (so the card's theta_e = 5.0 cuts nothing) and puts 8.3 % of born and
+!   17.0 % of rad events below the fit's lowest xB point, 0.128.
+!   SAY THIS IN ANY NOTE THAT USES THE SAMPLE.
 -2.00 -0.001                       ! t range (GeV^2): narrowed from -5.0 on 2026-09-25.  Igor's CLAS12 pi0 grid spans |t| = 0.125-1.758 with NOTHING above 2.0 in 6192 points, and amp2609's validity ends at |t| = 1.8, so the -5.0 box spent statistics where there is neither data nor a model.
 0                                  ! vcut  0 = no missing-mass cut; the MX^2 cut is an analysis cut, apply it offline
 -0.30                              ! t_nucl (GeV^2) for the pi0/eta models

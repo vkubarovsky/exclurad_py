@@ -303,10 +303,14 @@ lowers the Q2 floor below 0.80 to chase outbending acceptance, and no check in
 the code would say so.
 
 So the box's Q2 floor of 0.80 is where half the sample lives relative to the
-model, not the `t` ceiling of 2.50 that looks like the aggressive edge. That
-is a deliberate choice -- outbending acceptance reaches down to ~0.9 -- but it
-is a choice to re-make before a 100 M run, not a detail. The t-SHAPE out there
-is not pathological: the generated \|t\| spectrum below Q2 = 1 has
+model, not the `t` ceiling of 2.50 that looks like the aggressive edge.
+**Re-made and CONFIRMED by VPK on 2026-10-09: the floor stays at 0.80**,
+because the outbending acceptance reaches down to ~0.9 and raising it to
+1.15 would discard a region where the detector works. The cost is stated
+rather than discovered: half the sample is the model's extrapolation, and
+any note that uses the sample says so. REPORT.md section 4.0, and the
+comment in all 19 cards that carry the box. The t-SHAPE out there is not
+pathological: the generated \|t\| spectrum below Q2 = 1 has
 b = 1.3-1.95 GeV^-2 over windows from 0.10 to 1.20, which is the range
 measured in photoproduction.
 

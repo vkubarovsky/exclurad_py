@@ -484,6 +484,42 @@ the project name.
 
 Listed plainly because these are what would bite.
 
+0. **Half the RG-A sample is outside the model's declared validity, and that
+   is a decision, not an oversight (VPK, 2026-10-09).** The pi0/eta RG-A box
+   has a Q2 floor of 0.80 while `amp2609` and `amp2614` declare
+   `validity Q2 = (1.15, 8.31)`. Measured per event on the 2026-09-28
+   reference campaign, 200 000 events per arm:
+
+   | edge | born | rad |
+   |---|---:|---:|
+   | **Q2 < 1.15** | **47.5 %** | **49.1 %** |
+   | \|t\| > 1.8 | 4.0 % | 4.0 % |
+   | W2 > 16.0 | 0.02 % | 0.06 % |
+   | any | 50.3 % | 52.0 % |
+
+   The model's own counter agrees: `sf_usage.out_of_range_frac` reads
+   0.55-0.59 in every `.info` sidecar of that campaign, and has since
+   September. `out_of_range` is `REPORT`, so these are genuine
+   EXTRAPOLATION rather than values clamped to the boundary -- checked in
+   `models/base.py::_apply_validity`, because `FREEZE` would be a much worse
+   story.
+
+   **The floor is kept at 0.80 because the outbending acceptance reaches
+   down to ~0.9**, and raising it to 1.15 would discard a region where the
+   detector works. The cost is stated here rather than discovered later:
+   any result drawn from this sample below Q2 = 1.15 rests on the model's
+   extrapolation, and a note that uses the sample should say so.
+
+   The same edge is responsible for two things that look independent and
+   are not: it sets the kinematic floor of `theta_e` at 5.273 deg, which is
+   why the card's `theta_e = 5.0` rejects nothing of 2e6 events; and it puts
+   8.3 % of born and 17.0 % of rad events below 0.128, the lowest xB point
+   of the fit. The t ceiling of -2.50, which looks like the aggressive edge,
+   contributes 4 %.
+
+   Recorded in all 19 cards that carry the box, and in
+   `docs/farm_practice.md`.
+
 1. **Bins adjacent to t_min need bin-integration, not point evaluation**
    (§3.2c). Not specific to this code; ~10 % of the pi0 grid sits within
    0.05 GeV^2 of t_min where v_max(t) varies fast across the bin.
