@@ -6,6 +6,40 @@
 ! them that way: compare the two with
 !   diff <(sed 's/!.*//' cards/rad_jpsi.txt) <(sed 's/!.*//' cards/born_jpsi.txt)
 !
+! ========================================================================
+! HOW THE RADIATIVE CORRECTION IS APPLIED (VPK, 2026-10-09).  Settled here
+! because it was settled three times in one afternoon and written down
+! nowhere.
+!
+!   sigma_Born(gamma p -> J/psi p) = N_meas / ( L * B * A * C_rad )
+!
+!   B      = 5.971e-2, the PDG J/psi -> e+e- branching, INCLUSIVE of FSR.
+!            B(e+e-gamma, E_gamma > 100 MeV) = 8.8e-3 is a SUBSET of that
+!            same line, not a separate channel -- DO NOT ADD THEM.  Checked:
+!            QED gives P(E_gamma* > 100 MeV) = 0.1437, and
+!            0.1437 x 5.971e-2 = 8.6e-3 against the table's 8.8 +- 1.4e-3.
+!            The virtual corrections to the decay vertex are already inside
+!            B; adding them again is the way to get this wrong.
+!
+!   A      = reconstructed / generated, from the RAD sample with idecay = 2.
+!            The loss of e+e- pairs below the analysis M(ee) cut lives HERE,
+!            as an efficiency -- 10.1 % at M(ee) > 2.9 on this box.  It is a
+!            pure efficiency and nothing else: W is built from e' and t from
+!            the proton, neither of which the decay photon can touch, so
+!            decay radiation causes NO migration in t or W.  (It would if t
+!            were taken from the J/psi: rebuilding the psi from e+e- without
+!            the photon shifts t by -0.18 GeV^2 on average, 0.71 rms.)
+!            A must come from the RAD sample, because the data are radiative.
+!
+!   C_rad  = sigma_nb(rad) / sigma_nb(born), production radiation only, and
+!            a function of (t, W, and the exclusivity cut).  Over this box
+!            with no cut it is 0.9563; at v < 0.1 it is 0.8985.  Quote it
+!            differentially, not as one number.
+!
+! There is NO fourth factor for the decay.  Born is generated as a delta
+! (idecay = 1): sigma_nb is counted before the decay, so the setting cannot
+! reach C_rad -- measured, 0.0053 % against a 0.16 % statistical error.
+! ========================================================================
 ! Model jpsi.diffrad_vm_pdet = the CLAS12-fitted model: W-shape from the fit to the
 ! photoproduction sigma(W) (alf2=0.5, alf3=7.8), Q2 power n=3.114 and dipole
 ! t-mass mg2=2.637 from Mariana Tenorio Pita's CLAS12 fits, normalisation

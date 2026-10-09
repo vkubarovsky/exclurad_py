@@ -480,6 +480,47 @@ the project name.
 
 ---
 
+## 3.5 How the J/psi radiative correction is applied
+
+Settled 2026-10-09, after the same question was answered three different
+ways in one afternoon.  The full statement is in both J/psi cards.
+
+    sigma_Born(gamma p -> J/psi p) = N_meas / ( L * B * A * C_rad )
+
+**`B` = 5.971e-2, the PDG branching, INCLUSIVE of FSR.**
+`B(e+e-gamma, E_gamma > 100 MeV) = 8.8e-3` is a SUBSET of that same line,
+not a separate channel, and the two must not be added -- adding them moves
+the cross section by 13 %.  Checked against QED: the generator and the
+analytic spectrum both give `P(E_gamma* > 100 MeV) = 0.1437`, and
+`0.1437 x 5.971e-2 = 8.6e-3` against the table's `8.8 +- 1.4e-3`.  The
+virtual corrections to the decay vertex are already inside `B`; a separate
+decay-correction factor would count them twice.
+
+**`A` carries the decay radiation, as an efficiency.**  From the RAD sample
+with `idecay = 2`: 10.1 % of pairs fall below `M(ee) = 2.9` on this box.  It
+is a pure efficiency with no migration, because W is built from `e'` and t
+from the proton and the decay photon touches neither.  Measured: rebuilding
+the J/psi from `e+e-` WITHOUT the photon -- what an analysis using the meson
+t would do -- shifts t by -0.18 GeV^2 on average with 0.71 rms, and by more
+than 0.05 GeV^2 in 21.4 % of radiative decays.  **That is an independent
+reason for the proton t definition**, separate from its 5-6x better
+resolution.
+
+**`A` must come from the RAD sample**, because the data are radiative.
+
+**`C_rad` is production radiation only, and it is a function of
+(t, W, exclusivity cut).**  Over the J/psi box: 0.9563 with no cut, 0.8985
+at `v < 0.1`, 0.8776 at `v < 0.05`.  Quoting one number for it is quoting
+the no-cut value by accident.  The differential form comes from the two
+samples directly -- `f_rad(i)/f_born(i) x C_rad` is the cross-section
+weighted ratio in any binning, with no model and no table.
+
+**There is no fourth factor.**  Born is generated as a delta
+(`idecay = 1`), the group's convention and the one used in the analysis now
+in press.  It cannot reach `C_rad`: `sigma_nb` is counted before the decay
+(`n_accept2` at events.py:1386, the decay block at 1555), measured as a
+0.0053 % difference against a 0.16 % statistical error.
+
 ## 4. Not yet validated / known gaps
 
 Listed plainly because these are what would bite.
