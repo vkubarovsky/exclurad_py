@@ -246,12 +246,12 @@ class Generator:
             np.random.SeedSequence(seed).spawn(1)[0])
         self.fsr = None
         if decay_fsr:
-            from .decay import LEPTONIC
+            from .decay import LEPTONIC, meson_mass
             from .decay_rad import DecayFSR
             if sfmodel.channel not in LEPTONIC:
                 raise ValueError(f"decay radiation (idecay 2) is defined for "
                                  f"{LEPTONIC}, not {sfmodel.channel!r}")
-            self.fsr = DecayFSR(float(sfmodel.mV))
+            self.fsr = DecayFSR(meson_mass(sfmodel))   # the MESON, not the detected hadron
         # MAJ_SHAPE / MAJ_SAFETY override the defaults, because one setting
         # does not fit every channel.  J/psi sits against a kinematic
         # boundary that moves fast with W2, so its majorant cells straddle

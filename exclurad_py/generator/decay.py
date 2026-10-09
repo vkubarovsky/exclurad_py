@@ -87,6 +87,21 @@ def meson_slot(topology, channel):
     return "meson" if getattr(topology, "missing", "") in _NUCLEONS else "recoil"
 
 
+def meson_mass(sfmodel):
+    """Mass of the MESON of this model, whichever role it plays.
+
+    sfmodel.mV is the DETECTED hadron's mass.  In the proton-detected bin
+    (baryon_detected) that is the proton, and the meson is the MISSING
+    particle, sfmodel.mU.  The J/psi decay radiation was built from
+    sfmodel.mV, so after the vector channels moved to the proton bin
+    (2026-10-09) it sampled the photon spectrum of a 0.938 GeV "meson":
+    M(ee) < 3.0 GeV in 6.4 % of decays instead of 14.7 %.
+    """
+    topo = getattr(sfmodel, "topology", None)
+    return float(sfmodel.mU if meson_slot(topo, sfmodel.channel) == "recoil"
+                 else sfmodel.mV)
+
+
 def boost_from_rest(p4_parent, p4_rest):
     """Boost a rest-frame 4-vector into the frame where the parent is p4_parent."""
     M = np.sqrt(max(p4_parent[0] ** 2 - np.dot(p4_parent[1:], p4_parent[1:]), 1e-30))

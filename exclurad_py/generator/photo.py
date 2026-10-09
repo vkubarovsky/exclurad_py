@@ -417,7 +417,8 @@ def run(card_path, part=None, nev=None, seed_offset=0):
         fsr = None
         if cfg["idecay"] == 2:
             from .decay_rad import DecayFSR
-            fsr = DecayFSR(float(sf.mV))
+            from .decay import meson_mass
+            fsr = DecayFSR(meson_mass(sf))
         for e in ev:
             a, b, gd = decay_meson(ch, e["meson"], rng, fsr)
             e["daughters"] = (a, b)
