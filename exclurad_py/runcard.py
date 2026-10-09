@@ -198,6 +198,18 @@ def echo(cfg, fh=sys.stdout):
         v = cfg[name]
         v = f"{v[0]:g} {v[1]:g}" if isinstance(v, tuple) else v
         print(f"   {name:<{w}} = {v}", file=fh)
+        # EXPAND THE ACCEPTANCE PRESET IN THE LOG.  "iacc = jpsi" is a name
+        # whose numbers live in generator/decay.py and have changed; a log
+        # that records only the name records nothing.
+        if name == "iacc" and v not in ("none", None):
+            from .generator.decay import ACCEPTANCE
+            acc = ACCEPTANCE.get(v)
+            if acc is None:
+                print(f"   {'':<{w}}   (no window table -- nothing applied)", file=fh)
+            else:
+                for k, win in sorted(acc.items()):
+                    print(f"   {'':<{w}}   {k:<9} |p| {win[0]:g}-{win[1]:g} GeV,"
+                          f"  theta {win[2]:g}-{win[3]:g} deg", file=fh)
     print(" " + "-" * 48, file=fh)
 
 

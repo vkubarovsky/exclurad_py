@@ -84,6 +84,24 @@ def _needs_t_nucl(model_name):
     return getattr(topo, "sf_t", None) == FIXED_NUCLEON
 
 
+
+def _iacc_record(name):
+    """The acceptance preset EXPANDED into the windows it actually applies.
+
+    `iacc jpsi` in a card is a name; the numbers behind it are in
+    generator/decay.py and have changed.  A sample has to carry what was
+    applied to it, not a pointer to code that moves.
+    """
+    if not name or name == "none":
+        return "none"
+    from .generator.decay import ACCEPTANCE
+    acc = ACCEPTANCE.get(name)
+    if acc is None:
+        return f"{name} (no window table -- nothing applied)"
+    bits = [f"{k}: |p| {w[0]}-{w[1]} GeV, theta {w[2]}-{w[3]} deg"
+            for k, w in sorted(acc.items())]
+    return f"{name} = " + "; ".join(bits)
+
 def _outdir(cfg, date=None, version="v1"):
     mode = "born" if cfg["iborn"] else "rad"
     ch = cfg["model"].split(".")[0]
@@ -397,6 +415,20 @@ def run(card_path, date=None, verbose=True, _part=None):
                               vmin_mode=("fixed" if cfg["vmin"] else "per-event"),
                               n_events=len(ev), seed=cfg["seed"],
                               eta_interp=interp,
+                              # THE ACCEPTANCE PRESET, EXPANDED.  The card
+                              # says `iacc jpsi` and that is ALL that was
+                              # recorded anywhere -- not in the card, not in
+                              # config.json, not in the sidecar.  The windows
+                              # themselves live in generator/decay.py and I
+                              # changed them on 2026-10-09 (proton 5-30 deg,
+                              # 0.4 GeV -> 3-45 deg, 0.2 GeV).  So every
+                              # J/psi sample ever made says the same word and
+                              # means something different, and no one reading
+                              # a finished sample could tell which.  VPK, the
+                              # same day: "a otkuda ya uznayu teper chto kto-to
+                              # chto-to rezal?"  Now the numbers travel with
+                              # the file.
+                              iacc=_iacc_record(cfg.get("iacc", "none")),
                               # THE STAGE-2 BOUND, IN THE FILE THAT SURVIVES.
                               # b_viol decides whether the sample is exactly
                               # unweighted, and it lived only in
