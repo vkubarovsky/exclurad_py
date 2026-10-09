@@ -51,7 +51,18 @@ jpsi.diffrad_vm_pdet                    ! model  <channel>.<vintage>   (--models
 -0.30                              ! t_nucl  (GeV^2) for pi0/eta models; ignored for vector mesons
 0                                  ! ihel    +1, -1, or 0 = helicity-averaged
 333522                             ! seed
-2                                  ! idecay  2 = e+e- decay WITH radiation of the decay leptons (1 = without)
+1                                  ! idecay  1 = J/psi -> e+e- with NO decay radiation,
+!   i.e. the e+e- mass is a delta at m_psi.  THE CONVENTION (VPK, 09.10): every J/psi Born sample this group has made was generated this way, and the
+!   analysis that is in press used it.  It costs nothing where it matters:
+!   sigma_nb is counted BEFORE the decay (events.py, n_accept2 at 1386 against
+!   the decay block at 1555), so C_rad = sigma_nb(rad)/sigma_nb(born) does not
+!   depend on this field at all -- measured on 2 x 40000 with the same seed,
+!   3.449779e-4 against 3.449963e-4, a 0.0053 % difference against a 0.16 %
+!   statistical error.  What it does change is only the written sample's M(ee)
+!   and which events pass the iacc lepton windows.
+!   CAVEAT: the ~8 MeV peak shift of the note's Sec. 5 field 4 was measured with
+!   iborn as the ONLY difference.  Repeating that diagnostic needs a Born with
+!   idecay = 2, or the shift mixes production and decay radiation.
 ./exclurad_out                     ! output root -- RELATIVE on purpose.
 !   The production wrappers substitute this field with the job's own work
 !   directory (gen_array.sbatch, field 13), so in production the card value
