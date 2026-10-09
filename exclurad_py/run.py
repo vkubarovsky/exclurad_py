@@ -198,9 +198,15 @@ def run_parallel(card_path, jobs, date=None, verbose=True):
             tail = (f"| stage-2 b_viol {nb}/{na}"
                     + (f" max x{max((r['report'].get('max_b_viol', 0.0) or 0.0) for r in res):.2f}"
                        if nb else ""))
+        elif cfg["iborn"]:
+            # A BORN RUN HAS NO PHOTON AT ALL, so naming the tail sampler
+            # here is noise that reads like a warning.  The first version of
+            # this line said "photon density may be from the CELL-BASED
+            # sampler" on every born run.
+            tail = "| stage 2 n/a (born only)"
         else:
-            tail = ("| stage 2 DID NOT RUN (EXACT_ACCEPT unset or born only); "
-                    "photon density may be from the CELL-BASED sampler")
+            tail = ("| stage 2 DID NOT RUN (EXACT_ACCEPT unset); "
+                    "photon density from the CELL-BASED sampler, not per event")
         print(" health:", f"{bad} of {len(res)} parts had something to say"
               if bad else "clean in all parts", tail)
     return res
@@ -470,10 +476,14 @@ def run(card_path, date=None, verbose=True, _part=None):
             tail = (f"| stage-2 b_viol {nb}/{na}"
                     + (f" max x{rep.get('max_b_viol', 0.0):.2f}" if nb else ""))
         else:
-            why = "born only" if getattr(g, "born_only", False) else "EXACT_ACCEPT unset"
-            tail = f"| stage 2 DID NOT RUN ({why})"
-            if not getattr(g, "exact_per_event", False):
-                tail += "; photon density from the CELL-BASED sampler, not per event"
+            if getattr(g, "born_only", False):
+                # no photon in a Born run, so no sampler to name
+                tail = "| stage 2 n/a (born only)"
+            else:
+                tail = "| stage 2 DID NOT RUN (EXACT_ACCEPT unset)"
+                if not getattr(g, "exact_per_event", False):
+                    tail += ("; photon density from the CELL-BASED sampler, "
+                             "not per event")
         print(" health:", "; ".join(g.health()) or "clean", tail)
     return dict(outdir=d, lund=lund, n=n, report=rep, health=g.health())
 
