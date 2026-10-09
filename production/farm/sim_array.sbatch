@@ -212,9 +212,25 @@ echo "hadron pid: $HPID (model ${MODEL:-unknown})"
 # already run, which is the most expensive place to fail.  Leaving that to a
 # manual copy step is how it gets forgotten.
 NTG="$R/hipo_to_ntuple.groovy"
+# jpsi_to_ntuple.groovy is J/psi SPECIFIC, not vector-generic: it finds the
+# meson row by pid 443 and the daughters by pid +-11 with parent = that row
+# (lines 57-66).  For phi -> K+K- (333, +-321) and rho -> pi+pi- (113,
+# +-211) it finds neither, writes nothing, and the size guard below kills
+# the task -- after gemc and recon, the expensive place.  Routing phi and
+# rho to it, as the first version of this block did on 2026-10-09, would
+# have reproduced exactly the failure the routing was added to prevent.
+# Refuse at the start instead, which costs a minute rather than a chunk.
 case "$CHAN" in
-  jpsi|phi|rho) DEFNT=jpsi_to_ntuple.groovy ;;
-  *)            DEFNT=hipo_to_ntuple.groovy ;;
+  jpsi)     DEFNT=jpsi_to_ntuple.groovy ;;
+  pi0|pi0n|eta|etan) DEFNT=hipo_to_ntuple.groovy ;;
+  phi|rho)  [ -f "$R/hipo_to_ntuple.groovy" ] || {
+              echo "FATAL: no ntuple reader for channel '$CHAN'."
+              echo "       jpsi_to_ntuple.groovy is J/psi specific (pid 443, daughters +-11);"
+              echo "       hipo_to_ntuple.groovy is pi0/eta specific (two photons from the pi0 row)."
+              echo "       Generalise one of them, or put a reader at \$PROD_DIR/hipo_to_ntuple.groovy."
+              exit 1; }
+            DEFNT=hipo_to_ntuple.groovy ;;
+  *)        DEFNT=hipo_to_ntuple.groovy ;;
 esac
 # NOT $0.  slurm runs a COPY of this script from its spool directory, so $0
 # points there and not at the checkout -- the fallback silently resolved to
