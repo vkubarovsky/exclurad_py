@@ -434,10 +434,26 @@ def run(card_path, date=None, verbose=True, _part=None):
               f"({1e3*t_gen/max(len(ev),1):.2f} ms/event)")
         # the count ALWAYS, not only when it crosses the warning threshold:
         # a health line that says "clean" must not be readable as "zero".
-        nb, na = rep.get("b_viol", 0), rep.get("accepted", 0)
-        print(" health:", "; ".join(g.health()) or "clean",
-              f"| stage-2 b_viol {nb}/{na}"
-              + (f" max x{rep.get('max_b_viol', 0.0):.2f}" if nb else ""))
+        #
+        # AND IT MUST SAY WHEN THE STAGE DID NOT RUN.  The first version
+        # printed "stage-2 b_viol 0/40000" for a run with EXACT_ACCEPT unset,
+        # where stage 2 never executes and n_accept2 is 0 by construction.
+        # That reads as "zero violations" and is the same silence-as-zero
+        # failure this line was added to close -- committed by me on
+        # 2026-10-08 and caught on a run of my own on 2026-10-09, where it
+        # let two 40 000-event samples be compared on the CELL-BASED tail
+        # (which events.py:1339 records as biasing frac(v > 0.3) by ~2x)
+        # while the log looked like production.
+        if getattr(g, "exact_accept", False) and not getattr(g, "born_only", False):
+            nb, na = rep.get("b_viol", 0), rep.get("accepted", 0)
+            tail = (f"| stage-2 b_viol {nb}/{na}"
+                    + (f" max x{rep.get('max_b_viol', 0.0):.2f}" if nb else ""))
+        else:
+            why = "born only" if getattr(g, "born_only", False) else "EXACT_ACCEPT unset"
+            tail = f"| stage 2 DID NOT RUN ({why})"
+            if not getattr(g, "exact_per_event", False):
+                tail += "; photon density from the CELL-BASED sampler, not per event"
+        print(" health:", "; ".join(g.health()) or "clean", tail)
     return dict(outdir=d, lund=lund, n=n, report=rep, health=g.health())
 
 
