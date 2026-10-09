@@ -251,6 +251,36 @@ class Generator:
             if sfmodel.channel not in LEPTONIC:
                 raise ValueError(f"decay radiation (idecay 2) is defined for "
                                  f"{LEPTONIC}, not {sfmodel.channel!r}")
+            # GUARD, NOT THE FIX.  DecayFSR is handed sfmodel.mV, which is
+            # topology.m_detected -- the MESON under meson_detected and the
+            # PROTON under baryon_detected.  So a proton-detected vector
+            # model builds the decay radiator with M_p = 0.938 instead of
+            # m_psi, and the e+e- spectrum comes out wrong while the
+            # four-vectors still close (they use the J/psi's own momentum).
+            # Measured by the J/psi electroproduction session on a pdet born
+            # sample: M(ee) < 3.0 in 6.4 % against 14.7 % correct.
+            #
+            # The exposure is mine -- switching the vector cards to the pdet
+            # models on 2026-10-09 made this reachable for rad_jpsi.txt and
+            # born_jpsi.txt, the only two production cards with idecay = 2.
+            # Rather than leave them running silently wrong while the proper
+            # fix (take the meson mass BY ROLE, in both events.py and
+            # photo.py) is prepared and reviewed on jpsi-electro-rc, this
+            # refuses.  When that fix lands the condition becomes
+            # unreachable and this stays as its assertion.
+            _topo = getattr(sfmodel, "topology", None)
+            _meson_is_missing = getattr(_topo, "missing", "") not in ("p", "n")
+            _m_meson = (getattr(_topo, "m_missing", None) if _meson_is_missing
+                        else getattr(_topo, "m_detected", None))
+            if _m_meson is not None and abs(float(sfmodel.mV) - float(_m_meson)) > 1e-6:
+                raise ValueError(
+                    f"idecay = 2 would build the decay radiator with "
+                    f"m = {float(sfmodel.mV):.6g} GeV, which is the DETECTED "
+                    f"hadron, not the meson (m = {float(_m_meson):.6g} GeV). "
+                    f"In the {getattr(_topo, 'name', '?')} topology the meson "
+                    f"is the {'missing' if _meson_is_missing else 'detected'} "
+                    f"particle. Use idecay = 1, or wait for the by-role fix "
+                    f"on jpsi-electro-rc.")
             self.fsr = DecayFSR(float(sfmodel.mV))
         # MAJ_SHAPE / MAJ_SAFETY override the defaults, because one setting
         # does not fit every channel.  J/psi sits against a kinematic
