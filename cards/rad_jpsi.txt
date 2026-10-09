@@ -6,7 +6,7 @@
 ! them that way: compare the two with
 !   diff <(sed 's/!.*//' cards/rad_jpsi.txt) <(sed 's/!.*//' cards/born_jpsi.txt)
 !
-! Model jpsi.diffrad_vm = the CLAS12-fitted model: W-shape from the fit to the
+! Model jpsi.diffrad_vm_pdet = the CLAS12-fitted model: W-shape from the fit to the
 ! photoproduction sigma(W) (alf2=0.5, alf3=7.8), Q2 power n=3.114 and dipole
 ! t-mass mg2=2.637 from Mariana Tenorio Pita's CLAS12 fits, normalisation
 ! anchored to her bin 3.  Fitted Q2 range is 0.015-0.1 GeV^2.
@@ -20,14 +20,14 @@
 ! generator/decay_rad.py; validation/jpsi_decay_fsr.py.  ~15% of decays end
 ! below M(ee) = 3.0 GeV.  The decay happens ONCE, before the lepton cuts.
 ! Acceptance windows are transcribed in generator/decay.py (ACCEPTANCE).
-jpsi.diffrad_vm                    ! model  <channel>.<vintage>   (--models to list)
+jpsi.diffrad_vm_pdet                    ! model  <channel>.<vintage>   (--models to list)
 10.6                               ! ebeam (GeV)
 10000                              ! nev
 0                                  ! iborn   1 = Born only, 0 = full RC
 16.40 20.80                        ! W2 range (GeV^2); threshold (M+mJ)^2 = 16.283
 0.001 0.25                         ! Q2 range (GeV^2) -- quasi-real photoproduction
--7.00 -0.45                        ! t range (GeV^2, both negative).  |t|min по всей коробке 0.4513
-0.0                                ! vcut    MX^2 - m_miss^2 (GeV^2);  0 = no cut (kinematic limit) -- cut offline
+-7.00 -0.45                        ! t = (p-p')^2 from the MEASURED proton (t_kind=target, VPK 08.10). Box carries over: at Born (q-p_V)^2 = (p-p')^2 identically (GeV^2, both negative).  |t|min по всей коробке 0.4513
+0.0                                ! vcut   MX^2(e'p) - m_V^2 now -- the missing system is the MESON in this bin (GeV^2);  0 = no cut (kinematic limit) -- cut offline
 -0.30                              ! t_nucl  (GeV^2) for pi0/eta models; ignored for vector mesons
 0                                  ! ihel    +1, -1, or 0 = helicity-averaged
 333522                             ! seed

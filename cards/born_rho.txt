@@ -1,13 +1,13 @@
 ! exclurad_py run card -- plain text, one value per line, ! starts a comment.
 ! Positional (exclugen convention): the ORDER of the lines is the format.
-rho.diffrad_vm                     ! model  <channel>.<vintage>   (--models to list)
+rho.diffrad_vm_pdet                     ! model  <channel>.<vintage>   (--models to list)
 10.6                               ! ebeam (GeV)
 100000                             ! nev
 1                                  ! iborn   1 = Born only, 0 = full RC
 3.24 20.80                         ! W2 range (GeV^2)
 1.0 10.0                           ! Q2 range (GeV^2)
--8.0 -0.005                        ! t range (GeV^2, both negative)
-0.0                                ! vcut    MX^2 - m_miss^2 (GeV^2);  0 = no cut (kinematic limit)
+-8.0 -0.005                        ! t = (p-p')^2 from the MEASURED proton (t_kind=target, VPK 08.10). Box carries over: at Born (q-p_V)^2 = (p-p')^2 identically (GeV^2, both negative)
+0.0                                ! vcut   MX^2(e'p) - m_V^2 now -- the missing system is the MESON in this bin (GeV^2);  0 = no cut (kinematic limit)
 -0.30                              ! t_nucl  (GeV^2) for pi0/eta models; ignored for vector mesons
 0                                  ! ihel    +1, -1, or 0 = helicity-averaged
 20260813                           ! seed
