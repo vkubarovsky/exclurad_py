@@ -29,11 +29,22 @@ jpsi.diffrad_vm_pdet                    ! model  <channel>.<vintage>   (--models
 !   (E_gamma 8.208), so the band 8.21-8.27 GeV -- the near-threshold physics --
 !   was not generated at all.
 0.001 0.25                         ! Q2 range (GeV^2) -- quasi-real photoproduction
--7.00 -0.30                        ! t = (p-p')^2 from the MEASURED proton (t_kind=target, VPK 08.10).
+-5.00 -0.30                        ! t = (p-p')^2 from the MEASURED proton (t_kind=target, VPK 08.10).
 !   The box carried over unchanged from the meson bin because at Born
 !   (q - p_V)^2 = (p - p')^2 identically.  |t|min WIDENED 0.45 -> 0.30 (note
 !   09.10, Sec. 5 field 7): the data reach |t| = 0.4065, below the old floor,
 !   and the t resolution is 0.047 GeV^2, so migration from below is real.
+!   CEILING 7.00 -> 5.00 (VPK, 09.10): there are no data above |t| = 5, so
+!   those events have nothing to be compared with.  Measured on this box
+!   they are 2.25 % of the sample, and cutting them buys 2.25 % MORE events
+!   where the data are, for the same CPU -- the gain is in useful yield, not
+!   in speed: a -4.50 test ran 320 s against 329 s for 6000 events, i.e.
+!   nothing, because the cost is the sigma_F integral and the per-event
+!   rc_factor, not rejection (the majorant raised 0 of 24576 cells either
+!   way).  5.00 and not 4.50 because the data edge is near 4 and sigma(t)
+!   is 0.047, so 5.00 keeps ~20 sigma of margin -- putting a generation
+!   limit ON the data edge is the error this note corrects in theta_e and
+!   y, and it would be the same error here.
 !   Field 1 is confirmed by that note's Table 14: the proton t estimator has
 !   RMS 0.047 against 0.230 for the J/psi one, 5-6x more accurate.
 0.0                                ! vcut   MX^2(e'p) - m_V^2 now -- the missing system is the MESON in this bin (GeV^2);  0 = no cut (kinematic limit) -- cut offline
