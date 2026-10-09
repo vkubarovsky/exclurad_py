@@ -1,4 +1,12 @@
 #!/bin/bash
+# Defaults, so a bare `sbatch sim_array.sbatch` cannot run with the farm's
+# 512 MB default memory: on 2026-10-08 a J/psi test submitted without --mem
+# had GEMC and recon-util (Xmx1536m) OOM-killed in all three jobs.  Flags on
+# the sbatch command line still override these.
+#SBATCH --account=clas12
+#SBATCH --partition=production
+#SBATCH --mem=6G
+#SBATCH --cpus-per-task=1
 #
 # HOW TO RUN A CAMPAIGN WITH THESE: docs/farm_practice.md
 # It carries the sizing, the chaining, and every trap that has cost
@@ -92,7 +100,12 @@ DET='DC,FTOF,ECAL,HTCC,LTCC,BST,BMT,CND,CTOF,FTCAL,FTHODO'
 CFG=/cvmfs/oasis.opensciencegrid.org/jlab/hallb/clas12/sw/noarch/clas12-config/prod
 GC=$CFG/gemc/$GEMCV/$RGCFG.gcard
 YAML=$CFG/coatjava/$COATV/$RGCFG.yaml
-OUTTAG=excluradpy_pi0_${MODE}_${RGTAG}_${POL}_bg${BGCUR%%_*}_$I
+# The channel comes from the card's model line (pi0.amp2614 -> pi0,
+# jpsi.diffrad_vm -> jpsi).  It used to be the literal "pi0", so a J/psi
+# campaign wrote files called excluradpy_pi0_*.
+CHAN=$(awk '{sub(/!.*/,"")} /[^ \t]/{print $1; exit}' "$R/cards/rga_$MODE.txt" 2>/dev/null | cut -d. -f1)
+CHAN=${CHAN:-pi0}
+OUTTAG=excluradpy_${CHAN}_${MODE}_${RGTAG}_${POL}_bg${BGCUR%%_*}_$I
 for f in "$GC" "$YAML"; do
   [ -f "$f" ] || { echo "FATAL: $f does not exist -- wrong run group or version"; exit 1; }
 done
