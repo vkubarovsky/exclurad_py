@@ -205,13 +205,24 @@ if [ -z "${HPID:-}" ] && [ -f "$CARD" ]; then
 fi
 HPID=${HPID:-2212}
 echo "hadron pid: $HPID (model ${MODEL:-unknown})"
+# WHICH NTUPLE SCRIPT.  $R wins, so an operator can drop a custom one in the
+# production directory; otherwise it is chosen BY CHANNEL.  The pi0 script
+# requires the pi0's two photons and writes NOTHING for a J/psi event, and
+# the size guard below then kills the task -- after gemc and recon have
+# already run, which is the most expensive place to fail.  Leaving that to a
+# manual copy step is how it gets forgotten.
 NTG="$R/hipo_to_ntuple.groovy"
+case "$CHAN" in
+  jpsi|phi|rho) DEFNT=jpsi_to_ntuple.groovy ;;
+  *)            DEFNT=hipo_to_ntuple.groovy ;;
+esac
 # NOT $0.  slurm runs a COPY of this script from its spool directory, so $0
 # points there and not at the checkout -- the fallback silently resolved to
 # nothing and 50 tasks died after GEMC and reconstruction had already run.
 # $EXRU is the checkout the job was told to use, and gen_array uses it too.
-[ -f "$NTG" ] || NTG="${EXRU:-$HOME/exclurad_py}/production/gemc_check/hipo_to_ntuple.groovy"
-[ -f "$NTG" ] || { echo "FATAL: hipo_to_ntuple.groovy found neither in $R nor in the checkout"; exit 1; }
+[ -f "$NTG" ] || NTG="${EXRU:-$HOME/exclurad_py}/production/gemc_check/$DEFNT"
+[ -f "$NTG" ] || { echo "FATAL: $DEFNT found neither in $R nor in the checkout"; exit 1; }
+echo "ntuple script: $NTG (channel $CHAN)"
 /group/clas12/packages/coatjava/9.0.2/bin/run-groovy "$NTG" \
     recon.hipo 1000000 "$R/$MODE/out_$POL/$OUTTAG.f32" 0 "$HPID" 2>&1 | grep -E "DONE|FATAL|Exception" || true
 NS=$(stat -c %s "$R/$MODE/out_$POL/$OUTTAG.f32" 2>/dev/null || echo 0)

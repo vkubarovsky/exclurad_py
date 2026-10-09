@@ -310,6 +310,30 @@ is not pathological: the generated \|t\| spectrum below Q2 = 1 has
 b = 1.3-1.95 GeV^-2 over windows from 0.10 to 1.20, which is the range
 measured in photoproduction.
 
+**The ntuple script is chosen by CHANNEL, and `--mem` has a default now.**
+Two things a bare `sbatch` used to get wrong, both after gemc and recon had
+already run:
+
+- the pi0 ntuple requires the pi0's two photons and writes NOTHING for a
+  J/psi event, so the size guard killed the task at the end. `sim_array`
+  now picks `jpsi_to_ntuple.groovy` for jpsi/phi/rho and
+  `hipo_to_ntuple.groovy` otherwise, from the card's model line. A script
+  dropped in `$PROD_DIR/hipo_to_ntuple.groovy` still wins.
+- a bare submit got the farm's 512 MB default and OOM-killed gemc and
+  `recon-util` (Xmx1536m) in all three jobs of a J/psi test. The `#SBATCH`
+  block now sets `--account=clas12 --partition=production --mem=6G
+  --cpus-per-task=1`; command-line flags still override. 6G covers the
+  worst channel measured. **A pi0 campaign should pass `--mem=4G`**: over
+  1232 measured pi0 steps nothing exceeded 2.7 GB, and a smaller ask
+  backfills sooner.
+
+**`OUTTAG` carries the channel in BOTH scripts.** `sim_array` derives it from
+the card (`pi0.amp2614` -> `pi0`, `jpsi.diffrad_vm_pdet` -> `jpsi`); until
+2026-10-09 it was the literal `pi0`, so a J/psi campaign wrote files called
+`excluradpy_pi0_*`. `post_array` derives it the same way -- a catch-up job
+writing `excluradpy_pi0_*` beside sim_array's `excluradpy_jpsi_*` produces a
+DST nobody looks for.
+
 **A guard that can hang costs more than it saves.** `hipo-utils -dump` to
 count events in a gemc.hipo is not header-only — it dumps every event and
 does not return; `| head -1` does not save it. Two catch-up jobs burned six

@@ -62,7 +62,12 @@ DET='DC,FTOF,ECAL,HTCC,LTCC,BST,BMT,CND,CTOF,FTCAL,FTHODO'
 CFG=/cvmfs/oasis.opensciencegrid.org/jlab/hallb/clas12/sw/noarch/clas12-config/prod
 YAML=$CFG/coatjava/$COATV/$RGCFG.yaml
 [ -f "$YAML" ] || { echo "FATAL: no yaml at $YAML -- rga_spring2018 has one only in coatjava 11.1.0 and 6.5.6.1"; exit 1; }
-OUTTAG=excluradpy_pi0_${MODE}_${RGTAG}_${POL}_bg${BGCUR%%_*}_$I
+# Must match sim_array's OUTTAG exactly, channel included: a catch-up job
+# that writes excluradpy_pi0_* beside sim_array's excluradpy_jpsi_* produces
+# a DST nobody looks for.  Same derivation as there.
+CHAN=$(awk '{sub(/!.*/,"")} /[^ \t]/{print $1; exit}' "$R/cards/rga_$MODE.txt" 2>/dev/null | cut -d. -f1)
+CHAN=${CHAN:-pi0}
+OUTTAG=excluradpy_${CHAN}_${MODE}_${RGTAG}_${POL}_bg${BGCUR%%_*}_$I
 
 [ -s "$W/gemc.hipo" ] || { echo "FATAL: no gemc.hipo in $W -- nothing to catch up"; exit 1; }
 SZ=$(stat -c %s "$W/gemc.hipo")
