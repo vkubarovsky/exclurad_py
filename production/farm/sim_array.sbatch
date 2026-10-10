@@ -92,6 +92,10 @@ BGCUR=${BGCUR:-50nA_10604MeV}
 RGTAG=${RGTAG:-fa18}
 # The sqlite module tracks the gemc version, not coatjava's.
 SQLV=${SQLV:-$GEMCV}
+# BGCUR=none runs WITHOUT background merging: gemc.hipo goes straight to
+# recon-util.  VPK's campaign asks for both, with and without, for every
+# polarity, so this is a first-class mode and not a debug switch.
+NOBG=0; [ "$BGCUR" = "none" ] && NOBG=1
 BGDIR=/cache/clas12/$BGTREE/$BGPOL/$BGCUR/10k
 # 100 background files for 200 tasks: each is used by two tasks, whose
 # generated events are independent, so no correlation is introduced
@@ -105,7 +109,7 @@ YAML=$CFG/coatjava/$COATV/$RGCFG.yaml
 # campaign wrote files called excluradpy_pi0_*.
 CHAN=$(awk '{sub(/!.*/,"")} /[^ \t]/{print $1; exit}' "$R/cards/rga_$MODE.txt" 2>/dev/null | cut -d. -f1)
 CHAN=${CHAN:-pi0}
-OUTTAG=excluradpy_${CHAN}_${MODE}_${RGTAG}_${POL}_bg${BGCUR%%_*}_$I
+OUTTAG=excluradpy_${CHAN}_${MODE}_${RGTAG}_${POL}_bg${BGCUR%%_*}_$I   # bgnone when off
 for f in "$GC" "$YAML"; do
   [ -f "$f" ] || { echo "FATAL: $f does not exist -- wrong run group or version"; exit 1; }
 done
@@ -127,12 +131,14 @@ cp "$R/$MODE/chunks/lund_$I.dat" lund.dat || { echo "FATAL: no chunk lund_$I.dat
 # Not just "does it exist".  /cache is tape-backed: an evicted file can be
 # a zero-length or stub entry that passes -f and then feeds gemc nothing.
 # Stage the whole directory with `jcache get` before submitting.
-if [ ! -s "$BG" ] || [ "$(stat -c %s "$BG")" -lt 1000000 ]; then
+if [ "$NOBG" = 1 ]; then
+  echo "background merging: OFF (BGCUR=none)"
+elif [ ! -s "$BG" ] || [ "$(stat -c %s "$BG")" -lt 1000000 ]; then
   echo "FATAL: background $BG is missing or not staged ($(stat -c %s "$BG" 2>/dev/null || echo absent) bytes)."
   echo "       Stage it first:  jcache get /mss/clas12/$BGTREE/$BGPOL/$BGCUR/10k/*.hipo"
   exit 1
 fi
-echo "chunk $(grep -c '^ *[0-9]* *1 *1 ' lund.dat) events, torus $TORUS, background $(basename "$BG")"
+echo "chunk $(grep -c '^ *[0-9]* *1 *1 ' lund.dat) events, torus $TORUS, background $([ "$NOBG" = 1 ] && echo NONE || basename "$BG")"
 
 T0=$(date +%s)
 gemc -USE_GUI=0 -NGENP=100 -N=100000 -INPUT_GEN_FILE="lund, lund.dat" "$GC" \
@@ -144,6 +150,13 @@ echo "GEMC seconds: $((T1-T0))  size: $GS"
 if [ "$GS" -lt 1000000 ]; then echo "FATAL: gemc.hipo is $GS bytes, gemc read no events"; tail -20 gemc.log; exit 1; fi
 
 rm -f merged.hipo
+if [ "$NOBG" = 1 ]; then
+  # No merge: recon reads gemc.hipo directly.  A symlink rather than a copy,
+  # because a 5000-event gemc.hipo is ~100 MB and the work directory is on
+  # /volatile.
+  ln -sf gemc.hipo merged.hipo
+  T2=$(date +%s); echo "BGMERGE skipped (no background)"
+else
 bg-merger -b "$BG" -i gemc.hipo -o merged.hipo -d "$DET" > bg.log 2>&1
 T2=$(date +%s); MS=$(stat -c %s merged.hipo 2>/dev/null || echo 0)
 echo "BGMERGE seconds: $((T2-T1))  size: $MS"
@@ -157,6 +170,7 @@ GS=$(stat -c %s gemc.hipo)
 if [ "$MS" -le "$GS" ]; then
   echo "FATAL: merged.hipo is $MS bytes, not larger than gemc.hipo at $GS -- the merge added nothing"
   tail -25 bg.log; exit 1
+fi
 fi
 
 rm -f recon.hipo
