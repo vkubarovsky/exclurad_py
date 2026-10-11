@@ -36,7 +36,6 @@ esac
 # wrote where stage B did not look.  Set PROD_DIR once and export it.
 R=${PROD_DIR:-/volatile/clas12/vpk/prod_pi0_rga_fa18_inb_t2_20260925}
 I=$(printf "%03d" "$SLURM_ARRAY_TASK_ID")
-W=$R/$MODE/work_$POL/w_$I
 # THE RUN PERIOD MUST BE PARAMETERISED HERE TOO, and until 2026-10-07 it was
 # not: BGDIR, YAML and OUTTAG all pinned rga_fall2018 / coatjava 10.0.7 /
 # 50nA_10604MeV / "fa18" while sim_array.sbatch took them from RGCFG, COATV,
@@ -56,6 +55,21 @@ COATV=${COATV:-10.0.7}
 BGTREE=${BGTREE:-rg-a/production/background/rga_fall2018}
 BGCUR=${BGCUR:-50nA_10604MeV}
 RGTAG=${RGTAG:-fa18}
+
+# THE WORK DIRECTORY MUST CARRY THE BACKGROUND SETTING.  Until 2026-10-11 it
+# was $R/$MODE/work_$POL/w_$I -- mode, polarity and task index only -- so two
+# jobs that differ ONLY in the background (45 nA against 50 nA, or merging
+# against not) share one scratch directory and the second one's `rm -rf "$W"`
+# deletes the first one's gemc.hipo mid-run.  That is exactly what happened:
+# 12739796_1 (rad inb, no background) ran 09:36-12:25 and 12742865_1 (rad inb,
+# 45 nA) started at 10:45 into the same directory; the first job then spent
+# 10107 s in GEMC and ended on "gemc.hipo is 0 bytes".  The victim was the
+# no-background job and the 45 nA output is intact -- but with the whole
+# no-background campaign still to run, every one of its 800 tasks would have
+# collided with its with-background twin.  OUTTAG already carried the
+# background tag, so the OUTPUTS never collided; only the scratch did, which
+# is why it looked like a GEMC failure.
+W=$R/$MODE/work_${POL}_bg${BGCUR%%_*}/w_$I
 BGDIR=/cache/clas12/$BGTREE/$BGPOL/$BGCUR/10k
 BG=$(printf "%s/%05d.hipo" "$BGDIR" $(( (SLURM_ARRAY_TASK_ID - 1) % 100 + 1 )))
 DET='DC,FTOF,ECAL,HTCC,LTCC,BST,BMT,CND,CTOF,FTCAL,FTHODO'
