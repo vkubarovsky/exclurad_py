@@ -169,7 +169,14 @@ if [ "$NOBG" = 1 ]; then
   # because a 5000-event gemc.hipo is ~100 MB and the work directory is on
   # /volatile.
   ln -sf gemc.hipo merged.hipo
-  T2=$(date +%s); echo "BGMERGE skipped (no background)"
+  T2=$(date +%s)
+  # MS MUST BE SET HERE TOO.  The recon guard below compares RS against
+  # MS/20, and with `set -u` an unset MS is a fatal error, not a zero: the
+  # first no-background task died at that line after a full GEMC pass, 6 h
+  # in, and the conductor resubmitted it twice before the watcher stopped it
+  # on 2026-10-14.  merged.hipo IS gemc.hipo here, so its size is gemc's.
+  MS=$(stat -c %s gemc.hipo 2>/dev/null || echo 0)
+  echo "BGMERGE skipped (no background), merged.hipo -> gemc.hipo, $MS bytes"
 else
 bg-merger -b "$BG" -i gemc.hipo -o merged.hipo -d "$DET" > bg.log 2>&1
 T2=$(date +%s); MS=$(stat -c %s merged.hipo 2>/dev/null || echo 0)
