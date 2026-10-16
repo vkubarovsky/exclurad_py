@@ -26,7 +26,7 @@ phi.diffrad_vm_pdet                ! model  <channel>.<vintage>   (--models to l
 0                                  ! iborn   1 = Born only, 0 = full RC
 4.00 20.80                         ! W2 range (GeV^2)
 0.40 10.0                          ! Q2 range (GeV^2)
--6.00 -0.20                        ! t = (p-p')^2 from the MEASURED proton (t_kind=target).  Ceiling -6.00 set by VPK 15.10; at Born (q-p_V)^2 = (p-p')^2 identically
+-6.00 -0.02                        ! t = (p-p')^2 from the MEASURED proton (t_kind=target).  Box -6.00..-0.02, VPK 2026-10-15.  THE FLOOR IS LOW ON PURPOSE: t_min(W2,Q2) runs from 0.005 near W2=20.8,Q2=0.4 to 3.9 at threshold, and the generator enforces it per event (checked: 0 of 20000 events below their own t_min, min t' = 8e-5).  So a fixed |t| floor is a kinematically INHOMOGENEOUS cut on t': at -0.20 it removed t' up to 0.195 in the high-W2/low-Q2 corner and nothing at all near threshold -- a cut one would then fit as a diffractive slope.  At -0.02 the residual is at most 0.015 anywhere.  Price: 8.6 % of events carry a proton below 321 MeV/c that nothing reconstructs.  The ceiling -6.00 never binds: the largest |t| generated is 5.43.
 0.0                                ! vcut   MX^2(e'p) - m_V^2 (GeV^2); 0 = no cut, cut offline
 -0.30                              ! t_nucl  (GeV^2) for pi0/eta models; ignored for vector mesons
 0                                  ! ihel    +1, -1, or 0 = helicity-averaged
