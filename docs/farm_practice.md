@@ -15,12 +15,48 @@ production/farm/build_tables.sh    eta table + one majorant PER MODE
 production/farm/gen_array.sbatch   stage A, generation
 production/farm/sim_array.sbatch   stage B, GEMC + background + recon + ntuple + DST
 production/farm/post_array.sbatch  catch-up when B dies after GEMC
+production/farm/generator_campaign_matrix.sh  five 100M radiative OSG inputs
 ```
 
 All four take `PROD_DIR`. This is not tidiness: every trap below is already
 handled in them, and the only reliable way these lessons travel is in a file
 someone copies. A hand-rolled chain starts from zero and rediscovers them
 one run at a time.
+
+## Five radiative generator campaigns for OSG
+
+The RGA/RGK production matrix uses five unique generated samples.  RGA
+10.604 GeV is shared by its two torus polarities because the generator has no
+detector-field dependence.  Each first tranche is 10,000 jobs of 10,000 events,
+so its flat `lund_osg/` directory is one 100M-event OSG submission.  Generation
+still runs on Slurm with the validated numba environment; the LUND chunks are
+the handoff to detector simulation.
+
+The CLAS12 OSG documentation labels the user-LUND route as a small-job/testing
+interface and recommends adding a generator to `clas12-mcgen` for large
+production.  Before starting 100M-event detector reconstruction, confirm with
+the OSG production contact whether these pre-generated EXCLUGEN chunks may be
+submitted directly or whether EXCLUGEN must first be packaged as a portal
+generator.  That choice does not change the generator campaign defined here.
+
+```bash
+bash production/farm/generator_campaign_matrix.sh prepare all
+bash production/farm/generator_campaign_matrix.sh smoke all
+bash production/farm/generator_campaign_matrix.sh status all
+MAX_ACTIVE=40 bash production/farm/generator_campaign_matrix.sh submit all
+```
+
+Do not submit production until all five 50-event smoke tasks have completed,
+their `health: clean`, backend, LUND count and `sigma_nb` records have been
+checked, and the generator checkout is committed and clean.  `MAX_ACTIVE=40`
+per campaign caps the five simultaneously submitted arrays at 200 running
+generator tasks.  A later equal-statistics extension uses `TRANCHE=2`; its
+global chunk ids and seeds append rather than collide:
+
+```bash
+TRANCHE=2 MAX_ACTIVE=40 \
+  bash production/farm/generator_campaign_matrix.sh submit all
+```
 
 ```bash
 export PROD_DIR=/volatile/clas12/vpk/<campaign>

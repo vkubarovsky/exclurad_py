@@ -1,0 +1,23 @@
+! EXCLUGEN radiative pi0 production: RGK Fall 2018 FTOff, 6.535 GeV
+pi0.amp2614                       ! model  <channel>.<vintage>
+6.535                             ! ebeam (GeV)
+10000                             ! nev; production wrapper overrides this field
+0                                 ! iborn: 0 = full radiative calculation
+3.24 16.00                        ! W2 range (GeV^2)
+0.50 10.00                        ! Q2 range (GeV^2), with margin below analysis Q2 >= 1
+-2.00 -0.001                      ! signed t range (GeV^2)
+0                                 ! vcut: apply the exclusivity cut offline
+-0.30                             ! t_nucl (GeV^2)
+0                                 ! ihel: helicity averaged
+950000000                         ! seed; production wrapper supplies a disjoint seed
+1                                 ! idecay
+./exclurad_out                    ! output root; production wrapper overrides this field
+0.00 0.85                         ! y range; retains E' approximately >= 1 GeV
+0.00 1.00                         ! xB range
+none                              ! no generator-level detector acceptance
+1.0d-4                            ! vmin soft/hard split (GeV^2)
+1                                 ! itarg: pre-vertex external radiator enabled
+-5.5 -0.5                         ! vertex z range (cm), 5 cm LH2 target centred at -3 cm
+0.0                               ! unpolarised target
+none                              ! no Fermi motion for LH2
+5.0 180.0                         ! scattered-electron theta range (deg)

@@ -9,6 +9,11 @@
 #   sbatch --array=1-200 --job-name=gen_rad  --time=04:00:00 gen_array.sbatch rad
 #   sbatch --array=1-200 --job-name=gen_born --time=00:30:00 gen_array.sbatch born
 #
+# For the five 100M-event OSG inputs, use generator_campaign_matrix.sh.  It
+# selects the card, production root, seed namespace and a five-digit global
+# chunk id.  The launcher uses Slurm indices 0-9999 and TASK_OFFSET=1 for the
+# first tranche, then appends ids 10001-20000 without requiring index 10000.
+#
 # Split from the simulation on purpose.  One job doing generation + GEMC +
 # reconstruction wants 12 hours; the farm schedules by backfill (bf_window
 # 2880 min) and the queue is full of 2-5 hour jobs, so a 12-hour request waits
@@ -28,7 +33,14 @@ R=${PROD_DIR:-/volatile/clas12/vpk/prod_pi0_rga_fa18_inb_t2_20260925}
 # /volatile is scratch and gets cleaned, so the generator must not live
 # there.  $HOME works for anyone, which matters for Story.
 V=${EXRU:-$HOME/exclurad_py}
-I=$(printf "%03d" "$SLURM_ARRAY_TASK_ID")
+ARRAY_ID=${SLURM_ARRAY_TASK_ID:?run this as a Slurm array task}
+TASK_OFFSET=${TASK_OFFSET:-0}
+ID_WIDTH=${ID_WIDTH:-3}
+case "$TASK_OFFSET:$ARRAY_ID:$ID_WIDTH" in
+  *[!0-9:]*|:*|*::*) echo "FATAL: TASK_OFFSET, array id and ID_WIDTH must be non-negative integers"; exit 1 ;;
+esac
+TASK_ID=$((TASK_OFFSET + ARRAY_ID))
+I=$(printf "%0*d" "$ID_WIDTH" "$TASK_ID")
 W=$R/$MODE/gen/w_$I
 NEV=${NEV:-5000}
 # seeds: disjoint between modes and across tasks, and far from the September
@@ -38,7 +50,9 @@ NEV=${NEV:-5000}
 # exactly: a different box makes different events, but two samples whose
 # random streams coincide cannot be combined or compared as independent.
 SEEDBASE=${SEEDBASE:-$([ "$MODE" = born ] && echo 610000000 || echo 620000000)}
-SEED=$(( SEEDBASE + SLURM_ARRAY_TASK_ID * 10000 ))
+SEED=$(( SEEDBASE + TASK_ID * 10000 ))
+CARD=${CARD_FILE:-$R/cards/rga_$MODE.txt}
+[ -f "$CARD" ] || { echo "FATAL: no run card at $CARD"; exit 1; }
 
 # THE INTERPRETER, which is not the same thing as the code checkout above.
 # numba became the default on 2026-10-02 (d23dc4e), but ifarm's system
@@ -63,8 +77,8 @@ export RC_NUMBA=1
 # which is deleted with it.  The alternative is 200 jobs sharing one cache
 # tree on Lustre, which costs 5 s less and fails as a physics problem.
 export NUMBA_CACHE_DIR=$W
-# built once in tables/ and shared: 200 jobs each rebuilding the eta table is
-# what cost ten hours of idle farm on 2026-09-20
+# built once in tables/ and shared: every task rebuilding the eta table is what
+# cost ten hours of idle farm on 2026-09-20
 [ "$MODE" = rad ] && export ETA_TABLE=$R/tables/etatable.npz
 # ONE MAJORANT PER MODE.  _maj_key carries born_only, so a born job cannot
 # use the rad majorant -- and the cache does not say so: unlike the eta
@@ -72,6 +86,7 @@ export NUMBA_CACHE_DIR=$W
 # silently and rebuilds.  Measured: 25 s in each of 200 born jobs.
 export MAJ_TABLE=$R/tables/majorant_$MODE.npz
 
+mkdir -p "$R/$MODE/lund_osg" "$R/$MODE/chunks" "$R/$MODE/logs" "$R/$MODE/prov"
 rm -rf "$W"; mkdir -p "$W"
 # Substitute by FIELD, not by pattern.  's|^5000$|$NEV|' looked right and did
 # nothing: the card line is "5000    ! nev", so the end anchor never matched
@@ -84,7 +99,7 @@ awk -v out="$W" -v seed="$SEED" -v nev="$NEV" '
       if (k == 11) { print seed "   ! seed";    next }
       if (k == 13) { print out  "   ! outroot"; next }
   }
-  { print }' "$R/cards/rga_$MODE.txt" > "$W/card.txt"
+  { print }' "$CARD" > "$W/card.txt"
 grep -qE "^$NEV" "$W/card.txt" || { echo "FATAL: nev not substituted"; head -20 "$W/card.txt"; exit 1; }
 
 T0=$(date +%s)
@@ -126,7 +141,6 @@ NAME=excluradpy_${GEN_TAG:-pi0_fa18}_${MODE}_$I
 # `ln -sf` happily created a symlink to the file cp had not written, the
 # chunk directory filled with 50 DANGLING LINKS that count like real files,
 # the script printed DONE, and `rm -rf $W` deleted the events.
-mkdir -p "$R/$MODE/lund_osg" "$R/$MODE/chunks" "$R/$MODE/logs" "$R/$MODE/prov"
 cp "$SRC" "$R/$MODE/lund_osg/$NAME.lund" || {
   echo "FATAL: could not copy the LUND to $R/$MODE/lund_osg -- keeping $W"; exit 1; }
 ln -sf "$R/$MODE/lund_osg/$NAME.lund" "$R/$MODE/chunks/lund_$I.dat"

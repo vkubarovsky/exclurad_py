@@ -31,13 +31,24 @@
 # ihel, ptarg, t_nucl, fermi.  NOT for: nev, seed, outroot, theta_e, y, xB,
 # iacc, vz, itarg.
 #
-# Cards must already be in $PROD_DIR/cards/ as rga_born.txt and rga_rad.txt --
-# the names gen_array.sbatch reads.
+# By default cards live in $PROD_DIR/cards/ as rga_born.txt and rga_rad.txt.
+# CARD_RAD/CARD_BORN override those names.  BUILD_BORN=0 prepares a radiative-
+# only campaign without constructing a Born majorant that will never be used.
 set -eu
 R=${PROD_DIR:?set PROD_DIR to the production directory}
 V=${EXRU:-$HOME/exclurad_py}
+PY=${EXRU_PY:-/work/clas12/vpk/venv-prod-numba}
 NW=${NW:-32}           # probe workers
 PER=${PER:-400}        # probes per bound cell
+CARD_RAD=${CARD_RAD:-$R/cards/rga_rad.txt}
+CARD_BORN=${CARD_BORN:-$R/cards/rga_born.txt}
+BUILD_BORN=${BUILD_BORN:-1}
+
+[ -x "$PY/bin/python" ] || { echo "FATAL: no interpreter at $PY/bin/python"; exit 1; }
+[ -f "$CARD_RAD" ] || { echo "FATAL: no radiative card at $CARD_RAD"; exit 1; }
+if [ "$BUILD_BORN" = 1 ]; then
+  [ -f "$CARD_BORN" ] || { echo "FATAL: no Born card at $CARD_BORN"; exit 1; }
+fi
 
 mkdir -p "$R/tables"
 cd "$V"
@@ -49,16 +60,20 @@ L=$R/tables/build.log
 {
   echo "=== $(date '+%F %T')  box from $R/cards/"
   git -C "$V" describe --tags --always 2>/dev/null || true
-  grep -E "! (W2|Q2|t|vcut|model|ebeam|ihel|ptarg|t_nucl|fermi)" "$R/cards/rga_rad.txt" || true
+  grep -E "! (W2|Q2|t|vcut|model|ebeam|ihel|ptarg|t_nucl|fermi)" "$CARD_RAD" || true
 
   # rad first: it builds the eta table that both the bound and the rad jobs read
   echo "--- rad: eta table + majorant + stratified bound ---"
-  python3 production/build_bound.py "$R/cards/rga_rad.txt" \
+  "$PY/bin/python" production/build_bound.py "$CARD_RAD" \
           "$R/tables/majorant_rad.npz" "$NW" "$PER"
 
-  echo "--- born: majorant only ---"
-  python3 production/build_bound.py "$R/cards/rga_born.txt" \
-          "$R/tables/majorant_born.npz" 1 1
+  if [ "$BUILD_BORN" = 1 ]; then
+    echo "--- born: majorant only ---"
+    "$PY/bin/python" production/build_bound.py "$CARD_BORN" \
+            "$R/tables/majorant_born.npz" 1 1
+  else
+    echo "--- born: skipped (BUILD_BORN=0) ---"
+  fi
 } 2>&1 | tee -a "$L"
 
 ls -la "$R/tables/"
