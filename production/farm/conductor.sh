@@ -105,11 +105,21 @@ while :; do
       jn="nobg_${m}_${p}"
       [ "$(queued "$jn")" -gt 0 ] && continue
       miss=$(missing "$m" "$p" none)
-      [ -n "$miss" ] && submit "$m" "$p" none "$jn" 10:00:00 "$miss"
+      # 14 h, NOT 10.  The J/psi no-background jobs fitted in 10 h (GEMC
+      # 15.7-18.0 ks, recon 8.2-10.9 ks, total 6.7-8.0 h), and dropping the
+      # background does NOT make reconstruction cheap -- it was still 8+ ks
+      # there.  phi's GEMC is 1.7x slower than J/psi's, 28.1-28.9 ks
+      # inbending, measured on chunk 001 of this campaign: with recon that is
+      # ~10.4 h and every one of 800 tasks would have been killed at the limit
+      # after burning ten hours.  SLURM refuses to raise a running job's
+      # limit (Access/permission denied), so the only fix is to submit it
+      # right.  Kaons are the reason: they decay in flight and GEMC tracks
+      # the secondaries.
+      [ -n "$miss" ] && submit "$m" "$p" none "$jn" 14:00:00 "$miss"
     done; done
   else
     [ "$(queued nobg_test)" -eq 0 ] && [ "$(queued nobg_rad_inb)" -eq 0 ] && \
-      submit rad inb none nobg_test 10:00:00 1
+      submit rad inb none nobg_test 14:00:00 1
   fi
 
   # ---- 3. done? -----------------------------------------------------------
