@@ -37,7 +37,15 @@ CHAN=$(awk '{sub(/!.*/,"")} /[^ \t]/{print $1; exit}' "$R/cards/rga_rad.txt" | c
 say(){ echo "$(date '+%F %H:%M') $*" >> "$LOG"; }
 
 have(){ ls "$R/$1/dst_$2"/*_bg$3_*.hipo 2>/dev/null | wc -l; }
+# Indices that still need simulating: the DST is absent AND the generated
+# chunk is there to simulate.  The chunk test is not decoration -- the
+# conductor is started while generation is still running, so without it the
+# first pass would submit 200 tasks that die one second in with "FATAL: no
+# chunk lund_NNN.dat", and the gap would then look filled to `queued`.
+# -e, not -s: the chunk is a SYMLINK into lund_osg, and -s on a dangling
+# link is false for the right reason while -f would be true for the wrong one.
 missing(){ for i in $(seq -w 1 $N); do
+             [ -e "$R/$1/chunks/lund_$i.dat" ] || continue
              [ -s "$R/$1/dst_$2/excluradpy_${CHAN}_${1}_fa18_${2}_bg${3}_$i.hipo" ] || echo $((10#$i))
            done | paste -sd,; }
 queued(){ squeue -u "$USER" -h -o "%j" 2>/dev/null | grep -c "^$1$"; }
