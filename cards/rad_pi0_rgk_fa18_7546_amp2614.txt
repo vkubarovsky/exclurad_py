@@ -4,7 +4,7 @@ pi0.amp2614                       ! model  <channel>.<vintage>
 10000                             ! nev; production wrapper overrides this field
 0                                 ! iborn: 0 = full radiative calculation
 3.24 16.00                        ! W2 range (GeV^2)
-0.50 10.00                        ! Q2 range (GeV^2), with margin below analysis Q2 >= 1
+0.50 8.00                         ! Q2 range (GeV^2), above the observed RGK endpoint near 5
 -2.00 -0.001                      ! signed t range (GeV^2)
 0                                 ! vcut: apply the exclusivity cut offline
 -0.30                             ! t_nucl (GeV^2)
