@@ -1,0 +1,120 @@
+#!/bin/bash
+# Campaign conductor.  Runs ON ifarm, detached, and does not need anyone
+# watching.  VPK asked for this on 2026-10-09 and the reason became concrete
+# on 2026-10-13: 778 tasks finished on the 10th, nobody noticed, and the
+# queue sat empty for two days because the only thing that could have
+# noticed was a chat session that does not exist between messages.
+#
+#   start:  PROD_DIR=... EXRU=... setsid nohup bash conductor.sh >> $LOG 2>&1 </dev/null &
+#   watch:  cat $PROD_DIR/STATUS.txt
+#   stop:   touch $PROD_DIR/CONDUCTOR_STOP
+#
+# Generalised from the J/psi conductor on 2026-10-15.  The channel is read
+# from the CARD, exactly as sim_array.sbatch reads it, so the two can never
+# disagree about which files they are naming.  Everything else is unchanged.
+#
+# Idempotent: it decides what to do from what is ON DISK, not from memory, so
+# it can be killed and restarted at any point and picks up correctly.
+#
+# It never starts a new CHANNEL.  One conductor runs one campaign and stops.
+set -u
+R=${PROD_DIR:?set PROD_DIR to the production directory}
+EX=${EXRU:-$HOME/exclurad_py}
+S=$R/STATUS.txt
+STOP=$R/CONDUCTOR_STOP
+LOG=${CONDUCTOR_LOG:-$R/conductor.log}
+N=${NCHUNK:-200}                        # chunks per set
+BGIN=${BGIN:-45nA_10604MeV}             # inbending  background current
+BGOUT=${BGOUT:-50nA_10604MeV}           # outbending background current
+export PROD_DIR=$R EXRU=$EX
+
+# The channel comes from the card, not from an environment variable one has
+# to remember: sim_array.sbatch derives it the same way, and a mismatch here
+# would make `have` count zero for ever and resubmit 200 finished tasks.
+CHAN=$(awk '{sub(/!.*/,"")} /[^ \t]/{print $1; exit}' "$R/cards/rga_rad.txt" | cut -d. -f1)
+[ -n "$CHAN" ] || { echo "cannot read channel from $R/cards/rga_rad.txt"; exit 1; }
+
+say(){ echo "$(date '+%F %H:%M') $*" >> "$LOG"; }
+
+have(){ ls "$R/$1/dst_$2"/*_bg$3_*.hipo 2>/dev/null | wc -l; }
+missing(){ for i in $(seq -w 1 $N); do
+             [ -s "$R/$1/dst_$2/excluradpy_${CHAN}_${1}_fa18_${2}_bg${3}_$i.hipo" ] || echo $((10#$i))
+           done | paste -sd,; }
+queued(){ squeue -u "$USER" -h -o "%j" 2>/dev/null | grep -c "^$1$"; }
+
+submit(){ # mode pol bgcur jobname timelimit indices
+  local m=$1 p=$2 bg=$3 jn=$4 tl=$5 idx=$6
+  [ -z "$idx" ] && return 0
+  cd "$EX" || return 1
+  local id
+  id=$(sbatch --parsable --export=ALL,BGCUR="$bg" --array="$idx" \
+       --job-name="$jn" --time="$tl" production/farm/sim_array.sbatch "$m" "$p" 2>&1)
+  say "submitted $jn [$idx] -> $id"
+}
+
+status(){
+  { echo "$CHAN campaign -- conductor status"
+    date '+written %F %H:%M'
+    echo
+    echo "PROD_DIR $R"
+    echo
+    printf "%-26s %7s %7s\n" "set" "done" "of"
+    for m in rad born; do for p in inb outb; do
+      bg=$([ "$p" = inb ] && echo "${BGIN%%_*}" || echo "${BGOUT%%_*}")
+      printf "  %-24s %7s %7s\n" "$m $p  $bg" "$(have "$m" "$p" "$bg")" "$N"
+    done; done
+    for m in rad born; do for p in inb outb; do
+      printf "  %-24s %7s %7s\n" "$m $p  no background" "$(have "$m" "$p" none)" "$N"
+    done; done
+    echo
+    echo "queue:"
+    squeue -u "$USER" -h -o "  %j %T" 2>/dev/null | sort | uniq -c | sed 's/^/ /' || echo "  (empty)"
+    echo
+    tail -6 "$LOG" 2>/dev/null | sed 's/^/  /'
+  } > "$S".tmp && mv "$S".tmp "$S"
+}
+
+say "conductor started for channel $CHAN, pid $$, prod $R"
+while :; do
+  [ -f "$STOP" ] && { say "STOP file present, exiting"; status; exit 0; }
+
+  # ---- 1. the with-background sets: fill any gaps -------------------------
+  for m in rad born; do for p in inb outb; do
+    bg=$([ "$p" = inb ] && echo "$BGIN" || echo "$BGOUT")
+    tag=${bg%%_*}
+    jn="fill_${m}_${p}_${tag}"
+    [ "$(queued "$jn")" -gt 0 ] && continue
+    miss=$(missing "$m" "$p" "$tag")
+    [ -n "$miss" ] && submit "$m" "$p" "$bg" "$jn" 14:00:00 "$miss"
+  done; done
+
+  # ---- 2. the no-background sets, gated on one clean task -----------------
+  # One task proves the configuration before 799 follow it.  The gate earned
+  # itself on 2026-10-14: MS was unset in the no-background branch under
+  # `set -u` and every task died at line 198 -- after a six-hour GEMC pass.
+  if [ "$(have rad inb none)" -ge 1 ]; then
+    for m in rad born; do for p in inb outb; do
+      jn="nobg_${m}_${p}"
+      [ "$(queued "$jn")" -gt 0 ] && continue
+      miss=$(missing "$m" "$p" none)
+      [ -n "$miss" ] && submit "$m" "$p" none "$jn" 10:00:00 "$miss"
+    done; done
+  else
+    [ "$(queued nobg_test)" -eq 0 ] && [ "$(queued nobg_rad_inb)" -eq 0 ] && \
+      submit rad inb none nobg_test 10:00:00 1
+  fi
+
+  # ---- 3. done? -----------------------------------------------------------
+  tot=0
+  for m in rad born; do for p in inb outb; do
+    bg=$([ "$p" = inb ] && echo "${BGIN%%_*}" || echo "${BGOUT%%_*}")
+    tot=$(( tot + $(have "$m" "$p" "$bg") + $(have "$m" "$p" none) ))
+  done; done
+  if [ "$tot" -ge $((8 * N)) ]; then
+    say "ALL $((8*N)) $CHAN DSTs present.  Campaign complete; stopping.  A new channel is a new conductor and a new decision."
+    status; exit 0
+  fi
+
+  status
+  sleep ${POLL:-1800}
+done
