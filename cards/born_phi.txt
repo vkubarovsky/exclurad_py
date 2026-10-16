@@ -1,24 +1,44 @@
-! exclurad_py run card -- plain text, one value per line, ! starts a comment.
-! Positional (exclugen convention): the ORDER of the lines is the format.
-phi.diffrad_vm_pdet                     ! model  <channel>.<vintage>   (--models to list)
+! ------------------------------------------------------------------
+!  phi -> K+ K- electroproduction, CLAS12 RG-A Fall 2018, BORN ONLY
+!
+!  This card and its twin (rad_phi.txt) differ in ONE field: iborn.
+!  Everything else is byte-identical on purpose -- the pair is used to
+!  form N_rad/N_born, and any other difference would put a physics
+!  effect into that ratio that is not radiation.
+!
+!  Box decided by VPK 2026-10-15:
+!     t ceiling  -6.00   (phi analysis reach; was -3.00 rad / -8.0 born)
+!     vmin        0.0    (soft/hard split chosen per event)
+!     vz         -5.5 -0.5   as for J/psi: the RG-A F18 nominal cell
+!
+!  Q2 0.40-10.0 means the SCATTERED ELECTRON IS IN THE FORWARD DETECTOR,
+!  not the Forward Tagger -- this is electroproduction, a different
+!  topology from the J/psi photoproduction campaign that used the same
+!  four GEMC configurations.
+!
+!  vcut = 0: no cut on the missing mass at generation.  The resolution
+!  tail has to flow in from above the cut, so the cut is applied offline
+!  on the reconstructed MX^2(e'pK+K-), never here.
+! ------------------------------------------------------------------
+phi.diffrad_vm_pdet                ! model  <channel>.<vintage>   (--models to list)
 10.6                               ! ebeam (GeV)
 100000                             ! nev
 1                                  ! iborn   1 = Born only, 0 = full RC
 4.00 20.80                         ! W2 range (GeV^2)
 0.40 10.0                          ! Q2 range (GeV^2)
--8.0 -0.20                         ! t = (p-p')^2 from the MEASURED proton (t_kind=target, VPK 08.10). Box carries over: at Born (q-p_V)^2 = (p-p')^2 identically (GeV^2, both negative)
-0.0                                ! vcut   MX^2(e'p) - m_V^2 now -- the missing system is the MESON in this bin (GeV^2);  0 = no cut (kinematic limit)
+-6.00 -0.20                        ! t = (p-p')^2 from the MEASURED proton (t_kind=target).  Ceiling -6.00 set by VPK 15.10; at Born (q-p_V)^2 = (p-p')^2 identically
+0.0                                ! vcut   MX^2(e'p) - m_V^2 (GeV^2); 0 = no cut, cut offline
 -0.30                              ! t_nucl  (GeV^2) for pi0/eta models; ignored for vector mesons
 0                                  ! ihel    +1, -1, or 0 = helicity-averaged
-20260813                           ! seed
-1                                  ! idecay  1 = decay vector meson to h+h- isotropically, 0 = no decay
+20261015                           ! seed
+1                                  ! idecay  1 = decay vector meson to K+K- isotropically
 ./exclurad_out                     ! output root -- RELATIVE on purpose.
-!   The production wrappers substitute this field with the job's own work
-!   directory (gen_array.sbatch, field 13), so in production the card value
-!   is never used.  It used to read /Volumes/wd_14tb/... -- one Mac's external
-!   disk, in a card shared through git -- and anyone running the card directly
-!   on Linux got PermissionError from os.makedirs before anything else happened.
-0.25 0.90                          ! y range  (nu/E)   -- match the reference generator's cut
-0.001 0.60                         ! xB range          -- match the reference generator's cut
-none                               ! iacc    acceptance preset: none | jpsi  (|p|,theta on e',p',daughters)
-0.0                                ! vmin    soft/hard split (GeV^2); 0 = auto.  exclugen uses 1.0d-4
+0.25 0.90                          ! y range  (nu/E)
+0.001 0.60                         ! xB range
+none                               ! iacc    acceptance preset: none | jpsi
+0.0                                ! vmin    soft/hard split (GeV^2); 0 = choose per event
+1                                  ! itarg   1 = pre-vertex external radiator (target straggling)
+-5.5 -0.5                          ! vertex z range, cm -- the RG-A F18 nominal cell (as J/psi)
+0.0                                ! ptarg   unpolarised target
+none                               ! fermi   free proton
+0.0 180.0                          ! theta_e  no window: the Q2/y/W2 box already bounds it; select offline

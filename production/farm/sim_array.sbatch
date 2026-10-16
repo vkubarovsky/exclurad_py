@@ -247,25 +247,24 @@ echo "hadron pid: $HPID (model ${MODEL:-unknown})"
 # already run, which is the most expensive place to fail.  Leaving that to a
 # manual copy step is how it gets forgotten.
 NTG="$R/hipo_to_ntuple.groovy"
-# jpsi_to_ntuple.groovy is J/psi SPECIFIC, not vector-generic: it finds the
-# meson row by pid 443 and the daughters by pid +-11 with parent = that row
-# (lines 57-66).  For phi -> K+K- (333, +-321) and rho -> pi+pi- (113,
-# +-211) it finds neither, writes nothing, and the size guard below kills
-# the task -- after gemc and recon, the expensive place.  Routing phi and
-# rho to it, as the first version of this block did on 2026-10-09, would
-# have reproduced exactly the failure the routing was added to prevent.
-# Refuse at the start instead, which costs a minute rather than a chunk.
+# vm_to_ntuple.groovy replaces jpsi_to_ntuple.groovy, which was hard-wired to
+# pid 443 with daughters +-11.  It takes the CHANNEL NAME as its fifth
+# argument and carries the pid table: jpsi 443 -> e+e-, phi 333 -> K+K-,
+# rho 113 -> pi+pi-.  Routing phi or rho to the J/psi script, as the first
+# version of this block did on 2026-10-09, found no meson row, wrote nothing,
+# and tripped the size guard below -- after gemc and recon, the expensive
+# place.  Verified 2026-10-15: on 5000 real J/psi events from
+# prod_jpsi_f18in_20261009 the two scripts write a byte-identical file, so
+# the 1600 DSTs already analysed need no reprocessing.
+#
+# THE FIFTH ARGUMENT IS NOT THE SAME THING FOR THE TWO READERS.  For the
+# pi0/eta reader it is the hadron pid (2212 or 2112); for vm_to_ntuple it is
+# the channel name.  Passing $HPID to vm_to_ntuple would throw "unknown
+# channel '2212'", so the argument is chosen with the script, never assumed.
 case "$CHAN" in
-  jpsi)     DEFNT=jpsi_to_ntuple.groovy ;;
-  pi0|pi0n|eta|etan) DEFNT=hipo_to_ntuple.groovy ;;
-  phi|rho)  [ -f "$R/hipo_to_ntuple.groovy" ] || {
-              echo "FATAL: no ntuple reader for channel '$CHAN'."
-              echo "       jpsi_to_ntuple.groovy is J/psi specific (pid 443, daughters +-11);"
-              echo "       hipo_to_ntuple.groovy is pi0/eta specific (two photons from the pi0 row)."
-              echo "       Generalise one of them, or put a reader at \$PROD_DIR/hipo_to_ntuple.groovy."
-              exit 1; }
-            DEFNT=hipo_to_ntuple.groovy ;;
-  *)        DEFNT=hipo_to_ntuple.groovy ;;
+  jpsi|phi|rho)      DEFNT=vm_to_ntuple.groovy   ; NTARG5=$CHAN  ;;
+  pi0|pi0n|eta|etan) DEFNT=hipo_to_ntuple.groovy ; NTARG5=$HPID  ;;
+  *)                 DEFNT=hipo_to_ntuple.groovy ; NTARG5=$HPID  ;;
 esac
 # NOT $0.  slurm runs a COPY of this script from its spool directory, so $0
 # points there and not at the checkout -- the fallback silently resolved to
@@ -275,7 +274,7 @@ esac
 [ -f "$NTG" ] || { echo "FATAL: $DEFNT found neither in $R nor in the checkout"; exit 1; }
 echo "ntuple script: $NTG (channel $CHAN)"
 /group/clas12/packages/coatjava/9.0.2/bin/run-groovy "$NTG" \
-    recon.hipo 1000000 "$R/$MODE/out_$POL/$OUTTAG.f32" 0 "$HPID" 2>&1 | grep -E "DONE|FATAL|Exception" || true
+    recon.hipo 1000000 "$R/$MODE/out_$POL/$OUTTAG.f32" 0 "$NTARG5" 2>&1 | grep -E "DONE|FATAL|Exception" || true
 NS=$(stat -c %s "$R/$MODE/out_$POL/$OUTTAG.f32" 2>/dev/null || echo 0)
 if [ "$NS" -lt 1000 ]; then
   echo "FATAL: ntuple $OUTTAG.f32 is $NS bytes -- keeping gemc.hipo for post_array"; exit 1
