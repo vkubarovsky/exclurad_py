@@ -119,6 +119,47 @@ SRC=$(ls "$W"/*/*_${MODE}_v1/lund/*.lund 2>/dev/null | head -1)
 if [ $RC -ne 0 ] || [ -z "$SRC" ]; then
   echo "FATAL: generation produced no LUND"; cp "$W/gen.log" "$R/$MODE/logs/gen_fail_$I.log"; exit 1
 fi
+CONFIG=$(dirname "$(dirname "$SRC")")/inputs/config.json
+[ -s "$CONFIG" ] || {
+  echo "FATAL: generation produced no config.json -- keeping $W"; exit 1; }
+# Stage-2 violations are not harmless, but the upstream generator explicitly
+# defines <=0.1% of stage-1 accepts as a documented production tolerance.  It
+# records those rare cases as a note and says the sample stands; above that it
+# says the sample is not exactly unweighted.  Enforce the same criterion here
+# instead of either hiding every nonzero count or rejecting an otherwise valid
+# sharp-cross-section campaign.  Ordinary majorant overweights remain fatal.
+B_VIOL_FRACTION_MAX=${B_VIOL_FRACTION_MAX:-0.001}
+"$PY/bin/python" - "$CONFIG" "$B_VIOL_FRACTION_MAX" <<'PY'
+import json
+import math
+import sys
+
+path, limit = sys.argv[1], float(sys.argv[2])
+if not math.isfinite(limit) or limit < 0.0:
+    raise SystemExit(f"FATAL: invalid B_VIOL_FRACTION_MAX={limit}")
+with open(path) as stream:
+    record = json.load(stream)
+report = record.get("report", {})
+b_viol = int(report.get("b_viol", -1))
+accepted = int(report.get("accepted", 0))
+overweight = int(report.get("overweight", -1))
+sigma = float(report.get("sigma_nb", float("nan")))
+fraction = b_viol / max(accepted, 1)
+if b_viol < 0 or fraction > limit or overweight != 0:
+    raise SystemExit(
+        f"FATAL: refusing to publish {path}: b_viol={b_viol}/{accepted} "
+        f"({fraction:.6%}, limit {limit:.6%}), overweight={overweight}")
+if not math.isfinite(sigma) or sigma <= 0.0:
+    raise SystemExit(f"FATAL: refusing to publish {path}: sigma_nb={sigma}")
+print(
+    f"release gate: b_viol={b_viol}/{accepted} ({fraction:.6%}, "
+    f"limit {limit:.6%}) overweight=0 sigma_nb={sigma:.12g}")
+PY
+GATE_RC=$?
+if [ "$GATE_RC" -ne 0 ]; then
+  echo "FATAL: generated chunk failed its release gate -- keeping $W"
+  exit "$GATE_RC"
+fi
 N=$(grep -vc '^#' "$SRC")
 echo "events written: $(grep -c '^ *[0-9]* *1 *1 ' "$SRC" 2>/dev/null || echo '?')  lines: $N"
 
@@ -165,8 +206,8 @@ ln -sf "$R/$MODE/lund_osg/$NAME.lund" "$R/$MODE/chunks/lund_$I.dat"
 # x5.41.  Search for '*.config.json'.
 mkdir -p "$R/$MODE/prov"
 cp "$SRC.info" "$R/$MODE/lund_osg/$NAME.lund.info" 2>/dev/null || echo "WARNING: no .info sidecar"
-cp "$(dirname "$(dirname "$SRC")")/inputs/config.json" "$R/$MODE/prov/${MODE}_$I.config.json" 2>/dev/null \
-  || echo "WARNING: no config.json -- sigma_nb lost for chunk $I"
+cp "$CONFIG" "$R/$MODE/prov/${MODE}_$I.config.json" || {
+  echo "FATAL: could not preserve config.json -- keeping $W"; exit 1; }
 cp "$W/card.txt" "$R/$MODE/prov/${MODE}_$I.card.txt"
 grep -o '"sigma_nb":[^,]*' "$R/$MODE/prov/${MODE}_$I.config.json" 2>/dev/null | head -1
 

@@ -43,17 +43,25 @@ import numpy as np
 
 from exclurad_py import models
 from exclurad_py.generator import Generator, Box
+from exclurad_py.generator.events import _cell_cdf
 from exclurad_py.core.rc import rc_factor
 from exclurad_py.run import _needs_t_nucl
 from exclurad_py.runcard import parse
 
 CARD, OUT, NW, PER = sys.argv[1], sys.argv[2], int(sys.argv[3]), int(sys.argv[4])
 BSHAPE = sys.argv[5] if len(sys.argv) > 5 else ""
-MARGIN = 1.3
+MARGIN = float(os.environ.get("B_MARGIN", "1.3"))
 
 
 MAXCELL = int(os.environ.get("B_MAXCELL", "400"))
 MINUSE = int(os.environ.get("B_MINUSE", "20"))
+
+if NW <= 0 or PER <= 0:
+    raise SystemExit("workers and probes per cell must be positive")
+if not np.isfinite(MARGIN) or MARGIN <= 1.0:
+    raise SystemExit("B_MARGIN must be finite and greater than 1")
+if MAXCELL <= 0 or MINUSE <= 0:
+    raise SystemExit("B_MAXCELL and B_MINUSE must be positive")
 
 
 def b_shape_for_budget(shape, maxcell):
@@ -197,6 +205,8 @@ if __name__ == "__main__":
               else b_shape_for_budget(ms, MAXCELL))
     ncell = int(np.prod(bshape))
     print(f"  majorant {ms} built in {time.time()-t0:.0f} s")
+    print(f"  bound settings: margin={MARGIN:g}, max_cells={MAXCELL}, "
+          f"min_usable={MINUSE}, workers={NW}")
     print(f"  bound grid {bshape} = {ncell} cells x {PER} probes = {ncell*PER} total")
 
     edges = np.linspace(0, ncell, NW + 1).astype(int)
@@ -264,10 +274,27 @@ if __name__ == "__main__":
           f"{100.0 * float(w[np.where(~ok[idx], 1.0, 0.0) > 0].sum()) / tot:.2f} %")
 
     d0 = np.load(OUT + ".maj.npz", allow_pickle=True)
-    np.savez_compressed(OUT, M=d0["M"], cdf=d0["cdf"], shape=d0["shape"],
+    M = np.asarray(d0["M"])
+    cache_edges = {k: d0["e_" + k] for k in ("Q2", "W2", "t", "phi")}
+    # The cached cell draw and the stage-2 acceptance must use the SAME B.
+    # g0.save_majorant() above carries the proposal-drawn calibration bound;
+    # this builder replaces it with the stratified bound B.  Keeping its old
+    # cdf would draw cells proportional to M*B_old but reject with B_new.  It
+    # would also violate the Mtot/cdf invariant enforced since 9c65364.
+    B_full = B[idx]
+    Mtot = M * B_full
+    cdf = _cell_cdf(Mtot, cache_edges)
+    if cdf is None or not np.isfinite(cdf).all() or not np.isclose(cdf[-1], 1.0):
+        raise RuntimeError("stratified bound produced an invalid cached cell cdf")
+    np.savez_compressed(OUT, M=M, cdf=cdf, shape=d0["shape"],
                         eta_hi=d0["eta_hi"], key=d0["key"], B=B, B_global=Bg,
                         b_shape=np.array(bshape),
                         diag_bmax=bmax, diag_nuse=nuse,
+                        diag_margin=np.array(MARGIN),
+                        diag_probes_per_cell=np.array(PER),
+                        diag_workers=np.array(NW),
+                        diag_max_cells=np.array(MAXCELL),
+                        diag_min_usable=np.array(MINUSE),
                         **{k: d0[k] for k in d0.files if k.startswith("e_")})
     os.remove(OUT + ".maj.npz")
     print(f"  wrote {OUT}   total {time.time()-t0:.0f} s")

@@ -40,6 +40,7 @@ V=${EXRU:-$HOME/exclurad_py}
 PY=${EXRU_PY:-/work/clas12/vpk/venv-prod-numba}
 NW=${NW:-32}           # probe workers
 PER=${PER:-400}        # probes per bound cell
+B_MARGIN=${B_MARGIN:-1.3}  # multiplicative safety on the largest sampled ratio
 CARD_RAD=${CARD_RAD:-$R/cards/rga_rad.txt}
 CARD_BORN=${CARD_BORN:-$R/cards/rga_born.txt}
 BUILD_BORN=${BUILD_BORN:-1}
@@ -54,12 +55,14 @@ mkdir -p "$R/tables"
 cd "$V"
 export PYTHONPATH=$V OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1
 export TABLE_SERIAL=1 ETA_PROPOSAL_CAP=5 EXACT_ACCEPT=1 EXPO_TAIL=1 MAJ_SAFETY=4.0
+export B_MARGIN
 export ETA_TABLE=$R/tables/etatable.npz
 
 L=$R/tables/build.log
 {
   echo "=== $(date '+%F %T')  box from $R/cards/"
   git -C "$V" describe --tags --always 2>/dev/null || true
+  echo "bound configuration: workers=$NW probes_per_cell=$PER margin=$B_MARGIN"
   grep -E "! (W2|Q2|t|vcut|model|ebeam|ihel|ptarg|t_nucl|fermi)" "$CARD_RAD" || true
 
   # rad first: it builds the eta table that both the bound and the rad jobs read

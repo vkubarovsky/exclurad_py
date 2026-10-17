@@ -16,6 +16,7 @@ production/farm/gen_array.sbatch   stage A, generation
 production/farm/sim_array.sbatch   stage B, GEMC + background + recon + ntuple + DST
 production/farm/post_array.sbatch  catch-up when B dies after GEMC
 production/farm/generator_campaign_matrix.sh  five 100M radiative OSG inputs
+production/audit_generator_pilot.py  numerical gate before a 100M submission
 ```
 
 All four take `PROD_DIR`. This is not tidiness: every trap below is already
@@ -40,22 +41,38 @@ submitted directly or whether EXCLUGEN must first be packaged as a portal
 generator.  That choice does not change the generator campaign defined here.
 
 ```bash
+export CAMPAIGN_ROOT=/volatile/clas12/$USER/<new-exclugen-campaign-root>
 bash production/farm/generator_campaign_matrix.sh prepare all
 bash production/farm/generator_campaign_matrix.sh smoke all
 bash production/farm/generator_campaign_matrix.sh status all
-MAX_ACTIVE=40 bash production/farm/generator_campaign_matrix.sh submit all
+bash production/farm/generator_campaign_matrix.sh pilot rga_fa18_10604
+bash production/farm/generator_campaign_matrix.sh audit rga_fa18_10604
+MAX_ACTIVE=40 bash production/farm/generator_campaign_matrix.sh submit rga_fa18_10604
 ```
 
-Do not submit production until all five 50-event smoke tasks have completed,
-their `health: clean`, backend, LUND count and `sigma_nb` records have been
-checked, and the generator checkout is committed and clean.  `MAX_ACTIVE=40`
-per campaign caps the five simultaneously submitted arrays at 200 running
-generator tasks.  A later equal-statistics extension uses `TRANCHE=2`; its
-global chunk ids and seeds append rather than collide:
+`prepare` builds every campaign with 1,600 bound probes per cell and a 2.0
+margin by default.  The settings and the final `M*B` cell CDF are stored in
+`majorant_rad.npz`; reusing a table with different requested settings is a
+hard failure.  The 50-event `smoke` checks startup and output plumbing.  The
+separate `pilot` makes two 10,000-event chunks, and `audit` requires zero
+ordinary overweights, the generator's documented `b_viol` tolerance of at
+most 0.1% of stage-1 accepts, complete output, a single generator revision,
+and `sigma_nb` consistent with the cached `M*B` estimator.
+`submit` is locked until that audit creates `PILOT_PASSED.txt` for the exact
+current revision.  The array task also applies that 0.1% limit to every later
+chunk and refuses ordinary majorant overweights, so the 20k-event pilot is a
+release qualification rather than the only protection applied to the 100M
+sample.  A rare nonzero count remains visible in each chunk's provenance; it
+is not relabeled as zero.
+
+Submit one production campaign at a time.  A 10,000-task array fills the Farm
+submission quota, so `submit all` is deliberately refused.  A later
+equal-statistics extension uses `TRANCHE=2`; its global chunk ids and seeds
+append rather than collide:
 
 ```bash
 TRANCHE=2 MAX_ACTIVE=40 \
-  bash production/farm/generator_campaign_matrix.sh submit all
+  bash production/farm/generator_campaign_matrix.sh submit rga_fa18_10604
 ```
 
 ```bash
@@ -68,16 +85,20 @@ bash ~/exclurad_py/production/farm/build_tables.sh
 
 ## Before you submit 200 jobs: ten minutes
 
-1. **`proposal-weighted bound` in `tables/build.log`** — about 1.95 on the
+1. **`proposal-weighted bound` in `tables/build.log`** — inspect this together
+   with the recorded margin and probe count.  It was about 1.95 on the
    RG-A box. This is the only number in that file worth reading. Ignore
    `max B`: it is one probe times the margin and came out 12.72 / 9.79 /
    9.87 on three runs of the same box. Ignore the median over cells: it
    counts the empty corner of the box the same as the cell every event
    lands in. A third of the grid getting zero probes is geometry — ten
    times the probes bought back 18 of 150 cells — not a budget problem.
-2. **Smoke-run one task at NEV=50**, both modes. Check `setup 0s` (the
+2. **Smoke-run one task at NEV=50**, then run and audit the two 10k-event
+   pilot chunks. Check `setup 0s` (the
    majorant loaded rather than rebuilt), `health: clean`, no `#` in the
-   LUND, `sigma_nb` present in `config.json`, and `rc_backend`.
+   LUND, `sigma_nb` present in `config.json`, and `rc_backend`.  For the five
+   production-matrix campaigns the automated audit, not the health label,
+   is the release criterion.
 3. **Seeds.** `SEEDBASE` must be passed per campaign. It used to be baked
    in, which would have made two campaigns share a random stream — the
    events differ if the box differs, but samples whose streams coincide
@@ -210,6 +231,14 @@ t_nucl or fermi changes — not for nev, seed, theta_e, y, xB, vz.
 One majorant **per mode**: `_maj_key` carries `born_only`, so a born job
 cannot use the rad majorant. Measured cost of getting that wrong: 25 s in
 each of 200 jobs, silently.
+
+The cached cell CDF and the cached bound are one object: the CDF must be built
+from `M*B`, and `sigma_total()` must integrate that same `M*B`.  A table
+builder that replaces `B` without rebuilding the CDF biases the cell draw;
+normalising a CDF built from `M*B` with `M` alone biases `sigma_nb`.  The
+campaign builder stamps its bound settings and rebuilds the CDF after the
+final stratified bound, while the pilot audit independently reconstructs and
+checks both relationships.
 
 **Drop `ETA_PROPOSAL_CAP` and two things break at once:** `eta_hi` goes
 5.0 -> 36.5 so stage-1 acceptance craters, AND the majorant silently

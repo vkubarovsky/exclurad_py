@@ -20,9 +20,14 @@ def generator_convention():
 
 def exclurad_convention():
     ME = 0.5473
-    a = np.loadtxt(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "validation/eta_matched/radcor_all.vec"))
-    Q2, xb, tabs, phid = a[:5,0], a[:5,1], a[:5,2], a[:5,3]
-    tN = -tabs
+    # radcor_all.vec was an external ~/excl2013 reference file and is not
+    # present in a clean checkout.  eta_matched.csv is the committed matched
+    # subset derived from it and carries these same inputs explicitly.
+    path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        "validation/eta_matched/eta_matched.csv")
+    a = np.genfromtxt(path, delimiter=",", names=True)
+    Q2, xb = a["Q2"][:5], a["xB"][:5]
+    tN, phid = a["t_N"][:5], a["phi_deg"][:5]
     W2, tk, phik = excl_to_mesonrc(Q2, xb, tN, np.radians(phid), ME)
     for i in range(len(Q2)):
         sf = models.get("eta.tableB1", t_nucl=float(tN[i]))
