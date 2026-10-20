@@ -274,3 +274,58 @@ def load(pattern, channel, ebeam=10.6, rec=False, require=(0, 1, 2, 3),
     out["tprime"] = np.abs(t0) - out["mt"]      # >= 0 inside the physical region
     out["mtprime"] = out["mt"] - np.abs(t0)     # = -t' , the usual plotting variable
     return out
+
+
+# --------------------------------------------------------------- pooling ---
+def pool_weights(t_gen, samples, var="|t|"):
+    """Per-event weights for several samples whose boxes OVERLAP.
+
+    The case this exists for: a production sample over the whole range, plus a
+    later sample covering only the tail, generated because the tail ran out of
+    events.  They cannot simply be concatenated -- in the overlap the events
+    came from two sources and would be counted twice.
+
+    Every sample draws proportional to sigma(x) inside its own box, so the
+    generation density at x is the sum over the samples whose box contains x:
+
+        g(x) = SUM_X  N_X sigma(x) / sigma_X
+
+    and the weight that makes the sum of weights reproduce the cross section
+    is sigma(x)/g(x).  **sigma(x) cancels**, which is what makes this cheap:
+
+        w(x) = 1 / SUM_{X : x in box_X} ( N_X / sigma_X )
+
+    -- piecewise constant, one value per distinct overlap pattern, not a
+    function of the kinematics.  It is the standard minimum-variance
+    multi-channel estimator, not a local invention.
+
+    THE BOX TEST USES THE GENERATED VALUE, never the reconstructed one.  An
+    event born at |t| = 1.6 and measured at 1.4 keeps its overlap weight; test
+    it on the measured value instead and the two samples double-count along
+    the boundary.
+
+    Checked 2026-10-20 at 6.535 GeV, pi0.amp2614 Born, A = (|t| < 2.5, 50k,
+    1.58647 nb) pooled with B = (1.5 < |t| < 2.5, 50k, 0.09350 nb): the pooled
+    weights reproduce sigma_A to 0.020 %, agree bin by bin below the overlap
+    exactly and inside it to within the statistics of A alone, and multiply the
+    events above |t| = 1.5 by 17.9.
+
+    t_gen    array of the GENERATED |t| of every event, in sample order
+    samples  list of dicts: {"lo": , "hi": , "sigma": , "n": } -- |t| bounds,
+             the sample's cross section in nb, and its generated event count.
+             `n` must be the number GENERATED, not the number that survived a
+             later cut, or the density is wrong.
+    """
+    t = np.abs(np.asarray(t_gen, dtype=float))
+    if sum(s["n"] for s in samples) != t.size:
+        raise ValueError(f"t_gen has {t.size} entries but the samples declare "
+                         f"{sum(s['n'] for s in samples)} generated events")
+    inv = np.zeros_like(t)
+    for s in samples:
+        if s["sigma"] <= 0 or s["n"] <= 0:
+            raise ValueError(f"sample with sigma={s['sigma']} n={s['n']}")
+        inv += np.where((t >= s["lo"]) & (t < s["hi"]), s["n"] / s["sigma"], 0.0)
+    if np.any(inv <= 0):
+        raise ValueError(f"{int((inv <= 0).sum())} events lie in no sample's box "
+                         f"-- {var} outside every (lo, hi)")
+    return 1.0 / inv
