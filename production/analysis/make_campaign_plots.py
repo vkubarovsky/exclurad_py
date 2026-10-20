@@ -99,6 +99,17 @@ def sets_for(pol, bg, rec, require):
     return out
 
 
+# The final state, spelled once.  Every title and every log line used to
+# carry a hand-typed "e' N h+ h-", which is right for no channel at all and
+# wrong on a pi0 page in the same way the axis labels were.
+_C = cl.CHANNELS[CH]
+_H1, _H2 = _C["names"]
+_N = _C["baryon_name"]
+FS_FULL = f"e' {_N} ${_H1}$ ${_H2}$".replace("$$", "")
+FS_NOBAR = f"e' ${_H1}$ ${_H2}$".replace("$$", "")
+FS_FULL_TXT = f"e' {_N} {_H1} {_H2}".replace("\\", "").replace("^", "")
+FS_NOBAR_TXT = f"e' {_H1} {_H2}".replace("\\", "").replace("^", "")
+
 PRESENT = [c for c in _discover(ROOT_DIR) if _exists(c[0], c[1])]
 if not PRESENT:
     raise SystemExit("no rad/born pair of f32 ntuples found under " + ROOT_DIR)
@@ -159,9 +170,13 @@ with PdfPages(OUT) as pdf:
         s = sets_for(pol, bg, rec=True, require=cl.TOPOLOGY["full"])
         n = {m: s[m]["d"]["n_kept"] for m in s}
         yields.append((lab, n["rad"], n["born"]))
-        log.append(f"rec e'pe+e- {lab}: rad {n['rad']}, born {n['born']}")
-        cp.page(pdf, s, f"Reconstructed  e' N h$^+$ h$^-$  -  {lab}",
-                f"all four tracks matched   |   rad {n['rad']} of 1 000 000"
+        zr = s["rad"]["d"].get("n_zero_momentum", {})
+        log.append(f"rec {FS_FULL_TXT} {lab}: rad {n['rad']}, born {n['born']}"
+                   + (f"   [rad dropped for zero momentum: "
+                      + ", ".join(f"{k} {v}" for k, v in zr.items() if v) + "]" if any(zr.values()) else ""))
+        cp.page(pdf, s, f"Reconstructed   {FS_FULL}   -   {lab}",
+                f"every final-state particle matched AND carrying momentum   |   "
+                f"rad {n['rad']} of 1 000 000"
                 f" ({100 * n['rad'] / 1e6:.3f} %),  Born {n['born']}"
                 f" ({100 * n['born'] / 1e6:.3f} %)")
         if bg == "none":
@@ -172,10 +187,11 @@ with PdfPages(OUT) as pdf:
 
     # ---- reconstructed, three-track topology ------------------------------
     s3 = sets_for(S3POL, S3BG, rec=True, require=cl.TOPOLOGY["no_baryon"])
-    log.append(f"rec e'e+e- inb 45nA: rad {s3['rad']['d']['n_kept']}, "
+    log.append(f"rec {FS_NOBAR_TXT} {S3LAB}: rad {s3['rad']['d']['n_kept']}, "
                f"born {s3['born']['d']['n_kept']}")
-    cp.page(pdf, s3, "Reconstructed  e' h$^+$ h$^-$  (recoil baryon not required)  -  " + S3LAB,
-            "the proton is dropped: no t measurement, roughly four times the data statistics")
+    cp.page(pdf, s3, f"Reconstructed   {FS_NOBAR}   (recoil baryon not required)   -   " + S3LAB,
+            f"the recoil {_N} is dropped: no t measurement, and for J/psi roughly four "
+            "times the data statistics")
 
     # ---- data -------------------------------------------------------------
     # One page per (topology, period).  The exclusive topology is the four-track

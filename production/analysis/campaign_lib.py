@@ -158,16 +158,36 @@ def load(pattern, channel, ebeam=10.6, rec=False, require=(0, 1, 2, 3),
     n_read = len(a)
 
     if rec and require:
+        # FOUND IS NOT USABLE.  MC::GenMatch happily matches a generated
+        # particle to a REC::Particle row with pid 0, 22 or 2112 and a
+        # momentum of exactly zero -- a neutral calorimeter cluster with no
+        # direction assigned.  The found flag is set, and the four-vector is
+        # not there.  Measured 2026-10-20 on the rad samples, as a fraction
+        # of the events where all four were "found":
+        #     J/psi  8.99 %   (the FT electron, 8.03 % on its own)
+        #     phi    8.08 %
+        #     pi0 p  13.61 %
+        #     pi0 n  58.38 %  -- the NEUTRON alone is 51.88 %
+        # Used as a four-vector such a row gives theta = 90 deg, nu = E_beam
+        # and W = W_max, which piles up at the edge of every panel and looks
+        # like a plotting artefact rather than a selection error.  So a slot
+        # counts as reconstructed only when it is found AND carries momentum.
         keep = np.ones(len(a), dtype=bool)
+        nzero = {}
         for k in require:
-            if k < len(SLOTS):
-                keep &= a[:, REC0 + 8 * k] > 0.5
+            if k >= len(SLOTS):
+                continue
+            found = a[:, REC0 + 8 * k] > 0.5
+            pk = np.linalg.norm(a[:, REC0 + 8 * k + 5: REC0 + 8 * k + 8], axis=1)
+            keep &= found & (pk > 0.0)
+            nzero[SLOTS[k]] = int((found & (pk <= 0.0)).sum())
         a = a[keep]
 
     m = ch
     MB = ch["baryon"]
     out = dict(n_files=len(files), n_read=n_read, n_kept=len(a), weight=a[:, 0],
-               channel=channel, layout=ch["layout"])
+               channel=channel, layout=ch["layout"],
+               n_zero_momentum=(nzero if rec and require else {}))
     for k, name in enumerate(SLOTS):
         p = _p3(a, k, rec, REC0)
         out[name + "_p"], out[name + "_theta"], out[name + "_phi"] = _pmag_theta_phi(p)
