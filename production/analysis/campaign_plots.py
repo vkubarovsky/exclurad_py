@@ -60,7 +60,10 @@ PANELS = [
 def _edges(arrs, rng, nb):
     if rng is not None:
         return np.linspace(rng[0], rng[1], nb + 1)
-    v = np.concatenate([a[np.isfinite(a)] for a in arrs if a.size])
+    good = [a[np.isfinite(a)] for a in arrs if a is not None and a.size]
+    if not good:
+        return np.linspace(0, 1, nb + 1)
+    v = np.concatenate(good)
     if v.size == 0:
         return np.linspace(0, 1, nb + 1)
     lo, hi = np.percentile(v, 0.2), np.percentile(v, 99.8)
@@ -106,10 +109,29 @@ def _hist_nb(x, edges, sigma, n_gen):
     return h * w, np.sqrt(h) * w
 
 
+def _panels_for(sets):
+    """The panel list, with the mass panel dropped when the mass is a delta.
+
+    A meson that decays to hadrons is generated with idecay 1, so M(h+h-) is
+    the pole mass to float precision and the panel renders as
+    "1e-8 + 1.019461" -- an axis showing rounding error.  It is replaced by
+    -t', which is the variable the forward edge actually lives in.
+    """
+    out = []
+    for p in PANELS:
+        if p[0] == "m_pair":
+            spread = max(float(np.ptp(s["d"]["m_pair"])) for s in sets.values())
+            if spread < 1e-3:
+                out.append(("mtprime", r"$-t' = -t - |t_{min}|$  [GeV$^2$]", None, 50, True))
+                continue
+        out.append(p)
+    return out
+
+
 def page(pdf, sets, title, subtitle):
-    """One page: every panel, both samples, nanobarns per bin."""
+    """One page: every panel, both samples, femtobarns per bin."""
     fig, axes = plt.subplots(4, 3, figsize=(11.0, 12.4))
-    for ax, (key, lab, rng, nb, logy) in zip(axes.ravel(), PANELS):
+    for ax, (key, lab, rng, nb, logy) in zip(axes.ravel(), _panels_for(sets)):
         ed = _edges([s["d"][key] for s in sets.values()], rng, nb)
         c = 0.5 * (ed[1:] + ed[:-1])
         for nm, s in sets.items():
@@ -164,10 +186,18 @@ def page_radiation(pdf, sets, title):
             ax.set_yscale("log")
             _clip_log(ax)
     for ax, key in zip(axes[:2], ("gprod_p", "gdec_p")):
-        txt = [f"{STY[nm]['label']}:  {100.0 * (s_['d'][key] > 1e-6).mean():.1f} %"
-               for nm, s_ in sets.items()]
-        ax.set_title("fraction of events carrying one\n" + "      ".join(txt),
-                     fontsize=7.6, color="#444444", pad=5)
+        fr = {nm: 100.0 * (s_["d"][key] > 1e-6).mean() for nm, s_ in sets.items()}
+        if max(fr.values()) == 0.0:
+            ax.text(0.5, 0.5, "no such photon in either sample\n"
+                              "(idecay 1: the meson decays to hadrons)",
+                    transform=ax.transAxes, ha="center", va="center",
+                    fontsize=8.5, color="#777777")
+            ax.set_yscale("linear")
+            ax.set_yticks([])
+        else:
+            ax.set_title("fraction of events carrying one\n"
+                         + "      ".join(f"{STY[nm]['label']}:  {v:.1f} %" for nm, v in fr.items()),
+                         fontsize=7.6, color="#444444", pad=5)
     axes[2].legend(loc="upper left")
     fig.suptitle(title, y=0.995, fontsize=12.5, fontweight="semibold")
     fig.tight_layout(rect=(0, 0, 1, 0.915))

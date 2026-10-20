@@ -23,17 +23,49 @@ import os
 
 import numpy as np
 
-NF = 73
-SLOTS = ("escat", "prot", "hplus", "hminus", "gdec", "gprod")
+# Two record layouts, because two groovy scripts write them.  The vector one
+# (vm_to_ntuple.groovy) carries six slots and 73 floats; the pseudoscalar one
+# (hipo_to_ntuple.groovy) carries four and 50.  Reading one with the other's
+# offsets does not fail -- it returns numbers -- which is how a column of pz
+# was once read where E belonged and a whole table of t_N was not t_N.  So
+# the layout is named, not assumed, and every momentum is checked against its
+# particle's mass before it is used.
+#
+#   vector      [0] weight  [1+3k] gen px,py,pz   [19+8k] rec block of 8
+#               slots  0 e'  1 p  2 h+  3 h-  4 gamma(decay)  5 gamma(prod)
+#   pseudoscalar[0] weight  [1+3k] gen px,py,pz   [13+8k] rec block of 8
+#               slots  0 e'  1 N  2 g1  3 g2
+#               NOTE: no radiated-photon slot at all.  hipo_to_ntuple keeps
+#               only the two photons whose MC::Lund parent is the pi0 row, so
+#               the production photon never reaches the ntuple and the
+#               "where the radiation goes" page cannot be built for pi0/eta.
+LAYOUT = {
+    "vector": dict(nf=73, rec0=19, slots=("escat", "prot", "hplus", "hminus",
+                                          "gdec", "gprod")),
+    "pseudo": dict(nf=50, rec0=13, slots=("escat", "prot", "hplus", "hminus")),
+}
 MP = 0.938272
+MN = 0.939565
 ME = 0.000511
-MASS = {"jpsi": dict(hplus=ME, hminus=ME, meson=3.096900),
-        "phi":  dict(hplus=0.493677, hminus=0.493677, meson=1.019461),
-        "rho":  dict(hplus=0.139570, hminus=0.139570, meson=0.775260)}
+# hplus/hminus are the two decay products whatever they are: K+/K- for phi,
+# e+/e- for J/psi, and the two photons for pi0 and eta.  "meson" is the state
+# they come from.  `baryon` is what the topology detects -- the PROTON on a
+# proton target and the struck NEUTRON on a deuteron one, where picking the
+# spectator proton instead is a silent error that costs the whole sample.
+CHANNELS = {
+    "jpsi": dict(layout="vector", hplus=ME, hminus=ME, meson=3.096900, baryon=MP),
+    "phi":  dict(layout="vector", hplus=0.493677, hminus=0.493677, meson=1.019461, baryon=MP),
+    "rho":  dict(layout="vector", hplus=0.139570, hminus=0.139570, meson=0.775260, baryon=MP),
+    "pi0":  dict(layout="pseudo", hplus=0.0, hminus=0.0, meson=0.1349768, baryon=MP),
+    "eta":  dict(layout="pseudo", hplus=0.0, hminus=0.0, meson=0.547862, baryon=MP),
+    "pi0n": dict(layout="pseudo", hplus=0.0, hminus=0.0, meson=0.1349768, baryon=MN),
+    "etan": dict(layout="pseudo", hplus=0.0, hminus=0.0, meson=0.547862, baryon=MN),
+}
+MASS = CHANNELS            # kept: older callers index MASS[channel]["meson"]
 
 
-def _p3(a, k, rec=False):
-    b = 19 + 8 * k + 5 if rec else 1 + 3 * k
+def _p3(a, k, rec, rec0):
+    b = rec0 + 8 * k + 5 if rec else 1 + 3 * k
     return a[:, b:b + 3]
 
 
@@ -75,7 +107,8 @@ def sigma_nb(prov_dir, mode):
 # F18 her exclusive J/psi peak holds 73 events and the three-track one 471,
 # so a shape comparison that needs the proton and one that does not are two
 # different conversations.
-TOPOLOGY = {"ee+e-p": (0, 1, 2, 3), "ee+e-": (0, 2, 3)}
+TOPOLOGY = {"ee+e-p": (0, 1, 2, 3), "ee+e-": (0, 2, 3),
+            "full": (0, 1, 2, 3), "no_baryon": (0, 2, 3)}
 
 
 def load(pattern, channel, ebeam=10.6, rec=False, require=(0, 1, 2, 3),
@@ -88,6 +121,9 @@ def load(pattern, channel, ebeam=10.6, rec=False, require=(0, 1, 2, 3),
     Kinematics are built from the particles, never from a stored column, so
     there is nothing to get out of step with the generator.
     """
+    ch = CHANNELS[channel]
+    lay = LAYOUT[ch["layout"]]
+    NF, REC0, SLOTS = lay["nf"], lay["rec0"], lay["slots"]
     files = sorted(glob.glob(pattern))
     if max_files:
         files = files[:max_files]
@@ -96,23 +132,37 @@ def load(pattern, channel, ebeam=10.6, rec=False, require=(0, 1, 2, 3),
     chunks = []
     for f in files:
         a = np.fromfile(f, dtype="<f4")
-        a = a[:a.size - a.size % NF].reshape(-1, NF)
-        chunks.append(a)
+        # A record size that does not divide the file is the loudest symptom
+        # of reading one layout with the other's, so it is an error and not
+        # a truncation.
+        if a.size % NF:
+            raise RuntimeError(f"{f}: {a.size} floats is not a multiple of {NF} "
+                               f"-- wrong layout for channel {channel}?")
+        chunks.append(a.reshape(-1, NF))
     a = np.concatenate(chunks).astype(np.float64)
     n_read = len(a)
 
     if rec and require:
         keep = np.ones(len(a), dtype=bool)
         for k in require:
-            keep &= a[:, 19 + 8 * k] > 0.5
+            if k < len(SLOTS):
+                keep &= a[:, REC0 + 8 * k] > 0.5
         a = a[keep]
 
-    m = MASS[channel]
-    out = dict(n_files=len(files), n_read=n_read, n_kept=len(a), weight=a[:, 0])
+    m = ch
+    MB = ch["baryon"]
+    out = dict(n_files=len(files), n_read=n_read, n_kept=len(a), weight=a[:, 0],
+               channel=channel, layout=ch["layout"])
     for k, name in enumerate(SLOTS):
-        p = _p3(a, k, rec)
+        p = _p3(a, k, rec, REC0)
         out[name + "_p"], out[name + "_theta"], out[name + "_phi"] = _pmag_theta_phi(p)
         out[name + "_p3"] = p
+    for miss in ("gdec", "gprod"):                 # absent in the pseudoscalar record
+        if miss + "_p" not in out:
+            z = np.zeros(len(a))
+            out[miss + "_p"], out[miss + "_theta"], out[miss + "_phi"] = z, z, z
+            out[miss + "_p3"] = np.zeros((len(a), 3))
+            out["has_" + miss] = False
 
     # --- the scattered electron: Q2, nu, W ---------------------------------
     pe = out["escat_p3"]
@@ -120,7 +170,7 @@ def load(pattern, channel, ebeam=10.6, rec=False, require=(0, 1, 2, 3),
     cth = np.where(out["escat_p"] > 0, pe[:, 2] / np.where(out["escat_p"] > 0, out["escat_p"], 1), 1)
     out["Q2"] = 2 * ebeam * Ee * (1 - cth)
     out["nu"] = ebeam - Ee                     # = E_gamma for quasi-real photoproduction
-    out["W2"] = MP ** 2 + 2 * MP * out["nu"] - out["Q2"]
+    out["W2"] = MB ** 2 + 2 * MB * out["nu"] - out["Q2"]
     out["W"] = np.sqrt(np.maximum(out["W2"], 0))
     out["y"] = out["nu"] / ebeam
 
@@ -128,8 +178,8 @@ def load(pattern, channel, ebeam=10.6, rec=False, require=(0, 1, 2, 3),
     # t = (p - p')^2 = 2M^2 - 2M E_p'.  The proton is the MEASURED particle in
     # this topology, so this is the t the box was drawn in, not a derived one.
     pp = out["prot_p3"]
-    Ep = np.sqrt((pp ** 2).sum(1) + MP ** 2)
-    out["t"] = 2 * MP ** 2 - 2 * MP * Ep
+    Ep = np.sqrt((pp ** 2).sum(1) + MB ** 2)
+    out["t"] = 2 * MB ** 2 - 2 * MB * Ep
     out["mt"] = -out["t"]
 
     # --- the decay pair: the meson's invariant mass ------------------------
@@ -138,4 +188,19 @@ def load(pattern, channel, ebeam=10.6, rec=False, require=(0, 1, 2, 3),
     pv = ph + pm
     out["m_pair"] = np.sqrt(np.maximum(Eh ** 2 - (pv ** 2).sum(1), 0))
     out["meson_p"], out["meson_theta"], out["meson_phi"] = _pmag_theta_phi(pv)
+
+    # --- t', the distance from the physical forward edge --------------------
+    # |t_min| runs over three orders of magnitude across a wide box, so |t|
+    # and t' are not the same picture at all: a fixed cut in |t| removes a
+    # different slice of t' in every (W2, Q2) cell.  Both are plotted.
+    mV = m["meson"]
+    W = np.sqrt(np.maximum(out["W2"], 1e-9))
+    Eg = (out["W2"] - out["Q2"] - MB ** 2) / (2 * W)
+    pg = np.sqrt(np.maximum(Eg ** 2 + out["Q2"], 0))
+    EV = (out["W2"] + mV ** 2 - MB ** 2) / (2 * W)
+    pV_cm = np.sqrt(np.maximum(EV ** 2 - mV ** 2, 0))
+    t0 = -out["Q2"] + mV ** 2 - 2 * (Eg * EV - pg * pV_cm)
+    out["t_min"] = t0
+    out["tprime"] = np.abs(t0) - out["mt"]      # >= 0 inside the physical region
+    out["mtprime"] = out["mt"] - np.abs(t0)     # = -t' , the usual plotting variable
     return out
