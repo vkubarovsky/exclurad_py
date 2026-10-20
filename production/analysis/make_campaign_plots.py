@@ -170,12 +170,14 @@ with PdfPages(OUT) as pdf:
         s = sets_for(pol, bg, rec=True, require=cl.TOPOLOGY["full"])
         n = {m: s[m]["d"]["n_kept"] for m in s}
         yields.append((lab, n["rad"], n["born"]))
-        zr = s["rad"]["d"].get("n_zero_momentum", {})
+        zr = s["rad"]["d"].get("n_dp_rejected", {})
         log.append(f"rec {FS_FULL_TXT} {lab}: rad {n['rad']}, born {n['born']}"
-                   + (f"   [rad dropped for zero momentum: "
+                   + (f"   [rad dropped on the momentum match: "
                       + ", ".join(f"{k} {v}" for k, v in zr.items() if v) + "]" if any(zr.values()) else ""))
         cp.page(pdf, s, f"Reconstructed   {FS_FULL}   -   {lab}",
-                f"every final-state particle matched AND carrying momentum   |   "
+                f"matched, carrying momentum, and agreeing with the generated momentum "
+                f"to {int(100 * cl.DP_MAX['charged'])} % (charged) / "
+                f"{int(100 * cl.DP_MAX['photon'])} % (photons)   |   "
                 f"rad {n['rad']} of 1 000 000"
                 f" ({100 * n['rad'] / 1e6:.3f} %),  Born {n['born']}"
                 f" ({100 * n['born'] / 1e6:.3f} %)")

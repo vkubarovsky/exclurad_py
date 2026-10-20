@@ -62,19 +62,26 @@ ME = 0.000511
 # with no implied ordering, and the page says so.
 CHANNELS = {
     "jpsi": dict(layout="vector", hplus=ME, hminus=ME, meson=3.096900, baryon=MP,
-                 names=("e^+", "e^-"), meson_name=r"J/\psi", baryon_name="p'", ordered=True),
+                 names=("e^+", "e^-"), meson_name=r"J/\psi", baryon_name="p'", ordered=True,
+                 kinds=("charged",) * 4),
     "phi":  dict(layout="vector", hplus=0.493677, hminus=0.493677, meson=1.019461, baryon=MP,
-                 names=("K^+", "K^-"), meson_name=r"\phi", baryon_name="p'", ordered=True),
+                 names=("K^+", "K^-"), meson_name=r"\phi", baryon_name="p'", ordered=True,
+                 kinds=("charged",) * 4),
     "rho":  dict(layout="vector", hplus=0.139570, hminus=0.139570, meson=0.775260, baryon=MP,
-                 names=(r"\pi^+", r"\pi^-"), meson_name=r"\rho", baryon_name="p'", ordered=True),
+                 names=(r"\pi^+", r"\pi^-"), meson_name=r"\rho", baryon_name="p'", ordered=True,
+                 kinds=("charged",) * 4),
     "pi0":  dict(layout="pseudo", hplus=0.0, hminus=0.0, meson=0.1349768, baryon=MP,
-                 names=(r"\gamma_1", r"\gamma_2"), meson_name=r"\pi^0", baryon_name="p'", ordered=False),
+                 names=(r"\gamma_1", r"\gamma_2"), meson_name=r"\pi^0", baryon_name="p'", ordered=False,
+                 kinds=("charged", "charged", "photon", "photon")),
     "eta":  dict(layout="pseudo", hplus=0.0, hminus=0.0, meson=0.547862, baryon=MP,
-                 names=(r"\gamma_1", r"\gamma_2"), meson_name=r"\eta", baryon_name="p'", ordered=False),
+                 names=(r"\gamma_1", r"\gamma_2"), meson_name=r"\eta", baryon_name="p'", ordered=False,
+                 kinds=("charged", "charged", "photon", "photon")),
     "pi0n": dict(layout="pseudo", hplus=0.0, hminus=0.0, meson=0.1349768, baryon=MN,
-                 names=(r"\gamma_1", r"\gamma_2"), meson_name=r"\pi^0", baryon_name="n'", ordered=False),
+                 names=(r"\gamma_1", r"\gamma_2"), meson_name=r"\pi^0", baryon_name="n'", ordered=False,
+                 kinds=("charged", "neutron", "photon", "photon")),
     "etan": dict(layout="pseudo", hplus=0.0, hminus=0.0, meson=0.547862, baryon=MN,
-                 names=(r"\gamma_1", r"\gamma_2"), meson_name=r"\eta", baryon_name="n'", ordered=False),
+                 names=(r"\gamma_1", r"\gamma_2"), meson_name=r"\eta", baryon_name="n'", ordered=False,
+                 kinds=("charged", "neutron", "photon", "photon")),
 }
 MASS = CHANNELS            # kept: older callers index MASS[channel]["meson"]
 
@@ -122,12 +129,30 @@ def sigma_nb(prov_dir, mode):
 # F18 her exclusive J/psi peak holds 73 events and the three-track one 471,
 # so a shape comparison that needs the proton and one that does not are two
 # different conversations.
+# How well the reconstructed momentum must agree with the generated one for
+# the match to count.  Chosen 2026-10-20 from the Delta p / p distributions,
+# which separate into a resolution core at zero and a shelf running to -1
+# where MC::GenMatch paired a generated particle with a different
+# reconstructed one.
+#   charged 0.20  sits in the valley on every charged panel, and is 3-10x the
+#                 core's own width, so it cuts the shelf and not the core.
+#   photon  0.40  the calorimeter core runs -0.24 .. +0.12 and there is NO
+#                 valley -- it merges into the shelf -- so 0.20 would cut the
+#                 core.  0.40 keeps it; the residue is better removed with a
+#                 window on the reconstructed M(gamma gamma), which is a
+#                 physics cut and not a matching criterion.
+#   neutron None  there is no core to speak of: q16..q84 is -0.78 .. +0.01.
+#                 The neutron's momentum is not measured in these data, so a
+#                 threshold would be arbitrary and none is applied.  Say so
+#                 wherever a pi0n number is quoted.
+DP_MAX = {"charged": 0.20, "photon": 0.40, "neutron": None}
+
 TOPOLOGY = {"ee+e-p": (0, 1, 2, 3), "ee+e-": (0, 2, 3),
             "full": (0, 1, 2, 3), "no_baryon": (0, 2, 3)}
 
 
 def load(pattern, channel, ebeam=10.6, rec=False, require=(0, 1, 2, 3),
-         max_files=None):
+         max_files=None, dp_cut=True):
     """Read every f32 matching `pattern` into one dict of arrays.
 
     rec=False gives the generated event; rec=True the reconstructed one, and
@@ -173,21 +198,31 @@ def load(pattern, channel, ebeam=10.6, rec=False, require=(0, 1, 2, 3),
         # like a plotting artefact rather than a selection error.  So a slot
         # counts as reconstructed only when it is found AND carries momentum.
         keep = np.ones(len(a), dtype=bool)
-        nzero = {}
+        nzero, nmis = {}, {}
         for k in require:
             if k >= len(SLOTS):
                 continue
             found = a[:, REC0 + 8 * k] > 0.5
             pk = np.linalg.norm(a[:, REC0 + 8 * k + 5: REC0 + 8 * k + 8], axis=1)
-            keep &= found & (pk > 0.0)
+            ok = found & (pk > 0.0)
             nzero[SLOTS[k]] = int((found & (pk <= 0.0)).sum())
+            thr = DP_MAX[ch["kinds"][k]] if dp_cut else None
+            if thr is not None:
+                pg = np.linalg.norm(a[:, 1 + 3 * k: 4 + 3 * k], axis=1)
+                with np.errstate(invalid="ignore", divide="ignore"):
+                    rel = np.abs(pk - pg) / np.where(pg > 0, pg, 1.0)
+                nmis[SLOTS[k]] = int((ok & ~(rel < thr)).sum())
+                ok &= rel < thr
+            keep &= ok
         a = a[keep]
 
     m = ch
     MB = ch["baryon"]
     out = dict(n_files=len(files), n_read=n_read, n_kept=len(a), weight=a[:, 0],
                channel=channel, layout=ch["layout"],
-               n_zero_momentum=(nzero if rec and require else {}))
+               n_zero_momentum=(nzero if rec and require else {}),
+               n_dp_rejected=(nmis if rec and require else {}),
+               dp_cut=bool(dp_cut) and bool(rec and require))
     for k, name in enumerate(SLOTS):
         p = _p3(a, k, rec, REC0)
         out[name + "_p"], out[name + "_theta"], out[name + "_phi"] = _pmag_theta_phi(p)
