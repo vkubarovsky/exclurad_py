@@ -52,14 +52,29 @@ ME = 0.000511
 # they come from.  `baryon` is what the topology detects -- the PROTON on a
 # proton target and the struck NEUTRON on a deuteron one, where picking the
 # spectator proton instead is a silent error that costs the whole sample.
+# `names` are what the slots are CALLED on a plot.  The generic hplus/hminus
+# are the right internal names -- they are the positive and negative decay
+# product -- but printing them on a pi0 page says "p_h+" for a photon, which
+# is simply wrong, and VPK caught it on the first book.  For pi0 and eta the
+# two slots are the two decay photons IN MC::Lund ORDER, not sorted by
+# energy: measured on the rad million, slot 2 is the harder one in 50.4 % of
+# events and the two medians agree to 1 %.  So they are gamma_1 and gamma_2
+# with no implied ordering, and the page says so.
 CHANNELS = {
-    "jpsi": dict(layout="vector", hplus=ME, hminus=ME, meson=3.096900, baryon=MP),
-    "phi":  dict(layout="vector", hplus=0.493677, hminus=0.493677, meson=1.019461, baryon=MP),
-    "rho":  dict(layout="vector", hplus=0.139570, hminus=0.139570, meson=0.775260, baryon=MP),
-    "pi0":  dict(layout="pseudo", hplus=0.0, hminus=0.0, meson=0.1349768, baryon=MP),
-    "eta":  dict(layout="pseudo", hplus=0.0, hminus=0.0, meson=0.547862, baryon=MP),
-    "pi0n": dict(layout="pseudo", hplus=0.0, hminus=0.0, meson=0.1349768, baryon=MN),
-    "etan": dict(layout="pseudo", hplus=0.0, hminus=0.0, meson=0.547862, baryon=MN),
+    "jpsi": dict(layout="vector", hplus=ME, hminus=ME, meson=3.096900, baryon=MP,
+                 names=("e^+", "e^-"), meson_name=r"J/\psi", baryon_name="p'", ordered=True),
+    "phi":  dict(layout="vector", hplus=0.493677, hminus=0.493677, meson=1.019461, baryon=MP,
+                 names=("K^+", "K^-"), meson_name=r"\phi", baryon_name="p'", ordered=True),
+    "rho":  dict(layout="vector", hplus=0.139570, hminus=0.139570, meson=0.775260, baryon=MP,
+                 names=(r"\pi^+", r"\pi^-"), meson_name=r"\rho", baryon_name="p'", ordered=True),
+    "pi0":  dict(layout="pseudo", hplus=0.0, hminus=0.0, meson=0.1349768, baryon=MP,
+                 names=(r"\gamma_1", r"\gamma_2"), meson_name=r"\pi^0", baryon_name="p'", ordered=False),
+    "eta":  dict(layout="pseudo", hplus=0.0, hminus=0.0, meson=0.547862, baryon=MP,
+                 names=(r"\gamma_1", r"\gamma_2"), meson_name=r"\eta", baryon_name="p'", ordered=False),
+    "pi0n": dict(layout="pseudo", hplus=0.0, hminus=0.0, meson=0.1349768, baryon=MN,
+                 names=(r"\gamma_1", r"\gamma_2"), meson_name=r"\pi^0", baryon_name="n'", ordered=False),
+    "etan": dict(layout="pseudo", hplus=0.0, hminus=0.0, meson=0.547862, baryon=MN,
+                 names=(r"\gamma_1", r"\gamma_2"), meson_name=r"\eta", baryon_name="n'", ordered=False),
 }
 MASS = CHANNELS            # kept: older callers index MASS[channel]["meson"]
 

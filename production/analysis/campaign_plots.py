@@ -40,24 +40,39 @@ plt.rcParams.update({
     "legend.fontsize": 8, "xtick.labelsize": 8, "ytick.labelsize": 8,
 })
 
-# key, label, range, number of bins, log-y
-PANELS = [
-    ("Q2",          r"$Q^2$  [GeV$^2$]",                None, 50, True),
-    ("W",           r"$W$  [GeV]",                      None, 50, False),
-    ("mt",          r"$-t$  [GeV$^2$]",                 None, 50, True),
-    ("nu",          r"$E_\gamma = \nu$  [GeV]",         None, 50, False),
-    ("m_pair",      r"$M(h^+h^-)$  [GeV]",              None, 60, True),
-    ("escat_theta", r"$\theta_{e'}$  [deg]",            None, 50, False),
-    ("escat_p",     r"$|p_{e'}|$  [GeV]",               None, 50, False),
-    ("prot_theta",  r"$\theta_{p'}$  [deg]",            None, 50, False),
-    ("prot_p",      r"$|p_{p'}|$  [GeV]",               None, 50, False),
-    ("hplus_theta", r"$\theta_{h^+}$  [deg]",           None, 50, False),
-    ("hplus_p",     r"$|p_{h^+}|$  [GeV]",              None, 50, False),
-    ("meson_theta", r"$\theta_{V}$  [deg]",             None, 50, False),
-]
+def panels(channel):
+    """The twelve panels, with the particles called by their own names.
+
+    The slot names hplus/hminus are right inside the code and wrong on a
+    page: for pi0 and eta the two slots are photons, and "p_h+" for a photon
+    is simply false.  The names come from the channel, so a pi0 page says
+    gamma_1 and a phi page says K+.
+    """
+    c = cl.CHANNELS[channel]
+    h1, h2 = c["names"]
+    V, N = c["meson_name"], c["baryon_name"]
+    return [
+        ("Q2",          r"$Q^2$  [GeV$^2$]",                None, 50, True),
+        ("W",           r"$W$  [GeV]",                      None, 50, False),
+        ("mt",          r"$-t$  [GeV$^2$]",                 None, 50, True),
+        ("nu",          r"$E_\gamma = \nu$  [GeV]",         None, 50, False),
+        ("m_pair",      rf"$M({h1}{h2})$  [GeV]",           None, 60, True),
+        ("escat_theta", r"$\theta_{e'}$  [deg]",            None, 50, False),
+        ("escat_p",     r"$|p_{e'}|$  [GeV]",               None, 50, False),
+        ("prot_theta",  rf"$\theta_{{{N}}}$  [deg]",         None, 50, False),
+        ("prot_p",      rf"$|p_{{{N}}}|$  [GeV]",            None, 50, False),
+        ("hplus_theta", rf"$\theta_{{{h1}}}$  [deg]",        None, 50, False),
+        ("hplus_p",     rf"$|p_{{{h1}}}|$  [GeV]",           None, 50, False),
+        ("meson_theta", rf"$\theta_{{{V}}}$  [deg]",         None, 50, False),
+    ]
 
 
 def _edges(arrs, rng, nb):
+    """Bin edges: the card's range when given, else 0.2-99.8 percentiles.
+
+    Percentiles rather than min/max, because one event at |t| = 5 would
+    otherwise set the axis for a million events living below 1.
+    """
     if rng is not None:
         return np.linspace(rng[0], rng[1], nb + 1)
     good = [a[np.isfinite(a)] for a in arrs if a is not None and a.size]
@@ -71,10 +86,6 @@ def _edges(arrs, rng, nb):
         lo, hi = v.min(), max(v.max(), v.min() + 1e-6)
     pad = 0.04 * (hi - lo)
     return np.linspace(lo - pad, hi + pad, nb + 1)
-
-
-NB_TO_FB = 1.0e6
-YLAB = "d$\\sigma$ / bin   [fb]"
 
 
 def _clip_log(ax, decades=4.0):
@@ -97,6 +108,10 @@ def _clip_log(ax, decades=4.0):
         ax.set_ylim(top / 10 ** decades, top * 2.2)
 
 
+NB_TO_FB = 1.0e6
+YLAB = "d$\\sigma$ / bin   [fb]"
+
+
 def _hist_nb(x, edges, sigma, n_gen):
     """Histogram in FEMTOBARNS per bin: each generated event carries sigma/N.
 
@@ -109,7 +124,7 @@ def _hist_nb(x, edges, sigma, n_gen):
     return h * w, np.sqrt(h) * w
 
 
-def _panels_for(sets):
+def _panels_for(sets, channel):
     """The panel list, with the mass panel dropped when the mass is a delta.
 
     A meson that decays to hadrons is generated with idecay 1, so M(h+h-) is
@@ -118,7 +133,7 @@ def _panels_for(sets):
     -t', which is the variable the forward edge actually lives in.
     """
     out = []
-    for p in PANELS:
+    for p in panels(channel):
         if p[0] == "m_pair":
             spread = max(float(np.ptp(s["d"]["m_pair"])) for s in sets.values())
             if spread < 1e-3:
@@ -130,8 +145,14 @@ def _panels_for(sets):
 
 def page(pdf, sets, title, subtitle):
     """One page: every panel, both samples, femtobarns per bin."""
+    channel = next(iter(sets.values()))["d"]["channel"]
     fig, axes = plt.subplots(4, 3, figsize=(11.0, 12.4))
-    for ax, (key, lab, rng, nb, logy) in zip(axes.ravel(), _panels_for(sets)):
+    pl = _panels_for(sets, channel)
+    if not cl.CHANNELS[channel]["ordered"]:
+        subtitle = subtitle + ("\n" if "\n" not in subtitle else "  ") + \
+            "the two decay photons are in MC::Lund order, not sorted by energy "\
+            "(slot 1 is the harder one in 50.4 % of events)"
+    for ax, (key, lab, rng, nb, logy) in zip(axes.ravel(), pl):
         ed = _edges([s["d"][key] for s in sets.values()], rng, nb)
         c = 0.5 * (ed[1:] + ed[:-1])
         for nm, s in sets.items():
@@ -145,11 +166,12 @@ def page(pdf, sets, title, subtitle):
             ax.set_yscale("log")
             _clip_log(ax)
     axes.ravel()[0].legend(loc="upper right")
-    for ax in axes.ravel()[len(PANELS):]:
+    for ax in axes.ravel()[len(pl):]:
         ax.set_visible(False)
-    fig.suptitle(title, y=0.996, fontsize=12.5, fontweight="semibold")
-    fig.text(0.5, 0.9735, subtitle, ha="center", fontsize=8.2, color="#555555", wrap=True)
-    fig.tight_layout(rect=(0, 0, 1, 0.962))
+    fig.suptitle(title, y=0.997, fontsize=12.5, fontweight="semibold")
+    for i, line in enumerate(subtitle.split("\n")):
+        fig.text(0.5, 0.9755 - 0.0105 * i, line, ha="center", fontsize=8.0, color="#555555")
+    fig.tight_layout(rect=(0, 0, 1, 0.958))
     pdf.savefig(fig)
     plt.close(fig)
 
@@ -208,9 +230,12 @@ def page_radiation(pdf, sets, title):
 def page_ratio(pdf, sets, title, subtitle):
     """radiative / Born, bin by bin.  This is eta-bar in that binning: a flat
     line means radiation only rescales, a slope means it reshapes."""
+    ch = next(iter(sets.values()))["d"]["channel"]
+    h1, h2 = cl.CHANNELS[ch]["names"]
+    N = cl.CHANNELS[ch]["baryon_name"]
     keys = [("Q2", r"$Q^2$  [GeV$^2$]", 24), ("mt", r"$-t$  [GeV$^2$]", 24),
             ("nu", r"$E_\gamma$  [GeV]", 24), ("W", r"$W$  [GeV]", 24),
-            ("m_pair", r"$M(h^+h^-)$  [GeV]", 24), ("prot_theta", r"$\theta_{p'}$  [deg]", 24)]
+            ("mtprime", r"$-t'$  [GeV$^2$]", 24), (f"prot_theta", rf"$\theta_{{{N}}}$  [deg]", 24)]
     fig, axes = plt.subplots(2, 3, figsize=(11.0, 6.4))
     r, b = sets["rad"], sets["born"]
     for ax, (key, lab, nb) in zip(axes.ravel(), keys):
