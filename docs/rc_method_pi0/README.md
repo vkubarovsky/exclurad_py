@@ -81,3 +81,39 @@ weighted by its own σ_Born; no Born MC enters A.
 
 `itarg` still biases B by about +3 % against A in every cell. Correcting for it lowers the equivalent
 cut by about 0.05.
+
+## The note's cuts as printed, every combination of Q², x_B, −t (`rc_method_pi0_combos.py`, `rc_method_pi0_combos.pdf`)
+
+**What A can cut on:** only `v_cut` (MM²(e'p) < v_cut + m²_π0). `rc_factor` has no missing energy,
+no MM²(e'pγγ), no MP_T and no coplanarity. B applies all of them, event by event, to both MC arms.
+
+**Cuts in B, Sec. 3.5 literally:**
+- DIS: Q² > 1, W > 2, p_e' > 2.
+- π⁰ identification: M_γγ within 3σ (σ from the Born MC), γγ opening angle > 1°.
+- Exclusivity: |ME| < 0.2, |MM²(e'pγγ)| < 0.004, MP_T < 0.75, cone < 4°.
+
+On this uncorrected MC these windows keep 39–43 % of Born and 28–32 % of rad; they act on both arms alike.
+
+**A per bin, any binning:** A_bin = N / Σ 1/η(x_i) over the accepted rad events in the bin, with
+η = σ_obs/σ_Born at each event's own reconstructed kinematics. Rad events follow σ_Born·η·Acc, so this
+is the Born- and acceptance-weighted mean of η, and no Born MC enters A. η is finite for 99.9 % of events.
+
+**Result.** At v_cut = 0.2, A is 5–10 % above B almost everywhere: the literal exclusivity windows remove
+more radiation than v_cut = 0.2 does. **One v_cut ≈ 0.065 GeV² fits every combination within its errors:**
+
+| binning (bins integrated over the rest) | cells | best v_cut | χ² at 0.06 |
+|---|---|---|---|
+| Q² | 9 | 0.068 | 11 |
+| x_B | 8 | 0.069 | 6 |
+| −t | 8 | 0.069 | 14 |
+| Q² × x_B | 22 | 0.066 | 26 |
+| Q² × −t | 28 | 0.065 | 31 |
+| x_B × −t | 35 | 0.065 | 35 |
+| Q² × x_B × −t | 35 | 0.055 | 30 |
+
+The per-bin errors are 2–10 %, so this holds at that precision: outcome three of the brief. The
+earlier, wider ±3σ-from-MC windows gave an equivalent cut of 0.14 and 10–18 % misses at high Q²/x_B.
+**The equivalent v_cut follows the exclusivity windows, not the kinematics.** It must therefore be
+re-derived for every analysis's cut chain, which needs the rad + Born MC at least once.
+
+Still in B: `itarg` (+3 %), which lowers the equivalent v_cut by about 0.03 at this slope.
