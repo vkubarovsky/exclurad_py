@@ -27,12 +27,12 @@ That is a statement at this precision, about this bin, and not yet about the who
 
 ## What was found on the way
 
-1. **φ is not the same variable in A and B.** For the proton-detected topology, EXCLURAD's φ is the
-   proton's azimuth + 180°. The note bins in φ of the γγ pair. For Born events the two are the same; for
-   radiative ones they are not. With no cut, the radiative tail sits at φ_γγ ≈ 180° and at φ_p ≈ 0°
-   (p3, last panel). After the full exclusivity chain the difference is within the errors (p4, open vs
-   filled points). With loose cuts it is not.
-2. **Generator-level closure holds to ~3 %, and the 3 % is `itarg`.** With the same MM²(e'p) cut,
+1. **One φ: the Trento azimuth of the π⁰ (the γγ pair).** That is the note's variable and the one
+   `rc_factor` documents (core/kinematics.py). For the proton-detected topology, the engine builds the
+   radiative event's hadron plane from the proton (`phi_offset = π`). As a result, at generator level
+   A follows B only for tight cuts (MM²(e'p) ≲ 0.2, p3). With no cut, B's radiative tail piles up at
+   φ = 180° and A's at φ = 0°. After the full exclusivity chain this does not matter within the errors.
+2. **Generator-level closure (tight cuts) holds to ~3 %, and the 3 % is `itarg`.** With the same MM²(e'p) cut,
    B_gen/A ≈ 1.03. In the bin, 2.8 % of Born-arm events have MM²(e'p) > 0.05, from the pre-vertex
    radiator that `itarg = 1` switches on in the Born arm too. `rc_factor` has no `itarg`. This
    inflates B relative to A by about +3 % and moves the equivalent cut up by about 0.05.
@@ -50,4 +50,3 @@ That is a statement at this precision, about this bin, and not yet about the who
   that it is not expected to be stable.
 - Correcting B for `itarg`, or regenerating the Born arm with `itarg = 0` (the vector channels are
   already being switched).
-- φ_γγ against φ_p at intermediate cut levels, quantified.

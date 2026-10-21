@@ -63,7 +63,13 @@ def mdot(a, b):
 
 
 def trento_phi(q3, k3, h3):
-    """Trento azimuth of the hadron h around the virtual photon q, lepton plane from k (beam)."""
+    """Trento azimuth of the hadron h around the virtual photon q, lepton plane from k (beam).
+
+    phi is the azimuth of the PRODUCED MESON, h = p(g1) + p(g2): the note's
+    definition and the one rc_factor documents (core/kinematics.py).  For a
+    radiative event the pi0 is not opposite the proton, so phi_p + 180 is a
+    different variable, and it is not used.
+    """
     qn = q3 / np.linalg.norm(q3, axis=1)[:, None]
     n_l = np.cross(qn, k3)
     n_h = np.cross(qn, h3)
@@ -94,12 +100,6 @@ def kinematics(pe, pp, g1, g2):
                mm2tot=mdot(X_tot, X_tot), me=X_tot[:, 0],
                mpt=np.hypot(X_tot[:, 1], X_tot[:, 2]),
                phi=trento_phi(q[:, 1:], np.tile([0, 0, EB], (len(q), 1)), pi[:, 1:]))
-    # phi as EXCLURAD defines it for the proton-detected topology: the proton's
-    # Trento azimuth + 180.  Identical to phi(gg) for a Born event; for a
-    # radiative one the pi0 is no longer opposite the proton, and the two
-    # differ -- measured here, the no-cut radiative tail sits at phi(gg) = 180
-    # and at phi_p = 0.  rc_factor's phi is THIS one.
-    out["phip"] = (trento_phi(q[:, 1:], np.tile([0, 0, EB], (len(q), 1)), pp) + 180.0) % 360.0
     c = (X_ep[:, 1:] * pi[:, 1:]).sum(1) / (np.linalg.norm(X_ep[:, 1:], axis=1) *
                                              np.linalg.norm(pi[:, 1:], axis=1))
     out["cone"] = np.degrees(np.arccos(np.clip(c, -1, 1)))
@@ -260,33 +260,32 @@ def main():
         P["cal"] = cal
         levels = {a: cut_levels(S[a]["rec"], cal) for a in S}
         P["B_rec"] = {}
-        for name, pv in ((n, v) for n in levels["rad"] for v in PHIS):
-            nr = phi_hist(S["rad"]["rec"][pv], levels["rad"][name])
-            nb = phi_hist(S["born"]["rec"][pv], levels["born"][name])
-            name = f"{name}|{pv}"
+        for name in levels["rad"]:
+            nr = phi_hist(S["rad"]["rec"]["phi"], levels["rad"][name])
+            nb = phi_hist(S["born"]["rec"]["phi"], levels["born"][name])
             d, e = ratio(nr, nb, w["rad"], w["born"])
             P["B_rec"][name] = dict(n_rad=nr.tolist(), n_born=nb.tolist(), delta=d.tolist(), err=e.tolist(),
                                     delta_int=float(nr.sum() * w["rad"] / (nb.sum() * w["born"])))
 
         # B at generated level with a cut on generated MM2(e'p): the closure of A
         P["B_gen"] = {}
-        for c, pv in ((c, v) for c in GEN_CUTS for v in PHIS):
+        for c in GEN_CUTS:
             sel = {a: in_bin(S[a]["gen"]) & ((S[a]["gen"]["mm2ep"] < c) if c else True) for a in S}
-            nr = phi_hist(S["rad"]["gen"][pv], sel["rad"]); nb = phi_hist(S["born"]["gen"][pv], sel["born"])
+            nr = phi_hist(S["rad"]["gen"]["phi"], sel["rad"]); nb = phi_hist(S["born"]["gen"]["phi"], sel["born"])
             d, e = ratio(nr, nb, w["rad"], w["born"])
-            P["B_gen"][f"{c}|{pv}"] = dict(delta=d.tolist(), err=e.tolist(), n_rad=nr.tolist(), n_born=nb.tolist())
+            P["B_gen"][str(c)] = dict(delta=d.tolist(), err=e.tolist(), n_rad=nr.tolist(), n_born=nb.tolist())
 
         # distributions for the "show the data" page
         full = "+MM2(e'pgg), ME: full chain"
         for a in S:
             k = S[a]["rec"]; base = levels[a]["topology+DIS"]
-            hists[(pol, a)] = {v: k[v][base] for v in ("mgg", "mm2ep", "megg", "mm2tot", "me", "mpt", "cone", "open", "phi", "phip")}
+            hists[(pol, a)] = {v: k[v][base] for v in ("mgg", "mm2ep", "megg", "mm2tot", "me", "mpt", "cone", "open", "phi")}
             hists[(pol, a)]["full"] = levels[a][full][base]
             hists[(pol, a)]["pdet"] = k["pdet"][base]
             hists[(pol, a)]["w"] = w[a]
             hists[(pol, a)]["gen_mm2ep"] = S[a]["gen"]["mm2ep"][in_bin(S[a]["gen"])]
         res["pol"][pol] = P
-        print(pol, "n_rec", P["n_rec"], {n: round(v["delta_int"], 4) for n, v in P["B_rec"].items() if n.endswith("|phi")})
+        print(pol, "n_rec", P["n_rec"], {n: round(v["delta_int"], 4) for n, v in P["B_rec"].items()})
 
     # both polarities together: each arm's yield in barns-per-event, summed
     comb = {}
@@ -304,7 +303,7 @@ def main():
                                    delta_int=float(nr.sum() / nb.sum()))
     res["combined"] = comb
     print("combined", {n: (int(sum(v["n_rad"])), int(sum(v["n_born"])), round(v["delta_int"], 4))
-                       for n, v in comb["B_rec"].items() if n.endswith("|phi")})
+                       for n, v in comb["B_rec"].items()})
 
     A, n_ok, n_all = method_A(A_CUTS)
     res["A"] = {str(c): A[i].tolist() for i, c in enumerate(A_CUTS)}
@@ -315,7 +314,6 @@ def main():
     np.save(os.path.join(outdir, "hists.npy"), {f"{p}|{a}": v for (p, a), v in hists.items()}, allow_pickle=True)
 
 
-PHIS = ("phi", "phip")
 GEN_CUTS = [0.05, 0.08, 0.12, 0.17, 0.25, 0.35, 0.5, None]
 A_CUTS = [0.03, 0.05, 0.065, 0.08, 0.10, 0.12, 0.145, 0.17, 0.21, 0.25, 0.30, 0.35, 0.42, 0.5, 0.6, None]
 

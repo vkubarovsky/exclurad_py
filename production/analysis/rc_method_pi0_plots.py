@@ -30,8 +30,8 @@ plt.rcParams.update({"font.size": 9, "axes.edgecolor": MUTED, "axes.linewidth": 
 cuts = [k for k in r["A"]]
 cval = np.array([float(k) if k != "None" else np.nan for k in cuts])
 A = np.array([r["A"][k] for k in cuts])
-# phi weights for an integral of A: the generated Born yield in phi_p, no cut
-wphi = np.array(C["B_gen"]["None|phip"]["n_born"]); wphi = wphi / wphi.sum()
+# phi weights for an integral of A: the generated Born yield in phi, no cut
+wphi = np.array(C["B_gen"]["None"]["n_born"]); wphi = wphi / wphi.sum()
 A_int = (A * wphi).sum(1) / 1.0
 finite = ~np.isnan(cval)
 
@@ -90,9 +90,9 @@ with PdfPages(os.path.join(FIG, "rc_method_pi0.pdf")) as pdf:
     fig, axs = plt.subplots(1, 2, figsize=(11, 3.8), sharey=True)
     for ax, lv in zip(axs, ("topology+DIS", FULL)):
         for arm, col in (("born", BORN), ("rad", RAD)):
-            n = np.array(C["B_rec"][f"{lv}|phi"][f"n_{arm}"])
+            n = np.array(C["B_rec"][lv][f"n_{arm}"])
             ax.errorbar(pc, n, yerr=np.sqrt(n), fmt="o", ms=4, color=col, label=f"{arm} MC, N={int(n.sum())}")
-        ax.set_xlabel(r"$\phi_{\gamma\gamma}$ (deg, Trento)"); ax.set_title(lv, fontsize=9)
+        ax.set_xlabel(r"$\phi_{\pi^0}$ (deg, Trento)"); ax.set_title(lv, fontsize=9)
         ax.set_xticks(range(0, 361, 60)); ax.legend()
     axs[0].set_ylabel("reconstructed events per 30$^\\circ$")
     fig.suptitle("Reconstructed MC counts in the bin.  " + BINLBL, fontsize=9)
@@ -104,20 +104,18 @@ with PdfPages(os.path.join(FIG, "rc_method_pi0.pdf")) as pdf:
     for ax, c in zip(axs, ("0.05", "0.17", "0.5", "None")):
         ia = cuts.index(c)
         ax.plot(pc, A[ia], color=A_COL, lw=2, label="A: rc_factor")
-        for pv, mk, lab in (("phip", "o", r"B gen, $\phi_p+180$"), ("phi", "s", r"B gen, $\phi_{\gamma\gamma}$")):
-            d = C["B_gen"][f"{c}|{pv}"]
-            ax.errorbar(pc, d["delta"], yerr=d["err"], fmt=mk, ms=4, mfc="white" if pv == "phi" else INK,
-                        color=INK, lw=0.8, label=lab)
+        d = C["B_gen"][c]
+        ax.errorbar(pc, d["delta"], yerr=d["err"], fmt="o", ms=4, color=INK, lw=0.8, label="B: rad/Born MC, generated")
         ax.set_title(f"MM$^2$(e'p) < {c} GeV$^2$" if c != "None" else "no MM$^2$(e'p) cut", fontsize=9)
-        ax.set_xlabel(r"$\phi$ (deg)"); ax.set_xticks(range(0, 361, 90))
+        ax.set_xlabel(r"$\phi_{\pi^0}$ (deg, Trento)"); ax.set_xticks(range(0, 361, 90))
     axs[0].set_ylabel(r"$\delta = \sigma_{obs}/\sigma_{Born}$"); axs[0].legend(fontsize=8)
-    fig.suptitle("Closure at generator level: same engine, same cut, no detector.  "
-                 "A's $\\phi$ is the proton's azimuth + 180$^\\circ$; with that definition B follows A.", fontsize=9)
+    fig.suptitle("Closure at generator level: same engine, same MM$^2$(e'p) cut, no detector.  "
+                 "$\\phi$ = Trento azimuth of the $\\pi^0$ ($\\gamma\\gamma$ pair).", fontsize=9)
     fig.tight_layout()
     save(fig, "p3_closure", pdf)
 
     # ---- 4. the comparison: B with the real chain against A for several cuts --
-    Bf = C["B_rec"][f"{FULL}|phi"]; Bp = C["B_rec"][f"{FULL}|phip"]
+    Bf = C["B_rec"][FULL]
     Bd, Be = np.array(Bf["delta"]), np.array(Bf["err"])
     chi2 = np.array([np.nansum(((Bd - A[i]) / Be) ** 2) for i in range(len(cuts))])
     B_int = Bf["delta_int"]
@@ -128,15 +126,13 @@ with PdfPages(os.path.join(FIG, "rc_method_pi0.pdf")) as pdf:
     c_lo = float(np.interp(B_int - B_int_err, ys, xs)); c_hi = float(np.interp(B_int + B_int_err, ys, xs))
     ibest = int(np.nanargmin(chi2))
     fig, ax = plt.subplots(figsize=(7.5, 4.4))
-    ax.errorbar(pc, Bd, yerr=Be, fmt="o", ms=5, color=INK, label=r"B: rad/Born MC, full chain, $\phi_{\gamma\gamma}$")
-    ax.errorbar(pc + 4, Bp["delta"], yerr=Bp["err"], fmt="o", ms=4, mfc="white", color=INK, lw=0.6,
-                label=r"B: same, $\phi_p+180$")
+    ax.errorbar(pc, Bd, yerr=Be, fmt="o", ms=5, color=INK, label="B: rad/Born MC, full chain")
     shades = {"0.08": "#9ee3c8", "0.17": "#1baf7a", "0.3": "#117a55", "None": "#0b4d36"}
     for c, col in shades.items():
         ia = cuts.index(c)
         ax.plot(pc, A[ia], color=col, lw=1.8,
                 label=f"A, mx2_cut={c}" + (f"  ($\\chi^2$={chi2[ia]:.0f}/12)"))
-    ax.set_xlabel(r"$\phi$ (deg)"); ax.set_ylabel(r"$\delta_{RC}$ = N$_{rad}$/N$_{Born}$ (B),  $\sigma_{obs}/\sigma_{Born}$ (A)")
+    ax.set_xlabel(r"$\phi_{\pi^0}$ (deg, Trento)"); ax.set_ylabel(r"$\delta_{RC}$ = N$_{rad}$/N$_{Born}$ (B),  $\sigma_{obs}/\sigma_{Born}$ (A)")
     ax.set_xticks(range(0, 361, 60)); ax.legend(fontsize=7.5, loc="upper center", ncol=2)
     ax.set_ylim(0.6, 1.55)
     ax.set_title("The two corrections in one bin.  " + BINLBL, fontsize=8)
@@ -148,11 +144,11 @@ with PdfPages(os.path.join(FIG, "rc_method_pi0.pdf")) as pdf:
     ax = axs[0]
     ax.plot(xs, ys, color=A_COL, lw=2, label="A: rc_factor, integrated over the bin")
     ax.axhline(A_int[~finite][0], color=A_COL, lw=1, ls=":", label=f"A, no cut: {A_int[~finite][0]:.3f}")
-    gx = [float(k.split("|")[0]) for k in C["B_gen"] if k.endswith("|phip") and not k.startswith("None")]
-    gy = [C["B_gen"][f"{x}|phip"]["delta_int"] for x in gx]
+    gx = [float(k) for k in C["B_gen"] if k != "None"]
+    gy = [C["B_gen"][k]["delta_int"] for k in C["B_gen"] if k != "None"]
     ax.plot(gx, gy, "o", color=INK, ms=4, mfc="white", label="B at generator level, same cut (closure)")
     for lv, ls in zip(LEVELS, (":", "-.", "--", "-")):
-        d = C["B_rec"][f"{lv}|phi"]["delta_int"]
+        d = C["B_rec"][lv]["delta_int"]
         ax.axhline(d, color=INK, lw=1, ls=ls, label=f"B reconstructed, {lv}: {d:.3f}")
     ax.axhspan(B_int - B_int_err, B_int + B_int_err, color="#dddddd", zorder=0)
     if np.isfinite(c_eq):
@@ -169,7 +165,7 @@ with PdfPages(os.path.join(FIG, "rc_method_pi0.pdf")) as pdf:
     save(fig, "p5_scan", pdf)
 
 summary = dict(B_full_int=B_int, B_full_int_err=B_int_err,
-               B_levels={lv: C["B_rec"][f"{lv}|phi"]["delta_int"] for lv in LEVELS},
+               B_levels={lv: C["B_rec"][lv]["delta_int"] for lv in LEVELS},
                A_int={k: float(v) for k, v in zip(cuts, A_int)},
                c_equal_integral=c_eq, c_range=(c_lo, c_hi),
                best_chi2_cut=cuts[ibest], best_chi2=float(chi2[ibest]),
