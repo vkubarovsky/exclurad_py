@@ -117,3 +117,16 @@ earlier, wider ±3σ-from-MC windows gave an equivalent cut of 0.14 and 10–18 
 re-derived for every analysis's cut chain, which needs the rad + Born MC at least once.
 
 Still in B: `itarg` (+3 %), which lowers the equivalent v_cut by about 0.03 at this slope.
+
+## v after the other cuts (`rc_method_pi0_vdist.py`, `rc_method_pi0_vdist.pdf`)
+
+The note has no cut on MM²(e'p), so v = MM²(e'p) − m²_π0 was plotted after the whole Sec. 3.5 chain:
+
+- **Reconstructed v:** rad and Born look almost the same. The resolution (σ ≈ 0.1 GeV²) is wider than
+  the radiative tail that survives, so the analysis cannot see a v_cut on the reconstructed MM²(e'p).
+- **Generated v of the accepted rad events:** the chain's efficiency against the true radiated v is
+  flat up to v ≈ 0.01. It falls to **50 % at v = 0.057** and is near zero above 0.2. Only 2.0 % of the
+  accepted rad yield has v > 0.066, and 0.09 % has v > 0.2.
+- That 50 % point, read straight off the cut chain, agrees with the v_cut ≈ 0.065 found by matching A
+  to B. The chain acts as a soft cut on v of about that size, and A's sharp step at v_cut stands in for
+  it. They agree because the soft edge is roughly symmetric about the step.

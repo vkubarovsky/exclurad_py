@@ -147,7 +147,7 @@ def load(arm, pol, rng):
     rec = kinematics(r[:, REC0 + 5:REC0 + 8], pp,
                      r[:, REC0 + 16 + 5:REC0 + 16 + 8], r[:, REC0 + 24 + 5:REC0 + 24 + 8])
     rec["pdet"] = pdet
-    return dict(n_gen=n_gen, gen=gen, rec=rec, n_rec=int(ok.sum()))
+    return dict(n_gen=n_gen, gen=gen, rec=rec, n_rec=int(ok.sum()), ok=ok)
 
 
 def in_bin(k):
