@@ -359,6 +359,7 @@ class Generator:
 
         self.n_trials = 0
         self.n_accept = 0
+        self.n_unphys = 0
         self.n_hard = 0
         self.n_soft = 0
         # INSTRUMENTATION: where hard events are lost between "branch chosen"
@@ -1284,6 +1285,7 @@ Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
                      if (self.exact_accept and not self.born_only) else s["M"])
         s["cdf"] = _cell_cdf(s["Mtot"], s["edges"])
         self.n_trials = self.n_accept = 0
+        self.n_unphys = 0
         self.n_overweight = 0
         self.max_overweight = 1.0
         self.n_cut_yxb = self.n_cut_acc = 0
@@ -1344,11 +1346,15 @@ Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
                 self.max_overweight = max(self.max_overweight, s_obs / M)
             if self.rng.random() * M > s_obs:
                 continue
-            self.n_accept += 1
-
-            v_max = self._vmax(Q2, W2, t)
-            if v_max <= 0:
+            try:
+                v_max = self._vmax(Q2, W2, t)
+            except (ValueError, ZeroDivisionError, FloatingPointError):
+                self.n_unphys += 1
                 continue
+            if v_max <= 0:
+                self.n_unphys += 1
+                continue
+            self.n_accept += 1
             self._set_event_t(t)
             kin = self._kin(Q2, W2, t, phi)
 
@@ -1610,6 +1616,7 @@ Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
         eff = self.n_accept / self.n_trials if self.n_trials else float("nan")
         n = self.n_hard + self.n_soft
         return dict(trials=self.n_trials, accepted=self.n_accept,
+                    unphysical=self.n_unphys,
                     sigma_nb=self.sigma_total(),
                     efficiency=eff, hard=self.n_hard, soft=self.n_soft,
                     radiative_fraction=self.n_hard / n if n else float("nan"),
