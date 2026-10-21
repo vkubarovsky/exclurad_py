@@ -130,3 +130,25 @@ The note has no cut on MM²(e'p), so v = MM²(e'p) − m²_π0 was plotted after
 - That 50 % point, read straight off the cut chain, agrees with the v_cut ≈ 0.065 found by matching A
   to B. The chain acts as a soft cut on v of about that size, and A's sharp step at v_cut stands in for
   it. They agree because the soft edge is roughly symmetric about the step.
+
+## Which cut removes the radiation, and how v relates to ME and MM²(e'p'π⁰) (`rc_method_pi0_vcuts_each.py`)
+
+For an unseen radiated photon k: v = MM²(e'p') − m²_π = 2 p_π·k = 2 E_k E_π (1 − β_π cos θ_πk);
+ME = E_k; MM²(e'p'π⁰) = k² = 0; MP_T = k_T.
+
+Each cut alone (after DIS + π⁰ ID), as an efficiency against the generated v:
+
+| cut | 50 % point in v (GeV²) |
+|---|---|
+| \|ME\| < 0.2 | 0.085 |
+| \|MM²(e'pγγ)\| < 0.004 | 0.080 |
+| cone < 4° | 0.24 |
+| MP_T < 0.75 | 4.5 (inactive) |
+| all together | **0.055** |
+
+- **ME** cuts the photon energy directly. Through v = 2E_kE_π(1 − β cos θ_πk), each photon angle gives a
+  different v limit. The radiated photon sits a median 21° from the π⁰.
+- **MM²(e'p'π⁰)** is 0 for any real photon, so it removes radiation only through its resolution, which
+  grows with E_k. Here it acts almost exactly like the ME cut.
+- An equivalent v_cut is therefore a property of the ME and MM²(e'pγγ) windows and of the detector
+  resolution, and it has to be derived for that pair of cuts.
