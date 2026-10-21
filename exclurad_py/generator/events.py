@@ -158,7 +158,15 @@ class Generator:
         # случайных чисел не происходит и выборка побайтово совпадает с той,
         # что давал код до Брейта-Вигнера.  Это и есть проверка, что правка
         # ничего не сдвинула помимо самой массы.
+        # The two slot masses, kept side by side.  _mV is whatever sits in
+        # the mV slot (the DETECTED hadron) and _mU whatever sits in mU (the
+        # MISSING one).  Which of them is the meson depends on the topology,
+        # so a drawn Breit-Wigner mass goes into one or the other and every
+        # consumer is handed both.  Before 2026-10-21 only _mV existed and
+        # sf.mU was passed unchanged, which is why a width could only ever be
+        # given to a meson-detected channel.
         self._mV = float(self.sf.mV)
+        self._mU = float(self.sf.mU)
         # Initial-state nucleon at rest.  Proton everywhere except the
         # free-neutron channels; taken from the model so the whole chain
         # (kinematics, v_max, RC, electron acceptance) uses ONE target mass.
@@ -212,10 +220,21 @@ class Generator:
         self.n_fermi_flux = 0     # draws thinned by the flux factor
         self.sum_flux = 0.0       # running <F> over draws that passed the guards
         self.n_flux_drawn = 0
+        # A WIDTH IS A PROPERTY OF THE RESONANCE, NOT OF WHAT WE DETECT.
+        #
+        # This used to require topology.name == "meson_detected", which was
+        # right when it was written on 2026-08-23 because the vector models
+        # only existed in the meson basket.  Adding the _pdet variants on
+        # 2026-10-08 moved phi and rho into the proton basket and so switched
+        # their width back off, silently: the phi campaign of 15-17 October
+        # was generated at a fixed 1019.461 MeV, M(K+K-) spread 3e-7.  For an
+        # analysis that fits the phi over the non-resonant KK background that
+        # is not a detail, it is the observable.
+        #
+        # J/psi is unaffected either way -- its 93 keV is below BW_DELTA -- and
+        # that makes it the regression test: it must stay byte-identical.
         self.bw_channel = None
-        if os.environ.get("BW", "1") != "0" and \
-                getattr(getattr(self.sf, "topology", None), "name", "") == \
-                "meson_detected":
+        if os.environ.get("BW", "1") != "0":
             ch = str(getattr(self.sf, "channel", "") or "")
             if bw_width(ch) >= BW_DELTA:
                 self.bw_channel = ch
@@ -430,12 +449,12 @@ class Generator:
         return EventKin(self._E, Q2, W2, t, phi, self._mV,
                         phi_offset=float(getattr(getattr(self.sf, 'topology', None),
                                                  'phi_offset', 0.0)),
-                        v=0.0, mU=self.sf.mU, M=self._mT_kin,
+                        v=0.0, mU=self._mU, M=self._mT_kin,
                         t_kind=self._t_kind)
 
     def _vmax(self, Q2, W2, t):
         vk = EventKin.vmax_kin(self._E, Q2, W2, t, self._mV,
-                               mU=self.sf.mU, M=self._mT_kin,
+                               mU=self._mU, M=self._mT_kin,
                                t_kind=self._t_kind)
         if self.mx2_cut is None:
             return vk
@@ -469,7 +488,7 @@ class Generator:
         return EventKin(self._E, Q2, W2, t, phi, self._mV,
                         phi_offset=float(getattr(getattr(self.sf, 'topology', None),
                                                  'phi_offset', 0.0)),
-                        v=0.0, mU=self.sf.mU, M=self._mT,
+                        v=0.0, mU=self._mU, M=self._mT,
                         t_kind=self._t_kind)
 
     def _born(self, Q2, W2, t, phi, h):
@@ -957,16 +976,32 @@ class Generator:
         разыгранной плотности.
         """
         if self.bw_channel is not None:
+            # BY ROLE, NOT BY SLOT.  The resonance whose width this is may sit
+            # in either slot: mV when the meson is detected, mU when the
+            # proton is.  Drawing around self.sf.mV, as this did until
+            # 2026-10-21, would in the proton basket have put a Breit-Wigner
+            # around the PROTON mass.  The same mistake was made once before,
+            # on 2026-10-09, when the decay radiation sampled the photon
+            # spectrum of a 0.938 GeV "meson" -- see meson_mass() in decay.py,
+            # which exists because of it.
+            from .decay import meson_slot
+            meson_in_mU = (meson_slot(getattr(self.sf, "topology", None),
+                                      self.sf.channel) == "recoil")
+            m_res = float(self.sf.mU if meson_in_mU else self.sf.mV)
+            m_recoil = float(self.sf.mV if meson_in_mU else self.sf.mU)
             W = np.sqrt(max(W2, 0.0))
-            m_max = W - self.sf.mU
+            m_max = W - m_recoil
             if m_max <= 0.0:
                 self.n_bw_thresh += 1
                 return False
-            self._mV = sample_mass(self.bw_channel, float(self.sf.mV), m_max,
-                                   self.rng)
-            if W < self.sf.mU + self._mV:
+            m_drawn = sample_mass(self.bw_channel, m_res, m_max, self.rng)
+            if W < m_recoil + m_drawn:
                 self.n_bw_thresh += 1
                 return False
+            if meson_in_mU:
+                self._mU = m_drawn
+            else:
+                self._mV = m_drawn
 
         # EXACT t LIMITS, FOR EVERY CHANNEL.
         #
@@ -997,8 +1032,7 @@ class Generator:
         # section.  A model's structure functions do not know where the
         # physical boundary is and will happily return a positive number past
         # it; this is what keeps them from being asked.
-        mV = self._mV if self.bw_channel is not None else float(self.sf.mV)
-        lim = EventKin.t_limits(Q2, W2, mV, self.sf.mU, t_kind=self._t_kind)
+        lim = EventKin.t_limits(Q2, W2, self._mV, self._mU, t_kind=self._t_kind)
         if lim is None or not (lim[0] <= t <= lim[1]):
             self.n_tkin += 1
             return False
