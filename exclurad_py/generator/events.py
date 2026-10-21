@@ -1100,7 +1100,7 @@ class Generator:
             rc_c = rc_factor(M=self._mT,
 Ebeam=self._E, Q2=cQ2, W2=cW2, t=ct, phi=cph,
                              sfmodel=self.sf, h=h, lam=self.ptarg, mx2_cut=self.mx2_cut,
-                             t_kind=self._t_kind, mV=self._mV)
+                             t_kind=self._t_kind, mV=self._mV, mU=self._mU)
             sigma_obs_c = float(rc_c["sigma_obs"])
             if not np.isfinite(sigma_obs_c) or sigma_obs_c <= 0:
                 self._tail_cache[key] = None
@@ -1304,7 +1304,7 @@ Ebeam=self._E, Q2=cQ2, W2=cW2, t=ct, phi=cph,
                     so = float(rc_factor(M=self._mT,
 Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
                         sfmodel=self.sf, h=h_p, lam=self.ptarg, mx2_cut=self.mx2_cut,
-                        t_kind=self._t_kind, mV=self._mV)["sigma_obs"])
+                        t_kind=self._t_kind, mV=self._mV, mU=self._mU)["sigma_obs"])
                 except (ValueError, ZeroDivisionError, FloatingPointError):
                     continue
                 if not np.isfinite(so) or so <= 0:
@@ -1431,7 +1431,7 @@ Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
 Ebeam=self._E, Q2=Q2, W2=W2, t=t,
                                      phi=phi, sfmodel=self.sf, h=h,
                                      lam=self.ptarg, mx2_cut=self.mx2_cut,
-                                     t_kind=self._t_kind, mV=self._mV)
+                                     t_kind=self._t_kind, mV=self._mV, mU=self._mU)
                     so_e = float(rc_e["sigma_obs"])
 
                     # STAGE 2 (optional, EXACT_ACCEPT=1): re-accept on
@@ -1472,7 +1472,7 @@ Ebeam=self._E, Q2=Q2, W2=W2, t=t,
 Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
                                 sfmodel=self.sf, h=h, lam=self.ptarg,
                                 mx2_cut=x + mU2,
-                                t_kind=self._t_kind, mV=self._mV)["sigma_obs"])
+                                t_kind=self._t_kind, mV=self._mV, mU=self._mU)["sigma_obs"])
 
                         N0 = max(so_e - sobs(vmn), 0.0)
                         if self.rng.random() < N0 / so_e:

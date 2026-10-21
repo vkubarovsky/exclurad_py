@@ -22,7 +22,7 @@ _WARNED_TNUCL = False
 def rc_factor(Ebeam, Q2, W2, t, phi, sfmodel, h=+1, lam=0.0,
               mx2_cut=None, M=M_P, m=M_E,
               n_v=None, n_core=None, n_tail=None, n_phi=None,
-              exponentiate=True, t_kind=None, mV=None):
+              exponentiate=True, t_kind=None, mV=None, mU=None):
     """Radiative correction at fixed observed (Q2, W2, t, phi), beam helicity h.
 
     mx2_cut : missing-mass-squared cut MX^2 < mx2_cut  (GeV^2), where the
@@ -34,7 +34,13 @@ def rc_factor(Ebeam, Q2, W2, t, phi, sfmodel, h=+1, lam=0.0,
     """
     if hasattr(sfmodel, 'kf_W2Q2'):
         sfmodel.kf_W2Q2 = (float(W2), float(Q2))
-    mU = getattr(sfmodel, 'mU', None)
+    # mU -- the mass in the mU slot FOR THIS EVENT, for the same reason mV
+    # takes an override below.  The per-event override was written for mV
+    # alone, when a drawn Breit-Wigner mass could only ever land there; in the
+    # proton basket the meson sits in mU, and taking the nominal mass here
+    # while the event was built at the drawn one computes the correction for
+    # a different event than the one it weights.  0.4 % for phi, 19 % for rho.
+    mU = getattr(sfmodel, 'mU', None) if mU is None else float(mU)
     if t_kind is None:
         topo = getattr(sfmodel, 'topology', None)
         t_kind = getattr(topo, 't_kind', 'photon') if topo else 'photon'
