@@ -173,3 +173,17 @@ Given all the others, each cut keeps (Born / rad):
 Only ME and MM²(e'pγγ) separate rad from Born. With those two applied, MP_T and the coplanarity cut
 remove nothing more. Q² and W only trim the generation box (Q² ≥ 0.8, W ≥ 1.8). After all cuts,
 MM²(e'p) and M(e'γγ) lie inside the Tables 7–10 windows, so those windows would add nothing.
+
+## φ fit and structure functions (`rc_method_pi0_phifit.py`), and the report
+
+The pseudo-data are the even half of the reconstructed rad MC, after the note's cuts. They are
+corrected with δ_B (built from the odd half and the Born MC) and with δ_A (v_cut = 0.06 and 0.2), then
+fitted for σ_U, σ_TT and σ_LT against the generated Born distribution.
+
+In wide2 (1.0<Q²<2.5, 0.10<x_B<0.30, 0.09<−t<1.0; 6013 events):
+- v_cut = 0.2 gives σ_U 10 % low.
+- σ_TT agrees for all three corrections within ±2–3 % of σ_U.
+- σ_LT (−0.02 σ_U) is not measurable at this statistics.
+
+The full write-up is `rc_method_pi0_report.tex/.pdf`. `publish.sh` builds it and copies it to
+`~/OneDrive/Work/2026_pi0_RC_method/`.
