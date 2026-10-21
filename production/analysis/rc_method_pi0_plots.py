@@ -92,7 +92,7 @@ with PdfPages(os.path.join(FIG, "rc_method_pi0.pdf")) as pdf:
         for arm, col in (("born", BORN), ("rad", RAD)):
             n = np.array(C["B_rec"][lv][f"n_{arm}"])
             ax.errorbar(pc, n, yerr=np.sqrt(n), fmt="o", ms=4, color=col, label=f"{arm} MC, N={int(n.sum())}")
-        ax.set_xlabel(r"$\phi_{\pi^0}$ (deg, Trento)"); ax.set_title(lv, fontsize=9)
+        ax.set_xlabel(r"$\phi = \phi_{p'} + 180^\circ$ (deg, Trento)"); ax.set_title(lv, fontsize=9)
         ax.set_xticks(range(0, 361, 60)); ax.legend()
     axs[0].set_ylabel("reconstructed events per 30$^\\circ$")
     fig.suptitle("Reconstructed MC counts in the bin.  " + BINLBL, fontsize=9)
@@ -107,10 +107,10 @@ with PdfPages(os.path.join(FIG, "rc_method_pi0.pdf")) as pdf:
         d = C["B_gen"][c]
         ax.errorbar(pc, d["delta"], yerr=d["err"], fmt="o", ms=4, color=INK, lw=0.8, label="B: rad/Born MC, generated")
         ax.set_title(f"MM$^2$(e'p) < {c} GeV$^2$" if c != "None" else "no MM$^2$(e'p) cut", fontsize=9)
-        ax.set_xlabel(r"$\phi_{\pi^0}$ (deg, Trento)"); ax.set_xticks(range(0, 361, 90))
+        ax.set_xlabel(r"$\phi = \phi_{p'} + 180^\circ$ (deg, Trento)"); ax.set_xticks(range(0, 361, 90))
     axs[0].set_ylabel(r"$\delta = \sigma_{obs}/\sigma_{Born}$"); axs[0].legend(fontsize=8)
     fig.suptitle("Closure at generator level: same engine, same MM$^2$(e'p) cut, no detector.  "
-                 "$\\phi$ = Trento azimuth of the $\\pi^0$ ($\\gamma\\gamma$ pair).", fontsize=9)
+                 "$\\phi$ = Trento azimuth of the recoil proton + 180$^\\circ$ (EXCLURAD).", fontsize=9)
     fig.tight_layout()
     save(fig, "p3_closure", pdf)
 
@@ -132,7 +132,7 @@ with PdfPages(os.path.join(FIG, "rc_method_pi0.pdf")) as pdf:
         ia = cuts.index(c)
         ax.plot(pc, A[ia], color=col, lw=1.8,
                 label=f"A, mx2_cut={c}" + (f"  ($\\chi^2$={chi2[ia]:.0f}/12)"))
-    ax.set_xlabel(r"$\phi_{\pi^0}$ (deg, Trento)"); ax.set_ylabel(r"$\delta_{RC}$ = N$_{rad}$/N$_{Born}$ (B),  $\sigma_{obs}/\sigma_{Born}$ (A)")
+    ax.set_xlabel(r"$\phi = \phi_{p'} + 180^\circ$ (deg, Trento)"); ax.set_ylabel(r"$\delta_{RC}$ = N$_{rad}$/N$_{Born}$ (B),  $\sigma_{obs}/\sigma_{Born}$ (A)")
     ax.set_xticks(range(0, 361, 60)); ax.legend(fontsize=7.5, loc="upper center", ncol=2)
     ax.set_ylim(0.6, 1.55)
     ax.set_title("The two corrections in one bin.  " + BINLBL, fontsize=8)

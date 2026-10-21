@@ -21,17 +21,15 @@ The bin first proposed (Q² 2–3, x_B 0.2–0.3, −t 0.2–0.4) held ~800 Born
 | + MM²(e'pγγ), ME 3σ — full chain | **0.899 ± 0.018** |
 
 A equals B's integral at **mx2_cut = 0.19 GeV²** (0.15–0.23 at 1σ). φ by φ, χ² of A against B is
-minimal at 0.17: **12.3 for 12 bins**. 0.08 gives 24, 0.30 gives 21, no cut gives 239.
+minimal at 0.17: **9.7 for 12 bins**. 0.08 gives 22, 0.30 gives 17, no cut gives 231.
 Within ±5–8 % per φ bin, **one cut makes them agree everywhere in this bin** (outcome three).
 That is a statement at this precision, about this bin, and not yet about the whole grid.
 
 ## What was found on the way
 
-1. **One φ: the Trento azimuth of the π⁰ (the γγ pair).** That is the note's variable and the one
-   `rc_factor` documents (core/kinematics.py). For the proton-detected topology, the engine builds the
-   radiative event's hadron plane from the proton (`phi_offset = π`). As a result, at generator level
-   A follows B only for tight cuts (MM²(e'p) ≲ 0.2, p3). With no cut, B's radiative tail piles up at
-   φ = 180° and A's at φ = 0°. After the full exclusivity chain this does not matter within the errors.
+1. **φ is defined as in EXCLURAD, in both methods:** φ = Trento azimuth of the recoil proton + 180°.
+   The analysis must use the same definition as the RC engine. Taking φ from the γγ pair gives a
+   different variable for radiative events, and the generator-level closure then fails without a cut.
 2. **Generator-level closure (tight cuts) holds to ~3 %, and the 3 % is `itarg`.** With the same MM²(e'p) cut,
    B_gen/A ≈ 1.03. In the bin, 2.8 % of Born-arm events have MM²(e'p) > 0.05, from the pre-vertex
    radiator that `itarg = 1` switches on in the Born arm too. `rc_factor` has no `itarg`. This

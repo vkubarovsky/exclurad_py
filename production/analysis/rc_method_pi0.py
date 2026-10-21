@@ -65,10 +65,12 @@ def mdot(a, b):
 def trento_phi(q3, k3, h3):
     """Trento azimuth of the hadron h around the virtual photon q, lepton plane from k (beam).
 
-    phi is the azimuth of the PRODUCED MESON, h = p(g1) + p(g2): the note's
-    definition and the one rc_factor documents (core/kinematics.py).  For a
-    radiative event the pi0 is not opposite the proton, so phi_p + 180 is a
-    different variable, and it is not used.
+    phi of the event is taken from the RECOIL PROTON: phi = phi_Trento(p') + 180,
+    which is how EXCLURAD defines it for the proton-detected topology and
+    therefore what rc_factor's phi means.  For a Born event it equals the
+    azimuth of the gamma-gamma pair; for a radiative one it does not, and
+    phi(gg) is the wrong variable here -- with it the generator-level closure
+    fails without a cut (the radiative tail lands at 180 instead of 0).
     """
     qn = q3 / np.linalg.norm(q3, axis=1)[:, None]
     n_l = np.cross(qn, k3)
@@ -99,7 +101,7 @@ def kinematics(pe, pp, g1, g2):
                mm2ep=mdot(X_ep, X_ep), megg=np.sqrt(np.maximum(mdot(X_egg, X_egg), 0)),
                mm2tot=mdot(X_tot, X_tot), me=X_tot[:, 0],
                mpt=np.hypot(X_tot[:, 1], X_tot[:, 2]),
-               phi=trento_phi(q[:, 1:], np.tile([0, 0, EB], (len(q), 1)), pi[:, 1:]))
+               phi=(trento_phi(q[:, 1:], np.tile([0, 0, EB], (len(q), 1)), pp) + 180.0) % 360.0)
     c = (X_ep[:, 1:] * pi[:, 1:]).sum(1) / (np.linalg.norm(X_ep[:, 1:], axis=1) *
                                              np.linalg.norm(pi[:, 1:], axis=1))
     out["cone"] = np.degrees(np.arccos(np.clip(c, -1, 1)))
