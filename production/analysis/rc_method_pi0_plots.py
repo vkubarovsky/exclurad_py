@@ -20,6 +20,7 @@ pc = (np.arange(NPHI) + 0.5) * 360 / NPHI
 RAD, BORN, A_COL, INK, MUTED = "#2a78d6", "#eb6834", "#1baf7a", "#222222", "#888888"
 FULL = "+MM2(e'pgg), ME: full chain"
 LEVELS = ["topology+DIS", "+M(gg), MM2(e'p)", "+M(e'gg), cone, MPT", FULL]
+NICE = lambda lv: lv.replace("cone", "coplanarity")
 b = r["bin"]
 BINLBL = (f"{b['Q2'][0]}<Q$^2$<{b['Q2'][1]} GeV$^2$,  {b['xB'][0]}<x$_B$<{b['xB'][1]},  "
           f"{b['mt'][0]}<$-t$<{b['mt'][1]} GeV$^2$;  inbending + outbending")
@@ -60,7 +61,7 @@ with PdfPages(os.path.join(FIG, "rc_method_pi0.pdf")) as pdf:
             ("mm2tot", r"MM$^2$(e'p$\gamma\gamma$) (GeV$^2$)", (-0.05, 0.05)),
             ("me", r"ME(e'p$\gamma\gamma$) (GeV)", (-1.0, 2.5)),
             ("mpt", r"MP$_T$ (GeV)", (0, 0.6)),
-            ("cone", r"cone angle $\pi^0$ vs X (deg)", (0, 15)),
+            ("cone", r"coplanarity $\theta$(X, $\pi^0$) (deg)", (0, 15)),
             ("open", r"$\gamma\gamma$ opening angle (deg)", (0, 20))]
     cal = r["pol"]["outb"]["cal"]["CD"]
     fig, axs = plt.subplots(2, 4, figsize=(13, 5.6))
@@ -92,7 +93,7 @@ with PdfPages(os.path.join(FIG, "rc_method_pi0.pdf")) as pdf:
         for arm, col in (("born", BORN), ("rad", RAD)):
             n = np.array(C["B_rec"][lv][f"n_{arm}"])
             ax.errorbar(pc, n, yerr=np.sqrt(n), fmt="o", ms=4, color=col, label=f"{arm} MC, N={int(n.sum())}")
-        ax.set_xlabel(r"$\phi = \phi_{p'} + 180^\circ$ (deg, Trento)"); ax.set_title(lv, fontsize=9)
+        ax.set_xlabel(r"$\phi = \phi_{p'} + 180^\circ$ (deg, Trento)"); ax.set_title(NICE(lv), fontsize=9)
         ax.set_xticks(range(0, 361, 60)); ax.legend()
     axs[0].set_ylabel("reconstructed events per 30$^\\circ$")
     fig.suptitle("Reconstructed MC counts in the bin.  " + BINLBL, fontsize=9)
@@ -169,15 +170,15 @@ with PdfPages(os.path.join(FIG, "rc_method_pi0.pdf")) as pdf:
     ax = axs[0]
     for lv, ls in ((LEVELS[0], ":"), (FULL, "-")):
         ar_, ab_ = acc[lv]
-        ax.plot(pc, 100 * ab_, ls=ls, marker="o", ms=3, color=BORN, label=f"Born, {lv}")
-        ax.plot(pc, 100 * ar_, ls=ls, marker="o", ms=3, color=RAD, label=f"rad, {lv}")
+        ax.plot(pc, 100 * ab_, ls=ls, marker="o", ms=3, color=BORN, label=f"Born, {NICE(lv)}")
+        ax.plot(pc, 100 * ar_, ls=ls, marker="o", ms=3, color=RAD, label=f"rad, {NICE(lv)}")
     ax.set_xlabel(PHILBL); ax.set_ylabel("acceptance (%)"); ax.set_xticks(range(0, 361, 60))
     ax.legend(fontsize=7); ax.set_title("rec in bin (rec kinematics) / gen in bin (gen kinematics)", fontsize=8)
     ax = axs[1]
     for lv, ls in zip(LEVELS, (":", "-.", "--", "-")):
         ar_, ab_ = acc[lv]
         ax.plot(pc, ar_ / ab_, ls=ls, color=INK, lw=1.2,
-                label=f"{lv}: {np.sum(ar_ * gr) / np.sum(gr) / (np.sum(ab_ * gb) / np.sum(gb)):.3f}")
+                label=f"{NICE(lv)}: {np.sum(ar_ * gr) / np.sum(gr) / (np.sum(ab_ * gb) / np.sum(gb)):.3f}")
     ax.set_xlabel(PHILBL); ax.set_ylabel("Acc$_{rad}$ / Acc$_{Born}$"); ax.set_xticks(range(0, 361, 60))
     ax.legend(fontsize=7, title="bin integral", title_fontsize=7)
     ax.set_title(r"B = $\eta_{gen}$(no cut) $\times$ Acc$_{rad}$/Acc$_{Born}$; the cuts act only here", fontsize=8)
@@ -195,7 +196,7 @@ with PdfPages(os.path.join(FIG, "rc_method_pi0.pdf")) as pdf:
     ax.plot(gx, gy, "o", color=INK, ms=4, mfc="white", label="B at generator level, same cut (closure)")
     for lv, ls in zip(LEVELS, (":", "-.", "--", "-")):
         d = C["B_rec"][lv]["delta_int"]
-        ax.axhline(d, color=INK, lw=1, ls=ls, label=f"B reconstructed, {lv}: {d:.3f}")
+        ax.axhline(d, color=INK, lw=1, ls=ls, label=f"B reconstructed, {NICE(lv)}: {d:.3f}")
     ax.axhspan(B_int - B_int_err, B_int + B_int_err, color="#dddddd", zorder=0)
     if np.isfinite(c_eq):
         ax.axvline(c_eq, color=MUTED, lw=0.8)

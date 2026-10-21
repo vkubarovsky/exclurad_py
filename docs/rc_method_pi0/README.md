@@ -17,7 +17,7 @@ The bin first proposed (Q² 2–3, x_B 0.2–0.3, −t 0.2–0.4) held ~800 Born
 |---|---|
 | topology + DIS | 1.173 |
 | + M(γγ), MM²(e'p) 3σ | 0.942 |
-| + M(e'γγ) 3σ, cone < 4°, MP_T < 0.75 | 0.925 |
+| + M(e'γγ) 3σ, coplanarity θ(X, π⁰) < 4°, MP_T < 0.75 | 0.925 |
 | + MM²(e'pγγ), ME 3σ — full chain | **0.899 ± 0.018** |
 
 A equals B's integral at **mx2_cut = 0.19 GeV²** (0.15–0.23 at 1σ). φ by φ, χ² of A against B is
@@ -90,7 +90,7 @@ no MM²(e'pγγ), no MP_T and no coplanarity. B applies all of them, event by ev
 **Cuts in B, Sec. 3.5 literally:**
 - DIS: Q² > 1, W > 2, p_e' > 2.
 - π⁰ identification: M_γγ within 3σ (σ from the Born MC), γγ opening angle > 1°.
-- Exclusivity: |ME| < 0.2, |MM²(e'pγγ)| < 0.004, MP_T < 0.75, cone < 4°.
+- Exclusivity: |ME| < 0.2, |MM²(e'pγγ)| < 0.004, MP_T < 0.75, coplanarity θ(X, π⁰) < 4°.
 
 On this uncorrected MC these windows keep 39–43 % of Born and 28–32 % of rad; they act on both arms alike.
 
@@ -142,7 +142,7 @@ Each cut alone (after DIS + π⁰ ID), as an efficiency against the generated v:
 |---|---|
 | \|ME\| < 0.2 | 0.085 |
 | \|MM²(e'pγγ)\| < 0.004 | 0.080 |
-| cone < 4° | 0.24 |
+| coplanarity θ(X, π⁰) < 4° | 0.24 |
 | MP_T < 0.75 | 4.5 (inactive) |
 | all together | **0.055** |
 
@@ -152,3 +152,24 @@ Each cut alone (after DIS + π⁰ ID), as an efficiency against the generated v:
   grows with E_k. Here it acts almost exactly like the ME cut.
 - An equivalent v_cut is therefore a property of the ME and MM²(e'pγγ) windows and of the detector
   resolution, and it has to be derived for that pair of cuts.
+
+## Every cut variable, N−1 (`rc_method_pi0_cutvars.py`, `rc_method_pi0_cutvars.pdf`)
+
+Each variable is shown with all the OTHER cuts applied, rad and Born, on linear and log scales. The
+note's cuts are drawn as solid lines (Sec. 3.5; M_γγ from Sec. 3.4). The coplanarity angle is
+θ(X, π⁰): X is the missing particle of ep → e'p'X and π⁰ is the reconstructed γγ pair. For a radiative
+event X = π⁰ + k, so the angle is the photon's pull on X.
+
+Given all the others, each cut keeps (Born / rad):
+
+| cut | Born | rad |
+|---|---|---|
+| Q² > 1 | 81 % | 80 % |
+| W > 2 | 74 % | 75 % |
+| \|ME\| < 0.2 | **71 %** | **69 %** |
+| \|MM²(e'pγγ)\| < 0.004 | **80 %** | **77 %** |
+| p_e' > 2, M_γγ, opening > 1°, MP_T < 0.75, coplanarity < 4° | 100 % | 100 % |
+
+Only ME and MM²(e'pγγ) separate rad from Born. With those two applied, MP_T and the coplanarity cut
+remove nothing more. Q² and W only trim the generation box (Q² ≥ 0.8, W ≥ 1.8). After all cuts,
+MM²(e'p) and M(e'γγ) lie inside the Tables 7–10 windows, so those windows would add nothing.

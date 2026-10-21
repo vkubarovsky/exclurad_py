@@ -23,7 +23,7 @@ plt.rcParams.update({"font.size": 9, "axes.edgecolor": MUTED, "axes.linewidth": 
 V = np.array(r["vcuts"]); V0 = r["v0"]; E = r["edges"]
 NAME = {"Q2": "Q$^2$ (GeV$^2$)", "xB": "x$_B$", "mt": "$-t$ (GeV$^2$)"}
 CUTS_TXT = ("cuts as in the note, Sec. 3.5: Q$^2$>1, W>2, p$_{e'}$>2; |ME|<0.2, |MM$^2$(e'p$\\gamma\\gamma$)|<0.004, "
-            "MP$_T$<0.75, cone<4$^\\circ$; M$_{\\gamma\\gamma}$ 3$\\sigma$, opening>1$^\\circ$")
+            "MP$_T$<0.75, coplanarity $\\theta$(X,$\\pi^0$)<4$^\\circ$; M$_{\\gamma\\gamma}$ 3$\\sigma$, opening>1$^\\circ$")
 
 
 def arr(cl):

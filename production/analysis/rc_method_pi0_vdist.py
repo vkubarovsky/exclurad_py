@@ -96,7 +96,7 @@ with PdfPages(os.path.join(FIG, "rc_method_pi0_vdist.pdf")) as pdf:
     ax.set_xscale("log"); ax.set_ylim(-0.05, 1.25)
     ax.set_xlabel("generated v (GeV$^2$)"); ax.set_ylabel("efficiency, relative to v $\\to$ 0")
     ax.legend(fontsize=7.5, loc="upper right"); ax.set_title("The cut chain as a cut on v", fontsize=9)
-    fig.suptitle("v after the note's cuts (|ME|<0.2, |MM$^2$(e'p$\\gamma\\gamma$)|<0.004, MP$_T$<0.75, cone<4$^\\circ$, "
+    fig.suptitle("v after the note's cuts (|ME|<0.2, |MM$^2$(e'p$\\gamma\\gamma$)|<0.004, MP$_T$<0.75, coplanarity $\\theta$(X,$\\pi^0$)<4$^\\circ$, "
                  "Q$^2$>1, W>2, p$_{e'}$>2); all kinematics, inbending + outbending", fontsize=9)
     fig.tight_layout()
     fig.savefig(os.path.join(FIG, "v1_vdist.png"), dpi=150, bbox_inches="tight")

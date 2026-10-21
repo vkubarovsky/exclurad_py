@@ -29,6 +29,7 @@ plt.rcParams.update({"font.size": 9, "axes.edgecolor": MUTED, "axes.linewidth": 
                      "grid.color": "#e6e6e6", "grid.linewidth": 0.5, "legend.frameon": False})
 
 rng = np.random.default_rng(20261021)
+NICE = {"ME": "ME", "MM2tot": "MM2(e'p$\\gamma\\gamma$)", "cone": "coplanarity", "MPT": "MP$_T$", "all": "all"}
 rows = {k: [] for k in ("v", "Ek", "thk", "base", "ME", "MM2tot", "cone", "MPT", "w")}
 sig = C.sigma_nb(f"{R.DATA}/prov_rad", "rad")["mean"]
 for pol in ("inb", "outb"):
@@ -71,7 +72,7 @@ with PdfPages(os.path.join(FIG, "rc_method_pi0_vcuts_each.pdf")) as pdf:
         vh = float(np.exp(np.interp(0.5, [fe[i], fe[i - 1]], [np.log(cen[i]), np.log(cen[i - 1])]))) if i else np.nan
         res[cut] = dict(v_half=vh, keep_soft=float(soft))
         ax.plot(cen[okb], fe[okb], "o-", ms=3, lw=1.4 if cut == "all" else 1.0, color=COL[cut],
-                label=f"{cut}: 50 % at v = {vh:.3f}" if np.isfinite(vh) else f"{cut}: never below 50 %")
+                label=f"{NICE[cut]}: 50 % at v = {vh:.3f}" if np.isfinite(vh) else f"{NICE[cut]}: never below 50 %")
     for v, ls in ((0.06, "-"), (0.2, "--")):
         ax.axvline(v, color=MUTED, lw=0.8, ls=ls)
     ax.set_xscale("log"); ax.set_ylim(-0.05, 1.2)
@@ -97,7 +98,7 @@ with PdfPages(os.path.join(FIG, "rc_method_pi0_vcuts_each.pdf")) as pdf:
     ax.set_ylabel("log$_{10}$(v / E$_k$)  (GeV)")
     ax.grid(False); ax.set_title("v per GeV of photon energy against the photon's angle", fontsize=9)
     fig.suptitle("Rad MC, all kinematics, inbending + outbending.  Cuts: |ME|<0.2, |MM$^2$(e'p$\\gamma\\gamma$)|<0.004, "
-                 "cone<4$^\\circ$, MP$_T$<0.75", fontsize=9)
+                 "coplanarity $\\theta$(X,$\\pi^0$)<4$^\\circ$, MP$_T$<0.75", fontsize=9)
     fig.tight_layout()
     fig.savefig(os.path.join(FIG, "v3_each_cut.png"), dpi=150, bbox_inches="tight")
     pdf.savefig(fig, bbox_inches="tight")
