@@ -51,23 +51,57 @@ Expect a real effect. Do not expect it to be uniform.
 
 ## Do not generate anything. The data exists.
 
-| campaign | arms | state |
-|---|---|---|
-| `/volatile/clas12/vpk/prod_phi_f18in_20261015` | rad + Born | **complete, 1600 DSTs** — use this |
-| `/volatile/clas12/vpk/prod_jpsi_f18in_20261009` | rad + Born | Born being regenerated with `itarg=0`; use after |
-| `/volatile/clas12/storyf/exclurad_amp2614_validation_50a5074/fullchain_1M_20261007` | rad only | Story's π⁰, no Born arm |
+**The channel is pi0.** VPK, 2026-10-21.
 
-**Start with φ.** It is the only campaign that is finished in both arms, in
-four GEMC configurations: inbending 45 nA, outbending 50 nA, and both again
-with no background. 1M generated events per arm.
+| campaign | model | arms | state |
+|---|---|---|---|
+| `/volatile/clas12/vpk/prod_pi0_rga_t25_20260928` | `pi0.amp2609` | rad + Born | **use this** — 800 DSTs, both arms |
+| `/volatile/clas12/storyf/exclurad_amp2614_validation_50a5074/...` | `pi0.amp2614` | rad only | no Born arm; twins being generated |
+| `prod_phi_f18in_20261015`, `prod_jpsi_f18in_20261009` | vector | rad + Born | other channels, not this study |
 
-Its two arms both carry `itarg = 1`. That is wrong for an absolute Born
-cross section and is being fixed elsewhere, but it is *consistent between
-the arms*, so it does not bias a comparison of methods. Use it, and say so.
+The September campaign is 1M rad and 1M Born, inbending and outbending, both
+with 50 nA background. Box `W2 3.24–16.00`, `Q2 0.80–10.00`,
+`t −2.50 … −0.001`, `vcut = 0`.
 
-The ntuples are small (2.2 GB for all 1600) and can be copied to a laptop:
-`/Volumes/wd_14tb/phi_plots` already holds a copy, along with `prov/`, which
-carries `sigma_nb` per chunk.
+**It is clean of the two known defects**, checked by ancestry of the commit
+that made it (`2470395`, branch `production`, 2026-09-28):
+
+- `2a1c904`, the radiative photon-pair fix — **present**. Before it, a rad
+  ntuple took the first two photons in LUND order, so "g1" was the radiated
+  photon and one decay photon was dropped: wrong in 26.8 % of events. Any
+  older rad ntuple is wrong in its photon half.
+- `225d4d9`, the stage-2 sampling bias — **present**.
+
+Check this yourself before trusting it. The commit is in each `.info`
+sidecar as `git_commit`.
+
+### Four limitations, all acceptable for a method comparison
+
+1. **`amp2609`, not `amp2614`.** For a comparison of *methods* the model
+   largely cancels — it sits in both the numerator and the denominator of
+   every ratio you will form. Repeat on `amp2614` when Story's Born twins
+   exist, or when our own pi0 campaign is run.
+2. **`itarg = 1` in both arms.** Wrong for an absolute Born cross section
+   and being fixed for the vector channels, but *consistent between the
+   arms*, so it does not bias a method comparison. VPK explicitly approved
+   starting this way, 2026-10-21. Say so in the note.
+3. **Only the with-background sets exist.** No background-free pair for pi0.
+   That removes one useful handle — you cannot separate "the cut chain" from
+   "the background" — so do not claim to.
+4. **Only `pi0.amp2609` on the proton.** No neutron arm of our own.
+
+### The pi0 record is not the vector one
+
+50 floats, reconstructed block at 13, slots `e'`, `p`, `g1`, `g2`.
+`campaign_lib.py` knows this; `CHANNELS["pi0"]` carries the layout and the
+slot kinds. Two consequences:
+
+- **There is no radiated-photon slot.** `hipo_to_ntuple` keeps only the two
+  photons whose `MC::Lund` parent is the pi0 row, so the production photon
+  never reaches the ntuple. Anything you want to know about the radiated
+  photon has to come from the LUND in `lund_osg/`, not from the f32.
+- The two photon slots are in LUND order, **not sorted by energy** — slot 1
+  is the harder one in 50.4 % of events. Do not read an ordering into them.
 
 ## How I would do it
 
@@ -135,7 +169,7 @@ weighting one.
 
 ## Deliverable
 
-A note with: the method, the `v_cut` scan, A/B bin by bin for at least the φ
+A note with: the method, the `v_cut` scan, A/B bin by bin for the pi0
 campaign, and a plain statement of which of the three outcomes above holds.
 Plots in English. Put it in `docs/` on this branch and publish the PDF the
 way the project publishes notes.
