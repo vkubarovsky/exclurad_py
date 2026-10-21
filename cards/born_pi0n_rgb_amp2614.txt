@@ -48,7 +48,14 @@ pi0n.amp2614                       ! model  <channel>.<vintage>
 0.00 1.00                          ! xB range: NO cut. xB <= 0.60 removed 4 % inbending at high Q2 / low W
 none                               ! iacc   no generator-level acceptance; GEMC does that
 1.0d-4                             ! vmin   soft/hard split (GeV^2)
-1                                  ! itarg  pre-vertex external radiator ON (aao lacks it; keep the difference visible)
+0                                  ! itarg   0 = NO pre-vertex external radiator.
+!   The Born arm must not radiate.  Whatever is present in BOTH arms cancels in
+!   N_rad/N_born and is therefore NOT corrected for; only what differs between them
+!   is removed.  The published number is sigma_Born at a definite beam energy, so
+!   the external radiator belongs in the radiative arm and must be absent here.
+!   Note _draw_vertex runs regardless of born_only, so itarg=1 radiates even when
+!   iborn=1: in a 5 cm LH2 cell 1.70 % of trials lose more than 1 % of the beam
+!   energy.  Set to 0 on 2026-10-21 for every Born card in the repository.
 -5.5 -0.5                          ! vertex z range, cm -- 5 cm LH2 cell centred at -3 cm (rga_fall2018, rga_spring2019 gcards: BEAM_V -3, SPREAD_V 2.5; official aao MC uses this range)
 0.0                                ! ptarg  unpolarised target
 none                               ! fermi   deuteron target: none | av18
