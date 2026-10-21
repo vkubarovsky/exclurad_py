@@ -184,7 +184,7 @@ def calibrate(k):
     return cal
 
 
-def cut_levels(k, cal):
+def cut_levels(k, cal, binned=True):
     """Cumulative selections.  Returns an ordered dict name -> mask."""
     dis = (k["Q2"] > 1) & (k["W"] > 2) & (k["pe"] > 2)
     def win(v):
@@ -192,7 +192,7 @@ def cut_levels(k, cal):
         s = np.where(k["pdet"] == "FD", cal["FD"][v][1], cal["CD"][v][1])
         return np.abs(k[v] - c) < NSIG * s
     L = {}
-    L["topology+DIS"] = dis & in_bin(k)
+    L["topology+DIS"] = (dis & in_bin(k)) if binned else dis
     L["+M(gg), MM2(e'p)"] = L["topology+DIS"] & win("mgg") & win("mm2ep") & (k["open"] > 1)
     L["+M(e'gg), cone, MPT"] = (L["+M(gg), MM2(e'p)"] &
                                 win("megg") &

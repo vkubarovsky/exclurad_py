@@ -100,15 +100,25 @@ with PdfPages(os.path.join(FIG, "rc_method_pi0.pdf")) as pdf:
     save(fig, "p2_counts", pdf)
 
     # ---- 3. closure: A against B at generator level, same MM2(e'p) cut -------
-    fig, axs = plt.subplots(1, 4, figsize=(14, 3.6), sharey=True)
-    for ax, c in zip(axs, ("0.05", "0.17", "0.5", "None")):
+    PHILBL = r"$\phi = \phi_{p'} + 180^\circ$ (deg, Trento)"
+    fig, axs = plt.subplots(2, 4, figsize=(14, 5.2), sharex=True,
+                            gridspec_kw=dict(height_ratios=(2.2, 1)))
+    for j, c in enumerate(("0.05", "0.17", "0.5", "None")):
         ia = cuts.index(c)
+        d = C["B_gen"][c]; bd, be = np.array(d["delta"]), np.array(d["err"])
+        ax = axs[0, j]
         ax.plot(pc, A[ia], color=A_COL, lw=2, label="A: rc_factor")
-        d = C["B_gen"][c]
-        ax.errorbar(pc, d["delta"], yerr=d["err"], fmt="o", ms=4, color=INK, lw=0.8, label="B: rad/Born MC, generated")
+        ax.errorbar(pc, bd, yerr=be, fmt="o", ms=4, color=INK, lw=0.8, label="B: rad/Born MC, generated")
         ax.set_title(f"MM$^2$(e'p) < {c} GeV$^2$" if c != "None" else "no MM$^2$(e'p) cut", fontsize=9)
-        ax.set_xlabel(r"$\phi = \phi_{p'} + 180^\circ$ (deg, Trento)"); ax.set_xticks(range(0, 361, 90))
-    axs[0].set_ylabel(r"$\delta = \sigma_{obs}/\sigma_{Born}$"); axs[0].legend(fontsize=8)
+        ax.set_ylim(0.7, 1.7)
+        ax = axs[1, j]
+        ax.axhline(0, color=MUTED, lw=0.8)
+        ax.errorbar(pc, 100 * (bd / A[ia] - 1), yerr=100 * be / A[ia], fmt="o", ms=4, color=INK, lw=0.8)
+        ax.set_ylim(-15, 25); ax.set_xlabel(PHILBL); ax.set_xticks(range(0, 361, 90))
+        m = 100 * (np.sum(bd * wphi) / np.sum(A[ia] * wphi) - 1)
+        ax.text(0.03, 0.85, f"bin: {m:+.1f} %", transform=ax.transAxes, fontsize=8)
+    axs[0, 0].set_ylabel(r"$\delta = \sigma_{obs}/\sigma_{Born}$"); axs[0, 0].legend(fontsize=8)
+    axs[1, 0].set_ylabel("B/A $-$ 1 (%)")
     fig.suptitle("Closure at generator level: same engine, same MM$^2$(e'p) cut, no detector.  "
                  "$\\phi$ = Trento azimuth of the recoil proton + 180$^\\circ$ (EXCLURAD).", fontsize=9)
     fig.tight_layout()
@@ -125,19 +135,55 @@ with PdfPages(os.path.join(FIG, "rc_method_pi0.pdf")) as pdf:
     c_eq = float(np.interp(B_int, ys, xs)) if ys.min() <= B_int <= ys.max() else np.nan
     c_lo = float(np.interp(B_int - B_int_err, ys, xs)); c_hi = float(np.interp(B_int + B_int_err, ys, xs))
     ibest = int(np.nanargmin(chi2))
-    fig, ax = plt.subplots(figsize=(7.5, 4.4))
+    fig, (ax, ar) = plt.subplots(2, 1, figsize=(7.5, 6.2), sharex=True,
+                                 gridspec_kw=dict(height_ratios=(2.3, 1)))
     ax.errorbar(pc, Bd, yerr=Be, fmt="o", ms=5, color=INK, label="B: rad/Born MC, full chain")
     shades = {"0.08": "#9ee3c8", "0.17": "#1baf7a", "0.3": "#117a55", "None": "#0b4d36"}
     for c, col in shades.items():
         ia = cuts.index(c)
         ax.plot(pc, A[ia], color=col, lw=1.8,
                 label=f"A, mx2_cut={c}" + (f"  ($\\chi^2$={chi2[ia]:.0f}/12)"))
-    ax.set_xlabel(r"$\phi = \phi_{p'} + 180^\circ$ (deg, Trento)"); ax.set_ylabel(r"$\delta_{RC}$ = N$_{rad}$/N$_{Born}$ (B),  $\sigma_{obs}/\sigma_{Born}$ (A)")
-    ax.set_xticks(range(0, 361, 60)); ax.legend(fontsize=7.5, loc="upper center", ncol=2)
+    ax.set_ylabel(r"$\delta_{RC}$ = N$_{rad}$/N$_{Born}$ (B),  $\sigma_{obs}/\sigma_{Born}$ (A)")
+    ax.legend(fontsize=7.5, loc="upper center", ncol=2)
     ax.set_ylim(0.6, 1.55)
     ax.set_title("The two corrections in one bin.  " + BINLBL, fontsize=8)
+    ar.axhline(0, color=MUTED, lw=0.8)
+    for c, col, dx in (("0.08", "#9ee3c8", -4), ("0.17", "#1baf7a", 0), ("0.3", "#117a55", 4)):
+        ia = cuts.index(c)
+        ar.errorbar(pc + dx, 100 * (Bd / A[ia] - 1), yerr=100 * Be / A[ia], fmt="o", ms=4, color=col, lw=0.8,
+                    label=f"mx2_cut={c}: bin {100 * (B_int / A_int[ia] - 1):+.1f} %")
+    ar.set_ylabel("B/A $-$ 1 (%)"); ar.set_xlabel(PHILBL); ar.set_xticks(range(0, 361, 60))
+    ar.set_ylim(-25, 25); ar.legend(fontsize=7, ncol=3, loc="lower center")
     fig.tight_layout()
     save(fig, "p4_A_vs_B", pdf)
+
+    # ---- 6. what B is made of: the two acceptances -----------------------------
+    # acceptance = reconstructed in the bin (reconstructed kinematics, full chain)
+    #              / generated in the bin (generated kinematics), per phi.
+    # Then B = eta_gen(no cut) x Acc_rad / Acc_born, exactly.
+    gr, gb = np.array(C["B_gen"]["None"]["n_rad"]), np.array(C["B_gen"]["None"]["n_born"])
+    acc = {}
+    for lv in LEVELS:
+        acc[lv] = (np.array(C["B_rec"][lv]["n_rad"]) / gr, np.array(C["B_rec"][lv]["n_born"]) / gb)
+    fig, axs = plt.subplots(1, 2, figsize=(12, 4))
+    ax = axs[0]
+    for lv, ls in ((LEVELS[0], ":"), (FULL, "-")):
+        ar_, ab_ = acc[lv]
+        ax.plot(pc, 100 * ab_, ls=ls, marker="o", ms=3, color=BORN, label=f"Born, {lv}")
+        ax.plot(pc, 100 * ar_, ls=ls, marker="o", ms=3, color=RAD, label=f"rad, {lv}")
+    ax.set_xlabel(PHILBL); ax.set_ylabel("acceptance (%)"); ax.set_xticks(range(0, 361, 60))
+    ax.legend(fontsize=7); ax.set_title("rec in bin (rec kinematics) / gen in bin (gen kinematics)", fontsize=8)
+    ax = axs[1]
+    for lv, ls in zip(LEVELS, (":", "-.", "--", "-")):
+        ar_, ab_ = acc[lv]
+        ax.plot(pc, ar_ / ab_, ls=ls, color=INK, lw=1.2,
+                label=f"{lv}: {np.sum(ar_ * gr) / np.sum(gr) / (np.sum(ab_ * gb) / np.sum(gb)):.3f}")
+    ax.set_xlabel(PHILBL); ax.set_ylabel("Acc$_{rad}$ / Acc$_{Born}$"); ax.set_xticks(range(0, 361, 60))
+    ax.legend(fontsize=7, title="bin integral", title_fontsize=7)
+    ax.set_title(r"B = $\eta_{gen}$(no cut) $\times$ Acc$_{rad}$/Acc$_{Born}$; the cuts act only here", fontsize=8)
+    fig.suptitle(BINLBL, fontsize=9)
+    fig.tight_layout()
+    save(fig, "p6_acceptance", pdf)
 
     # ---- 5. integral vs the cut, and chi2 ------------------------------------
     fig, axs = plt.subplots(1, 2, figsize=(12, 4))

@@ -48,3 +48,36 @@ That is a statement at this precision, about this bin, and not yet about the who
   that it is not expected to be stable.
 - Correcting B for `itarg`, or regenerating the Born arm with `itarg = 0` (the vector channels are
   already being switched).
+
+## What B is, and acceptance (p6)
+
+B is the note's Eq. 20: the ratio of reconstructed yields, rad over Born, each normalised to its own
+σ/N_gen. No acceptance is divided out, and none should be: the note applies the Born acceptance
+separately, so δ_B carries Acc_rad/Acc_Born inside it. Exactly:
+δ_B = η_gen(no cut) × Acc_rad/Acc_Born. The cuts act only through that acceptance ratio. In this bin
+the ratio is 0.95 after topology + DIS and 0.73 after the full chain. A has no acceptance at all, so
+A against B measures how well one `mx2_cut` stands in for Acc_rad/Acc_Born.
+
+## The note's grid (`rc_method_pi0_grid.py`, `rc_method_pi0_grid.pdf`)
+
+The full note grid (10 Q² × 8 x_B × 8 −t, 24 φ) cannot be filled from 1M + 1M per polarity: after the
+full chain the sample holds 56k Born and 40k rad events. So the comparison is φ-integrated, on two levels:
+
+- 26 note (Q², x_B) cells, −t integrated, with ≥ 300 events per arm (errors 2–7 %).
+- 44 note (Q², x_B, −t) cells with ≥ 300 per arm (errors 5–9 %). Indicative only.
+
+In each cell, A is evaluated at the centroid of the reconstructed rad-MC kinematics, with 12 φ points
+weighted by its own σ_Born; no Born MC enters A.
+
+- **The best single cut for all cells is mx2_cut = 0.14 GeV²**, with χ² = 42 for 26 cells (2D). At 0.17
+  it is 54, and at 0.08 it is 101. One cut does not describe every cell within its errors.
+- **Q² < 2:** the 4 cells at Q² 1.0–1.5 agree with A(0.14) to 0–2 % (errors ≈ 2 %); at Q² 1.5–2.0 the
+  two lowest-x_B cells sit 6–8 % below. The cell-by-cell equivalent cut there is 0.07–0.16.
+- **Q² > 3 and x_B > 0.38:** B sits 10–18 % above A(0.14), at 2–3σ per cell, and the equivalent cut is
+  0.25 to above 0.5. These cells have centroids at −t ≈ 0.8–1.0. Whether this comes from the physics
+  of the cut chain or from A evaluated at a single centroid in a wide, t_min-truncated cell is not yet
+  separated.
+- Against y and W there is no clear trend at this precision (g3).
+
+`itarg` still biases B by about +3 % against A in every cell. Correcting for it lowers the equivalent
+cut by about 0.05.
