@@ -138,9 +138,16 @@ def sigma_nb(prov_dir, mode):
 #                 core's own width, so it cuts the shelf and not the core.
 #   photon  0.40  the calorimeter core runs -0.24 .. +0.12 and there is NO
 #                 valley -- it merges into the shelf -- so 0.20 would cut the
-#                 core.  0.40 keeps it; the residue is better removed with a
-#                 window on the reconstructed M(gamma gamma), which is a
-#                 physics cut and not a matching criterion.
+#                 core.  0.40 keeps it.  This is the one threshold here that
+#                 is a judgement and not a reading: with no valley there is
+#                 nothing to aim at, and 0.40 only means "keeps the core,
+#                 drops most of the shelf".  VPK reviewed it 2026-10-21 and
+#                 kept it.
+#                 STILL TO DO, agreed the same day: remove the residual shelf
+#                 with a window on the RECONSTRUCTED M(gamma gamma) instead of
+#                 leaning harder on this threshold.  That is a physics cut on
+#                 the pair, not a matching criterion on one slot, and it is
+#                 the right tool for what 0.40 leaves behind.
 #   neutron None  there is no core to speak of: q16..q84 is -0.78 .. +0.01.
 #                 The neutron's momentum is not measured in these data, so a
 #                 threshold would be arbitrary and none is applied.  Say so
