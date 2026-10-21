@@ -26,7 +26,7 @@ from rc_method_pi0_combos import note_cuts  # noqa: E402
 
 FIG = sys.argv[1] if len(sys.argv) > 1 else "docs/rc_method_pi0"
 RAD, BORN, INK, MUTED = "#2a78d6", "#eb6834", "#222222", "#888888"
-V_EQ, V0 = 0.066, 0.20
+V_EQ, V0 = 0.06, 0.20
 plt.rcParams.update({"font.size": 9, "axes.edgecolor": MUTED, "axes.linewidth": 0.6, "axes.grid": True,
                      "grid.color": "#e6e6e6", "grid.linewidth": 0.5, "legend.frameon": False})
 
@@ -100,6 +100,34 @@ with PdfPages(os.path.join(FIG, "rc_method_pi0_vdist.pdf")) as pdf:
                  "Q$^2$>1, W>2, p$_{e'}$>2); all kinematics, inbending + outbending", fontsize=9)
     fig.tight_layout()
     fig.savefig(os.path.join(FIG, "v1_vdist.png"), dpi=150, bbox_inches="tight")
+    pdf.savefig(fig, bbox_inches="tight")
+    plt.close(fig)
+
+    # ---- the reconstructed v alone, linear and log, finer bins --------------
+    fig, axs = plt.subplots(1, 2, figsize=(13, 4.4))
+    bins = np.linspace(-0.6, 1.0, 161)
+    for ax, scale in zip(axs, ("linear", "log")):
+        for a, col in (("born", BORN), ("rad", RAD)):
+            h, _, _ = ax.hist(vr[a], bins=bins, weights=wr[a] * 1e6, histtype="step", lw=1.4, color=col,
+                              label=f"{a} MC, N = {len(vr[a])}")
+            if scale == "linear":
+                c = 0.5 * (bins[1:] + bins[:-1]); top = h.argmax()
+                core = slice(max(top - 4, 0), top + 5)          # parabola through the top +-0.04
+                pp = np.polyfit(c[core], np.log(np.maximum(h[core], 1e-12)), 2)
+                peak = -pp[1] / (2 * pp[0])
+                print(f"{a}: peak of reconstructed v (log-parabola on the top) = {peak:+.4f} GeV^2, "
+                      f"median {np.median(vr[a]):+.4f}")
+                ax.text(0.98, 0.70 - 0.07 * (a == "rad"), f"{a} peak {peak:+.3f}", transform=ax.transAxes,
+                        ha="right", fontsize=8, color=col)
+        ax.axvline(0, color=MUTED, lw=0.8)
+        for v, ls in ((V_EQ, "-"), (V0, "--")):
+            ax.axvline(v, color=INK, lw=0.9, ls=ls, label=f"v_cut = {v}")
+        ax.set_yscale(scale); ax.set_xlim(-0.6, 1.0)
+        ax.set_xlabel("reconstructed v = MM$^2$(e'p) $-$ m$_{\\pi^0}^2$ (GeV$^2$)"); ax.set_ylabel("yield (fb per 0.01 GeV$^2$)")
+        ax.legend(fontsize=7.5, loc="upper right")
+    fig.suptitle("Reconstructed v after all the note's other cuts; all kinematics, inbending + outbending", fontsize=9)
+    fig.tight_layout()
+    fig.savefig(os.path.join(FIG, "v2_vrec_lin_log.png"), dpi=150, bbox_inches="tight")
     pdf.savefig(fig, bbox_inches="tight")
     plt.close(fig)
 
