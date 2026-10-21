@@ -1,10 +1,18 @@
 ! ------------------------------------------------------------------
 !  phi -> K+ K- electroproduction, CLAS12 RG-A Fall 2018, FULL RADIATIVE CORRECTION
 !
-!  This card and its twin (born_phi.txt) differ in ONE field: iborn.
-!  Everything else is byte-identical on purpose -- the pair is used to
-!  form N_rad/N_born, and any other difference would put a physics
-!  effect into that ratio that is not radiation.
+!  This card and its twin (born_phi.txt) differ in TWO fields, iborn and itarg,
+!  and in nothing else.  The pair forms N_rad/N_born, so any third
+!  difference would put something into that ratio that is not radiation.
+!
+!  WHY TWO AND NOT ONE.  Until 2026-10-21 the pair differed only in iborn,
+!  and that symmetry was the mistake: whatever is present in BOTH arms
+!  cancels in the ratio and is therefore NOT corrected for.  The published
+!  number is sigma_Born at a definite beam energy, so the pre-vertex
+!  external radiator belongs in the radiative arm and must be absent from
+!  the Born one -- itarg 1 here against itarg 0 there.  Left on in both,
+!  the ratio returns a Born cross section smeared over the beam-energy
+!  distribution in the target, which nothing can be compared against.
 !
 !  Box decided by VPK 2026-10-15:
 !     t ceiling  -6.00   (phi analysis reach; was -3.00 rad / -8.0 born)
