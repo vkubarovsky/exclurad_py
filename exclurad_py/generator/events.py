@@ -158,7 +158,15 @@ class Generator:
         # случайных чисел не происходит и выборка побайтово совпадает с той,
         # что давал код до Брейта-Вигнера.  Это и есть проверка, что правка
         # ничего не сдвинула помимо самой массы.
+        # The two slot masses, kept side by side.  _mV is whatever sits in
+        # the mV slot (the DETECTED hadron) and _mU whatever sits in mU (the
+        # MISSING one).  Which of them is the meson depends on the topology,
+        # so a drawn Breit-Wigner mass goes into one or the other and every
+        # consumer is handed both.  Before 2026-10-21 only _mV existed and
+        # sf.mU was passed unchanged, which is why a width could only ever be
+        # given to a meson-detected channel.
         self._mV = float(self.sf.mV)
+        self._mU = float(self.sf.mU)
         # Initial-state nucleon at rest.  Proton everywhere except the
         # free-neutron channels; taken from the model so the whole chain
         # (kinematics, v_max, RC, electron acceptance) uses ONE target mass.
@@ -212,15 +220,26 @@ class Generator:
         self.n_fermi_flux = 0     # draws thinned by the flux factor
         self.sum_flux = 0.0       # running <F> over draws that passed the guards
         self.n_flux_drawn = 0
+        # A WIDTH IS A PROPERTY OF THE RESONANCE, NOT OF WHAT WE DETECT.
+        #
+        # This used to require topology.name == "meson_detected", which was
+        # right when it was written on 2026-08-23 because the vector models
+        # only existed in the meson basket.  Adding the _pdet variants on
+        # 2026-10-08 moved phi and rho into the proton basket and so switched
+        # their width back off, silently: the phi campaign of 15-17 October
+        # was generated at a fixed 1019.461 MeV, M(K+K-) spread 3e-7.  For an
+        # analysis that fits the phi over the non-resonant KK background that
+        # is not a detail, it is the observable.
+        #
+        # J/psi is unaffected either way -- its 93 keV is below BW_DELTA -- and
+        # that makes it the regression test: it must stay byte-identical.
         self.bw_channel = None
-        if os.environ.get("BW", "1") != "0" and \
-                getattr(getattr(self.sf, "topology", None), "name", "") == \
-                "meson_detected":
+        if os.environ.get("BW", "1") != "0":
             ch = str(getattr(self.sf, "channel", "") or "")
             if bw_width(ch) >= BW_DELTA:
                 self.bw_channel = ch
         self.n_bw_thresh = 0     # sqrt(W2) < m_recoil + m: порог не пройден
-        self.n_bw_tkin = 0       # (t, m) вне кинематических границ
+        self.n_tkin = 0       # (t, m) вне кинематических границ
 
         # Откуда взялась мажоранта и была ли она откалибрована -- НЕ
         # предположение вызывающего, а факт, записанный тем, кто её строил.
@@ -359,6 +378,7 @@ class Generator:
 
         self.n_trials = 0
         self.n_accept = 0
+        self.n_unphys = 0
         self.n_hard = 0
         self.n_soft = 0
         # INSTRUMENTATION: where hard events are lost between "branch chosen"
@@ -429,12 +449,12 @@ class Generator:
         return EventKin(self._E, Q2, W2, t, phi, self._mV,
                         phi_offset=float(getattr(getattr(self.sf, 'topology', None),
                                                  'phi_offset', 0.0)),
-                        v=0.0, mU=self.sf.mU, M=self._mT_kin,
+                        v=0.0, mU=self._mU, M=self._mT_kin,
                         t_kind=self._t_kind)
 
     def _vmax(self, Q2, W2, t):
         vk = EventKin.vmax_kin(self._E, Q2, W2, t, self._mV,
-                               mU=self.sf.mU, M=self._mT_kin,
+                               mU=self._mU, M=self._mT_kin,
                                t_kind=self._t_kind)
         if self.mx2_cut is None:
             return vk
@@ -468,7 +488,7 @@ class Generator:
         return EventKin(self._E, Q2, W2, t, phi, self._mV,
                         phi_offset=float(getattr(getattr(self.sf, 'topology', None),
                                                  'phi_offset', 0.0)),
-                        v=0.0, mU=self.sf.mU, M=self._mT,
+                        v=0.0, mU=self._mU, M=self._mT,
                         t_kind=self._t_kind)
 
     def _born(self, Q2, W2, t, phi, h):
@@ -943,7 +963,7 @@ class Generator:
         return True
 
     def _draw_mass(self, Q2, W2, t):
-        """Масса мезона для этой пробы, порог по W и границы по t.
+        """Масса мезона (если у канала есть ширина) и ТОЧНЫЕ границы по t.
 
         Порядок как в diffrad_vm.f90:1447: сначала масса, потом проверка
         sqrt(W2) >= m_recoil + m.  Потолок розыгрыша -- тот же
@@ -955,27 +975,66 @@ class Generator:
         иначе у порога вес события молча перестал бы соответствовать
         разыгранной плотности.
         """
-        if self.bw_channel is None:
-            return True
-        W = np.sqrt(max(W2, 0.0))
-        m_max = W - self.sf.mU
-        if m_max <= 0.0:
-            self.n_bw_thresh += 1
-            return False
-        self._mV = sample_mass(self.bw_channel, float(self.sf.mV), m_max,
-                               self.rng)
-        if W < self.sf.mU + self._mV:
-            self.n_bw_thresh += 1
-            return False
-        # Границы по t зависят от массы: у широкого rho они гуляют от
-        # события к событию, и уже разыгранное t может из них выпасть.
-        # Без явной проверки проба всё равно умерла бы -- born вернул бы
-        # None на |cos theta_V| > 1 -- но молча, вперемешку с настоящими
-        # аномалиями.  Здесь у неё своя причина и свой счётчик.
-        lim = EventKin.t_limits(Q2, W2, self._mV, self.sf.mU,
-                                t_kind=self._t_kind)
+        if self.bw_channel is not None:
+            # BY ROLE, NOT BY SLOT.  The resonance whose width this is may sit
+            # in either slot: mV when the meson is detected, mU when the
+            # proton is.  Drawing around self.sf.mV, as this did until
+            # 2026-10-21, would in the proton basket have put a Breit-Wigner
+            # around the PROTON mass.  The same mistake was made once before,
+            # on 2026-10-09, when the decay radiation sampled the photon
+            # spectrum of a 0.938 GeV "meson" -- see meson_mass() in decay.py,
+            # which exists because of it.
+            from .decay import meson_slot
+            meson_in_mU = (meson_slot(getattr(self.sf, "topology", None),
+                                      self.sf.channel) == "recoil")
+            m_res = float(self.sf.mU if meson_in_mU else self.sf.mV)
+            m_recoil = float(self.sf.mV if meson_in_mU else self.sf.mU)
+            W = np.sqrt(max(W2, 0.0))
+            m_max = W - m_recoil
+            if m_max <= 0.0:
+                self.n_bw_thresh += 1
+                return False
+            m_drawn = sample_mass(self.bw_channel, m_res, m_max, self.rng)
+            if W < m_recoil + m_drawn:
+                self.n_bw_thresh += 1
+                return False
+            if meson_in_mU:
+                self._mU = m_drawn
+            else:
+                self._mV = m_drawn
+
+        # EXACT t LIMITS, FOR EVERY CHANNEL.
+        #
+        # For a channel with a width these move from event to event -- a wide
+        # rho redraws its mass and the already-drawn t can fall outside -- and
+        # that is why the check was written.  But it was written INSIDE the
+        # mass draw, behind `if self.bw_channel is None: return True`, so pi0
+        # and eta never reached it.  The limit is kinematics, not mass
+        # drawing, and it belongs to every channel.
+        #
+        # What it protects.  The proposal comes from a RECTANGULAR box, and a
+        # corner of that box can lie outside the physical region.  Three
+        # layers stand between such a corner and an event: the majorant zeroes
+        # cells that are ENTIRELY unphysical (14 of 64 on the phi box), this
+        # test rejects the rest exactly, and vmax_kin catches whatever still
+        # gets through.  Without this layer pi0 had only the first and the
+        # last, so a partially physical cell could deliver an unphysical
+        # proposal -- which is how Story Frantzen's Born job died on
+        # 2026-10-21, one in 10^8 events.
+        #
+        # Measured on the RGA pi0 card box before switching it on: 9 flat
+        # points in 400,000 lie outside, 0.0022 %, and drawn proportional to
+        # sigma it is some thousands of times rarer still.  The cost is 1.2 us
+        # a call, 1.1 s on a 290 s run, +0.4 %.
+        #
+        # It rejects the TRIAL, which counts in the denominator with zero
+        # weight -- it does not raise, and it does not reach the cross
+        # section.  A model's structure functions do not know where the
+        # physical boundary is and will happily return a positive number past
+        # it; this is what keeps them from being asked.
+        lim = EventKin.t_limits(Q2, W2, self._mV, self._mU, t_kind=self._t_kind)
         if lim is None or not (lim[0] <= t <= lim[1]):
-            self.n_bw_tkin += 1
+            self.n_tkin += 1
             return False
         return True
 
@@ -1041,7 +1100,7 @@ class Generator:
             rc_c = rc_factor(M=self._mT,
 Ebeam=self._E, Q2=cQ2, W2=cW2, t=ct, phi=cph,
                              sfmodel=self.sf, h=h, lam=self.ptarg, mx2_cut=self.mx2_cut,
-                             t_kind=self._t_kind, mV=self._mV)
+                             t_kind=self._t_kind, mV=self._mV, mU=self._mU)
             sigma_obs_c = float(rc_c["sigma_obs"])
             if not np.isfinite(sigma_obs_c) or sigma_obs_c <= 0:
                 self._tail_cache[key] = None
@@ -1245,7 +1304,7 @@ Ebeam=self._E, Q2=cQ2, W2=cW2, t=ct, phi=cph,
                     so = float(rc_factor(M=self._mT,
 Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
                         sfmodel=self.sf, h=h_p, lam=self.ptarg, mx2_cut=self.mx2_cut,
-                        t_kind=self._t_kind, mV=self._mV)["sigma_obs"])
+                        t_kind=self._t_kind, mV=self._mV, mU=self._mU)["sigma_obs"])
                 except (ValueError, ZeroDivisionError, FloatingPointError):
                     continue
                 if not np.isfinite(so) or so <= 0:
@@ -1284,6 +1343,7 @@ Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
                      if (self.exact_accept and not self.born_only) else s["M"])
         s["cdf"] = _cell_cdf(s["Mtot"], s["edges"])
         self.n_trials = self.n_accept = 0
+        self.n_unphys = 0
         self.n_overweight = 0
         self.max_overweight = 1.0
         self.n_cut_yxb = self.n_cut_acc = 0
@@ -1344,11 +1404,15 @@ Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
                 self.max_overweight = max(self.max_overweight, s_obs / M)
             if self.rng.random() * M > s_obs:
                 continue
-            self.n_accept += 1
-
-            v_max = self._vmax(Q2, W2, t)
-            if v_max <= 0:
+            try:
+                v_max = self._vmax(Q2, W2, t)
+            except (ValueError, ZeroDivisionError, FloatingPointError):
+                self.n_unphys += 1
                 continue
+            if v_max <= 0:
+                self.n_unphys += 1
+                continue
+            self.n_accept += 1
             self._set_event_t(t)
             kin = self._kin(Q2, W2, t, phi)
 
@@ -1367,7 +1431,7 @@ Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
 Ebeam=self._E, Q2=Q2, W2=W2, t=t,
                                      phi=phi, sfmodel=self.sf, h=h,
                                      lam=self.ptarg, mx2_cut=self.mx2_cut,
-                                     t_kind=self._t_kind, mV=self._mV)
+                                     t_kind=self._t_kind, mV=self._mV, mU=self._mU)
                     so_e = float(rc_e["sigma_obs"])
 
                     # STAGE 2 (optional, EXACT_ACCEPT=1): re-accept on
@@ -1408,7 +1472,7 @@ Ebeam=self._E, Q2=Q2, W2=W2, t=t,
 Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
                                 sfmodel=self.sf, h=h, lam=self.ptarg,
                                 mx2_cut=x + mU2,
-                                t_kind=self._t_kind, mV=self._mV)["sigma_obs"])
+                                t_kind=self._t_kind, mV=self._mV, mU=self._mU)["sigma_obs"])
 
                         N0 = max(so_e - sobs(vmn), 0.0)
                         if self.rng.random() < N0 / so_e:
@@ -1610,6 +1674,7 @@ Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
         eff = self.n_accept / self.n_trials if self.n_trials else float("nan")
         n = self.n_hard + self.n_soft
         return dict(trials=self.n_trials, accepted=self.n_accept,
+                    unphysical=self.n_unphys,
                     sigma_nb=self.sigma_total(),
                     efficiency=eff, hard=self.n_hard, soft=self.n_soft,
                     radiative_fraction=self.n_hard / n if n else float("nan"),
@@ -1628,7 +1693,7 @@ Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
                     drop_photon_at=self.n_drop_photon_at,
                     drop_except=self.n_drop_except,
                     bw_channel=self.bw_channel,
-                    bw_thresh=self.n_bw_thresh, bw_tkin=self.n_bw_tkin)
+                    bw_thresh=self.n_bw_thresh, t_kin_reject=self.n_tkin)
 
     def health(self):
         r = self.report()
