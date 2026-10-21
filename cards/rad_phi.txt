@@ -15,9 +15,27 @@
 !  distribution in the target, which nothing can be compared against.
 !
 !  Box decided by VPK 2026-10-15:
-!     t ceiling  -6.00   (phi analysis reach; was -3.00 rad / -8.0 born)
+!     t          -6.00 .. -0.02   (was -3.00 rad / -8.0 born)
 !     vmin        0.0    (soft/hard split chosen per event)
 !     vz         -5.5 -0.5   as for J/psi: the RG-A F18 nominal cell
+!
+!  WHY THE t FLOOR IS SO LOW.  t_min(W2,Q2) runs from 0.005 near W2 = 20.8,
+!  Q2 = 0.4 to 3.9 at threshold -- a factor 800 -- and the generator enforces
+!  it per event (checked: 0 of 20000 events below their own t_min, smallest
+!  t' = 8e-5).  A floor on ABSOLUTE |t| is therefore an inhomogeneous cut on
+!  t': at -0.20 it removed t' up to 0.195 in the high-W2 / low-Q2 corner and
+!  nothing at all near threshold, and that is a cut one would afterwards fit
+!  as a diffractive slope.  At -0.02 the residual is at most 0.015 anywhere.
+!  Measured on four 20k Born runs over this box:
+!
+!     floor   sigma     largest t' cut   protons below 321 MeV/c
+!     -0.20   81.3 %        0.195                 0 %
+!     -0.10   91.4 %        0.095                ~0 %
+!     -0.05   97.4 %        0.045               6.2 %
+!     -0.02  100.0 %        0.015               8.6 %
+!
+!  Price of -0.02: 8.6 % of events carry a proton nothing reconstructs.
+!  The ceiling never binds -- the largest |t| generated is 5.93.
 !
 !  Q2 0.40-10.0 means the SCATTERED ELECTRON IS IN THE FORWARD DETECTOR,
 !  not the Forward Tagger -- this is electroproduction, a different
@@ -34,7 +52,7 @@ phi.diffrad_vm_pdet                ! model  <channel>.<vintage>   (--models to l
 0                                  ! iborn   1 = Born only, 0 = full RC
 4.00 20.80                         ! W2 range (GeV^2)
 0.40 10.0                          ! Q2 range (GeV^2)
--6.00 -0.02                        ! t = (p-p')^2 from the MEASURED proton (t_kind=target).  Box -6.00..-0.02, VPK 2026-10-15.  THE FLOOR IS LOW ON PURPOSE: t_min(W2,Q2) runs from 0.005 near W2=20.8,Q2=0.4 to 3.9 at threshold, and the generator enforces it per event (checked: 0 of 20000 events below their own t_min, min t' = 8e-5).  So a fixed |t| floor is a kinematically INHOMOGENEOUS cut on t': at -0.20 it removed t' up to 0.195 in the high-W2/low-Q2 corner and nothing at all near threshold -- a cut one would then fit as a diffractive slope.  At -0.02 the residual is at most 0.015 anywhere.  Price: 8.6 % of events carry a proton below 321 MeV/c that nothing reconstructs.  The ceiling -6.00 never binds: the largest |t| generated is 5.43.
+-6.00 -0.02                        ! t = (p-p')^2 from the MEASURED proton (t_kind=target); see the header
 0.0                                ! vcut   MX^2(e'p) - m_V^2 (GeV^2); 0 = no cut, cut offline
 -0.30                              ! t_nucl  (GeV^2) for pi0/eta models; ignored for vector mesons
 0                                  ! ihel    +1, -1, or 0 = helicity-averaged
