@@ -149,6 +149,16 @@ ln -sf "$R/$MODE/lund_osg/$NAME.lund" "$R/$MODE/chunks/lund_$I.dat"
 # Measured this way on 2026-10-07 across two 160-job campaigns: amp2614
 # 46/1201080 = 0.0038 % worst x1.69, amp2613 316/2145731 = 0.0147 % worst
 # x5.41.  Search for '*.config.json'.
+#
+# THOSE ARE FOUR CHANNELS AVERAGED TOGETHER, which is not what you want when
+# you are asking about one.  Each 160-job campaign is 40 jobs each of pi0p,
+# pi0n, etap, etan, and the eta arms carry almost no violations and pull the
+# mean down.  Broken out for amp2614 (2026-10-20):
+#     pi0 p   28 / 320868 = 0.0087 %   worst x1.49
+#     pi0 n   17 / 334381 = 0.0051 %   worst x1.69
+#     eta p    0 / 279533 = 0.0000 %   worst x1.00
+#     eta n    1 / 266298 = 0.0004 %   worst x1.04
+# So the pi0 rate is 2.3x the aggregate.  Quote the channel, not the average.
 mkdir -p "$R/$MODE/prov"
 cp "$SRC.info" "$R/$MODE/lund_osg/$NAME.lund.info" 2>/dev/null || echo "WARNING: no .info sidecar"
 cp "$(dirname "$(dirname "$SRC")")/inputs/config.json" "$R/$MODE/prov/${MODE}_$I.config.json" 2>/dev/null \

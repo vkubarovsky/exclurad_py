@@ -112,7 +112,19 @@ jpsi.diffrad_vm_pdet                    ! model  <channel>.<vintage>   (--models
 0.00001 0.016                      ! xB range          -- match the reference generator's cut
 jpsi                               ! iacc    acceptance preset: none | jpsi  (|p|,theta on e',p',daughters)
 1.0d-4                             ! vmin    soft/hard split (GeV^2); 0 = auto.  exclugen uses 1.0d-4
-1                                  ! itarg   1 = pre-vertex external radiator (target straggling)
+0                                  ! itarg   0 = NO pre-vertex external radiator.
+!   THE BORN ARM MUST NOT RADIATE, and this field is the whole difference between
+!   this card and the one that produced born_itarg1/.  The rule is that whatever
+!   is present in BOTH arms cancels in N_rad/N_born and is therefore NOT corrected
+!   for; only what differs between them is removed.  The published number is
+!   sigma_Born at a definite beam energy, so the external radiator belongs in the
+!   radiative arm and must be absent here.  Left on in both arms -- as it was until
+!   2026-10-21 -- the ratio returns a Born cross section smeared over the
+!   beam-energy distribution in the target, which nothing can be compared against.
+!   Size of the effect, 5 cm LH2, mean bt 0.00374: 2.54 % of trials lose more than
+!   0.1 % of the beam energy, 1.70 % lose more than 1 %, mean loss 0.34 %.
+!   NOTE _draw_vertex runs regardless of born_only, so itarg=1 radiates even when
+!   iborn=1.  That is why this had to be changed rather than being harmless.
 -5.5 -0.5                          ! vertex z range, cm -- the RG-A F18 nominal cell.  WAS -7.5 -2.5,
 !   a 2 cm offset from the data we compare against (note 09.10, Sec. 5 field
 !   19).  The generator DOES write vz per event into the LUND (verified in the

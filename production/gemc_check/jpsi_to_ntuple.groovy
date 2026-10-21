@@ -1,3 +1,7 @@
+// SUPERSEDED 2026-10-15 by vm_to_ntuple.groovy, which handles jpsi|phi|rho and
+// writes a BYTE-IDENTICAL file for jpsi (checked on 5000 events of
+// prod_jpsi_f18in_20261009/rad/dst_inb/..._bg45nA_001.hipo).  Kept only as the
+// record of what produced the 1600 J/psi DSTs; sim_array.sbatch no longer uses it.
 // exclurad_py J/psi CLAS12 MC -> flat binary ntuple (little-endian float32, fixed record).
 //   run-groovy jpsi_to_ntuple.groovy <file.hipo> <max events> <out.f32> [skip] [hadron pid]
 // Same calling convention as hipo_to_ntuple.groovy, so sim_array.sbatch can run it
