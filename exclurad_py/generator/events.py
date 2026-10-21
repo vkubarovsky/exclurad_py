@@ -220,7 +220,7 @@ class Generator:
             if bw_width(ch) >= BW_DELTA:
                 self.bw_channel = ch
         self.n_bw_thresh = 0     # sqrt(W2) < m_recoil + m: порог не пройден
-        self.n_bw_tkin = 0       # (t, m) вне кинематических границ
+        self.n_tkin = 0       # (t, m) вне кинематических границ
 
         # Откуда взялась мажоранта и была ли она откалибрована -- НЕ
         # предположение вызывающего, а факт, записанный тем, кто её строил.
@@ -944,7 +944,7 @@ class Generator:
         return True
 
     def _draw_mass(self, Q2, W2, t):
-        """Масса мезона для этой пробы, порог по W и границы по t.
+        """Масса мезона (если у канала есть ширина) и ТОЧНЫЕ границы по t.
 
         Порядок как в diffrad_vm.f90:1447: сначала масса, потом проверка
         sqrt(W2) >= m_recoil + m.  Потолок розыгрыша -- тот же
@@ -956,27 +956,51 @@ class Generator:
         иначе у порога вес события молча перестал бы соответствовать
         разыгранной плотности.
         """
-        if self.bw_channel is None:
-            return True
-        W = np.sqrt(max(W2, 0.0))
-        m_max = W - self.sf.mU
-        if m_max <= 0.0:
-            self.n_bw_thresh += 1
-            return False
-        self._mV = sample_mass(self.bw_channel, float(self.sf.mV), m_max,
-                               self.rng)
-        if W < self.sf.mU + self._mV:
-            self.n_bw_thresh += 1
-            return False
-        # Границы по t зависят от массы: у широкого rho они гуляют от
-        # события к событию, и уже разыгранное t может из них выпасть.
-        # Без явной проверки проба всё равно умерла бы -- born вернул бы
-        # None на |cos theta_V| > 1 -- но молча, вперемешку с настоящими
-        # аномалиями.  Здесь у неё своя причина и свой счётчик.
-        lim = EventKin.t_limits(Q2, W2, self._mV, self.sf.mU,
-                                t_kind=self._t_kind)
+        if self.bw_channel is not None:
+            W = np.sqrt(max(W2, 0.0))
+            m_max = W - self.sf.mU
+            if m_max <= 0.0:
+                self.n_bw_thresh += 1
+                return False
+            self._mV = sample_mass(self.bw_channel, float(self.sf.mV), m_max,
+                                   self.rng)
+            if W < self.sf.mU + self._mV:
+                self.n_bw_thresh += 1
+                return False
+
+        # EXACT t LIMITS, FOR EVERY CHANNEL.
+        #
+        # For a channel with a width these move from event to event -- a wide
+        # rho redraws its mass and the already-drawn t can fall outside -- and
+        # that is why the check was written.  But it was written INSIDE the
+        # mass draw, behind `if self.bw_channel is None: return True`, so pi0
+        # and eta never reached it.  The limit is kinematics, not mass
+        # drawing, and it belongs to every channel.
+        #
+        # What it protects.  The proposal comes from a RECTANGULAR box, and a
+        # corner of that box can lie outside the physical region.  Three
+        # layers stand between such a corner and an event: the majorant zeroes
+        # cells that are ENTIRELY unphysical (14 of 64 on the phi box), this
+        # test rejects the rest exactly, and vmax_kin catches whatever still
+        # gets through.  Without this layer pi0 had only the first and the
+        # last, so a partially physical cell could deliver an unphysical
+        # proposal -- which is how Story Frantzen's Born job died on
+        # 2026-10-21, one in 10^8 events.
+        #
+        # Measured on the RGA pi0 card box before switching it on: 9 flat
+        # points in 400,000 lie outside, 0.0022 %, and drawn proportional to
+        # sigma it is some thousands of times rarer still.  The cost is 1.2 us
+        # a call, 1.1 s on a 290 s run, +0.4 %.
+        #
+        # It rejects the TRIAL, which counts in the denominator with zero
+        # weight -- it does not raise, and it does not reach the cross
+        # section.  A model's structure functions do not know where the
+        # physical boundary is and will happily return a positive number past
+        # it; this is what keeps them from being asked.
+        mV = self._mV if self.bw_channel is not None else float(self.sf.mV)
+        lim = EventKin.t_limits(Q2, W2, mV, self.sf.mU, t_kind=self._t_kind)
         if lim is None or not (lim[0] <= t <= lim[1]):
-            self.n_bw_tkin += 1
+            self.n_tkin += 1
             return False
         return True
 
@@ -1635,7 +1659,7 @@ Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
                     drop_photon_at=self.n_drop_photon_at,
                     drop_except=self.n_drop_except,
                     bw_channel=self.bw_channel,
-                    bw_thresh=self.n_bw_thresh, bw_tkin=self.n_bw_tkin)
+                    bw_thresh=self.n_bw_thresh, t_kin_reject=self.n_tkin)
 
     def health(self):
         r = self.report()
