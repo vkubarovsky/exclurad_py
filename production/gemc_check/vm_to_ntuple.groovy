@@ -21,7 +21,7 @@
 //   k=3 h-      NEGATIVE daughter, parent = meson row
 //   k=4 gdec    pid 22,  parent = meson row (decay radiation, J/psi idecay 2; may be absent)
 //   k=5 gprod   pid 22,  parent 0          (production radiation; may be absent)
-// Record per event (NFLD = 73 floats):
+// Record per event (NFLD = 80 floats):
 //   [0]       weight (MC::Event)
 //   [1..18]   gen px,py,pz for k = 0..5 (zeros if the particle is absent)
 //   [19..66]  for k = 0..5, block of 8 starting at 19+8k:
@@ -48,7 +48,7 @@ else if (chan == "phi" ) { mpid = 333; dplus = 321;  dminus = -321 }
 else if (chan == "rho" ) { mpid = 113; dplus = 211;  dminus = -211 }
 else throw new IllegalArgumentException("vm_to_ntuple: unknown channel '" + chan + "' (jpsi|phi|rho)")
 int hpid = 2212
-final int NFLD = 73
+final int NFLD = 80
 final int NP = 6
 
 def reader = new HipoReader(); reader.open(fname)
@@ -87,6 +87,7 @@ try {
       if (k < 0 || have[k]) continue
       have[k] = true
       gp[k][0] = lund.getFloat("px", i); gp[k][1] = lund.getFloat("py", i); gp[k][2] = lund.getFloat("pz", i)
+      if (k == 0) r[73] = lund.getFloat("vz", i)   // one vertex per event; take it from e'
     }
     if (!(have[0] && have[1] && have[2] && have[3])) { nbad++; continue }
 
@@ -112,6 +113,7 @@ try {
         r[b] = 1f; r[b+1] = rec.getInt("pid", pi); r[b+2] = rec.getByte("charge", pi); r[b+3] = rec.getShort("status", pi)
         r[b+4] = gm.getFloat("quality", j)
         r[b+5] = rec.getFloat("px", pi); r[b+6] = rec.getFloat("py", pi); r[b+7] = rec.getFloat("pz", pi)
+        r[74 + k] = rec.getFloat("vz", pi)
       }
     }
     int nem=0, nep=0, nh=0, ng=0

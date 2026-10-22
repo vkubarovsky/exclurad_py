@@ -807,11 +807,30 @@ class Generator:
         (aao_rad.F:675).  Потеря больше 0.9 -- перерозыгрыш: там страгглинг
         уже не описывает процесс, а событие всё равно не выживет.
         """
-        if not self.itarg or self.vzmax <= self.vzmin:
+        # TWO SEPARATE THINGS, and until 2026-10-22 one flag governed both.
+        #
+        # WHERE the event happens is geometry: the beam crosses a cell of
+        # liquid hydrogen and the vertex is uniform along it.  That is true
+        # whether or not the electron radiated on the way in.
+        #
+        # WHETHER the beam lost energy before the vertex is `itarg`.
+        #
+        # They were joined: `if not self.itarg: self._vz = 0.0; return`.  So
+        # setting itarg = 0 in the Born cards on 2026-10-21 -- correct in
+        # itself, since the Born arm must not radiate -- also put every Born
+        # event at z = 0, which is not merely the wrong place but OUTSIDE the
+        # cell (-5.5 .. -0.5).  The radiative arm stayed spread over 5 cm.
+        # Acceptance depends on the vertex, so N_rad/N_born then carried the
+        # difference between a 5 cm target and a point, on top of radiation.
+        # It cost a day of farm: 800 J/psi Born DSTs and 2M pi0 Born events,
+        # both regenerated.
+        if self.vzmax > self.vzmin:
+            self._vz = self.vzmin + (self.vzmax - self.vzmin) * self.rng.random()
+        else:
             self._vz = 0.0
+        if not self.itarg or self.vzmax <= self.vzmin:
             self._E = self.Ebeam
             return True
-        self._vz = self.vzmin + (self.vzmax - self.vzmin) * self.rng.random()
         bt = self.BRAD * (self._vz - self.vzmin) / self.X0_LH2
         if bt <= 1e-12:
             self._E = self.Ebeam
