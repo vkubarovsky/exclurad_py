@@ -125,6 +125,18 @@ VZLO=$(awk '{sub(/!.*/,"")} /[^ \t]/{k++; if(k==19){print $1; exit}}' "$W/card.t
 VZHI=$(awk '{sub(/!.*/,"")} /[^ \t]/{k++; if(k==19){print $2; exit}}' "$W/card.txt")
 VZSPREAD=$(awk 'NF>=14 {v=$14; if(n++==0){lo=v;hi=v} if(v<lo)lo=v; if(v>hi)hi=v} END{printf "%.4f %.4f %.4f", lo, hi, hi-lo}' "$SRC")
 echo "vertex z: $VZSPREAD   (card asks $VZLO .. $VZHI)"
+#
+# The guard above only fires when the card HAS a target length.  A card that
+# simply omits field 19 gives vzmax <= vzmin, _draw_vertex returns z = 0, and
+# until 2026-10-22 that passed in silence too -- the same point target, reached
+# from the other end.  There is no production sample that wants every event at
+# one z, so a missing field 19 is refused here as well.
+if [ -z "$VZLO" ] || [ -z "$VZHI" ]; then
+  echo "FATAL: the card gives no target length (field 19), so every event is at"
+  echo "       z = 0.  A production chunk must carry the cell, e.g. '-5.5 -0.5'."
+  echo "       keeping $W for inspection"
+  exit 1
+fi
 if [ -n "$VZLO" ] && [ -n "$VZHI" ]; then
   awk -v lo="$VZLO" -v hi="$VZHI" -v got="$VZSPREAD" 'BEGIN{
       split(got, g, " ")
