@@ -187,3 +187,20 @@ In wide2 (1.0<Q²<2.5, 0.10<x_B<0.30, 0.09<−t<1.0; 6013 events):
 
 The full write-up is `rc_method_pi0_report.tex/.pdf`. `publish.sh` builds it and copies it to
 `~/OneDrive/Work/2026_pi0_RC_method/`.
+
+## Interaction point (`rc_method_pi0_vertex.py`, `v5_vertex.png`)
+
+Read from 8 DSTs per arm and polarity (40k events each), via `vz.groovy` on ifarm:
+- **Generated:** both cards draw vz uniform in −5.5 … −0.5 cm (the 5 cm LH₂ cell centred at −3 cm),
+  with itarg = 1 in both arms. Rad and Born draw independently (correlation 0.004).
+- **GEMC keeps the LUND vertex:** MC::Particle vz = MC::Lund vz to 0.000 cm. The gcard's
+  BEAM_V/SPREAD_V are not applied to LUND input.
+- **Reconstructed electron vz:** resolution σ₆₈ = 0.89 cm inbending, 1.23 outbending, with offsets
+  +0.17 and −0.09 cm. Identical in rad and Born.
+- **The note's vertex cut is ambiguous.** Sec. 2 places the target at −5.5 … −0.5 with an electron
+  window of (−13, 12)/(−18, 10). Tables 7–10 say |vz| < 2.2/2.5. Read literally, |vz| < 2.2 keeps
+  36 % of electrons; |vz + 3| < 2.2 keeps 74 %. It acts the same on both arms.
+- **For the next campaign:** in `events.py` `_draw_vertex`, vz is drawn from the card range only if
+  itarg = 1. With itarg = 0 (production `cd0e621`, every Born card) every Born event gets vz = 0, a
+  point 3 cm downstream of the cell centre, while rad stays spread over the cell. The September π⁰ and
+  15.10 φ campaigns are not affected (both arms itarg = 1). Reported to Launch generator 2026-10-22.
