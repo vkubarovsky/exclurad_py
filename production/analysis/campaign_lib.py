@@ -336,3 +336,37 @@ def pool_weights(t_gen, samples, var="|t|"):
         raise ValueError(f"{int((inv <= 0).sum())} events lie in no sample's box "
                          f"-- {var} outside every (lo, hi)")
     return 1.0 / inv
+
+
+# ------------------------------------------------------------------ vertex ---
+def lund_vz(pattern, max_files=None, max_events=400000):
+    """Vertex z of the generated events, read from the LUND files.
+
+    It is NOT in the f32 record -- the ntuple carries momenta and nothing
+    else -- so a vertex plot has to come from lund_osg/.  That is worth the
+    inconvenience: GEMC keeps the LUND vertex exactly (BEAM_V and SPREAD_V in
+    the gcard are not applied to LUND input, checked on 40k events per arm),
+    so column 14 is where the event happens in the detector.
+
+    This exists because on 2026-10-21 every Born event came out at z = 0,
+    outside the -5.5 .. -0.5 cell, and nothing plotted it.  One flag, itarg,
+    governed both the external radiator and the vertex draw; switching the
+    radiator off for the Born arm switched the target length off with it.
+    VPK asked for the distribution along the target to be plotted after every
+    generator run, and this is the reader for it.
+    """
+    files = sorted(glob.glob(pattern))
+    if max_files:
+        files = files[:max_files]
+    if not files:
+        raise RuntimeError(f"no LUND files match {pattern}")
+    vz = []
+    for f in files:
+        with open(f) as fh:
+            for line in fh:
+                a = line.split()
+                if len(a) >= 14:
+                    vz.append(float(a[13]))
+        if len(vz) >= max_events:
+            break
+    return np.asarray(vz[:max_events], dtype=float)

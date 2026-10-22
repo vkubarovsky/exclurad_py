@@ -107,6 +107,40 @@ fi
 N=$(grep -vc '^#' "$SRC")
 echo "events written: $(grep -c '^ *[0-9]* *1 *1 ' "$SRC" 2>/dev/null || echo '?')  lines: $N"
 
+# THE VERTEX, CHECKED ON EVERY CHUNK.  GEMC keeps the LUND vertex exactly --
+# BEAM_V/SPREAD_V in the gcard are not applied to LUND input -- so whatever is
+# in column 14 here is where the event happens in the detector.
+#
+# On 2026-10-21 setting itarg = 0 in the Born cards, correct in itself, also
+# switched off the vertex draw: one flag governed both the external radiator
+# and the target length.  Every Born event came out at z = 0, outside the
+# -5.5 .. -0.5 cell, while the radiative arm stayed spread over 5 cm.
+# Acceptance depends on the vertex, so N_rad/N_born carried the difference
+# between a 5 cm target and a point.  It cost a day of farm and was found by
+# VPK asking whether we had a distribution along the target at all.
+#
+# A chunk is now refused if the card asks for a range and the LUND has a
+# point.  Nothing about this is clever; it exists because nobody looked.
+VZLO=$(awk '{sub(/!.*/,"")} /[^ \t]/{k++; if(k==19){print $1; exit}}' "$W/card.txt")
+VZHI=$(awk '{sub(/!.*/,"")} /[^ \t]/{k++; if(k==19){print $2; exit}}' "$W/card.txt")
+VZSPREAD=$(awk 'NF>=14 {v=$14; if(n++==0){lo=v;hi=v} if(v<lo)lo=v; if(v>hi)hi=v} END{printf "%.4f %.4f %.4f", lo, hi, hi-lo}' "$SRC")
+echo "vertex z: $VZSPREAD   (card asks $VZLO .. $VZHI)"
+if [ -n "$VZLO" ] && [ -n "$VZHI" ]; then
+  awk -v lo="$VZLO" -v hi="$VZHI" -v got="$VZSPREAD" 'BEGIN{
+      split(got, g, " ")
+      want = hi - lo; if (want < 0) want = -want
+      have = g[3]
+      if (want > 0.01 && have < 0.5 * want) {
+          printf "FATAL: the card asks for a vertex over %.3f cm and the LUND spans %.4f cm.\n", want, have
+          printf "       Every event is at z = %.4f.  See _draw_vertex: a point target is\n", g[1]
+          printf "       almost always itarg gating the vz draw, not a card error.\n"
+          exit 1 }
+      if (want > 0.01 && (g[1] < lo - 0.01 || g[2] > hi + 0.01)) {
+          printf "FATAL: vertex %.4f .. %.4f lies outside the cell %.3f .. %.3f\n", g[1], g[2], lo, hi
+          exit 1 }
+  }' || { echo "       keeping $W for inspection"; exit 1; }
+fi
+
 # The LUND is already clean: exclurad_py stopped writing '#' comments on
 # 2026-09-24 precisely because gemc -- and the OSG portal, which runs the same
 # gemc -- exits silently on the first one.  Nothing to strip.

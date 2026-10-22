@@ -176,6 +176,59 @@ def page(pdf, sets, title, subtitle):
     plt.close(fig)
 
 
+def page_vertex(pdf, sets, lund_patterns, title, cell=None):
+    """Where along the target the events happen.
+
+    Its own page, not a panel, because this is the one distribution that was
+    never looked at and therefore the one that went wrong: on 2026-10-21 a
+    Born arm came out as a point at z = 0, outside the cell, because itarg
+    gated the vertex draw as well as the radiator.  GEMC keeps the LUND
+    vertex exactly, so a point target there is a point target in the
+    detector, and acceptance follows the vertex.
+
+    VPK, the same day: plot the vertex after every generator run.
+    """
+    fig, axes = plt.subplots(1, 2, figsize=(11.0, 3.8))
+    ed = None
+    for nm, pat in lund_patterns.items():
+        try:
+            v = cl.lund_vz(pat)
+        except Exception as e:                                     # noqa: BLE001
+            axes[0].text(0.5, 0.5 - 0.1 * list(lund_patterns).index(nm),
+                         f"{nm}: {e}", transform=axes[0].transAxes,
+                         ha="center", fontsize=7.5, color="#aa3333")
+            continue
+        if ed is None:
+            lo, hi = (cell if cell else (v.min(), v.max()))
+            pad = max(0.35, 0.08 * (hi - lo))
+            ed = np.linspace(lo - pad, hi + pad, 90)
+        axes[0].hist(v, bins=ed, histtype="step", density=True,
+                     color=STY[nm]["color"], ls=STY[nm]["ls"], lw=STY[nm]["lw"],
+                     label=f"{STY[nm]['label']}   {v.min():.2f} .. {v.max():.2f} cm")
+        axes[1].text(0.02, 0.80 - 0.3 * list(lund_patterns).index(nm),
+                     f"{STY[nm]['label']}\n  span {v.max() - v.min():.3f} cm,"
+                     f"  median {np.median(v):.3f}\n  n = {len(v)}",
+                     transform=axes[1].transAxes, fontsize=8.5,
+                     color=STY[nm]["color"], va="top", family="monospace")
+    if cell:
+        for x in cell:
+            axes[0].axvline(x, color="#888888", lw=0.9, ls=":")
+        axes[1].text(0.02, 0.12, f"cell from the card: {cell[0]:.2f} .. {cell[1]:.2f} cm",
+                     transform=axes[1].transAxes, fontsize=8.5, color="#555555",
+                     family="monospace")
+    axes[0].set_xlabel("vertex $z$  [cm]")
+    axes[0].set_ylabel("events / bin, normalised")
+    axes[0].legend(loc="upper center", fontsize=7.4)
+    axes[1].axis("off")
+    fig.suptitle(title, y=0.99, fontsize=12.5, fontweight="semibold")
+    fig.text(0.5, 0.925, "GEMC keeps the LUND vertex exactly -- a point here is a point "
+             "in the detector, and acceptance follows the vertex",
+             ha="center", fontsize=8.0, color="#555555")
+    fig.tight_layout(rect=(0, 0, 1, 0.88))
+    pdf.savefig(fig)
+    plt.close(fig)
+
+
 def page_radiation(pdf, sets, title):
     """Where the radiation went.
 
