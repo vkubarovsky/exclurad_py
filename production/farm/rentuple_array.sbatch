@@ -39,25 +39,39 @@ LIST=$R/rentuple.list
 # One line per DST: <dst path> <mode> <pol>.  Modes are taken from the
 # directory layout rather than a hardcoded (rad born) pair, so a campaign with
 # arms set aside -- born_vz0, rad_pre_tlimits, born_itarg1 -- gets all of them.
+# One line per DST: <dst path> <mode> <pol> <out dir>.
+#
+# TWO LAYOUTS.  Campaigns from 2026-09-28 on put the polarity in the directory
+# name -- dst_inb / out_inb -- because one LUND feeds both torus settings.  The
+# ones before that have a bare dst/ and out/, with the polarity only in the
+# file name.  Globbing dst_* missed those entirely, so the September campaigns
+# could not be rebuilt at all.  The output directory is therefore derived from
+# the input one by replacing the leading "dst" with "out", which gives
+# out_inb for the new layout and out for the old, instead of being rebuilt
+# from a polarity that the old layout does not carry.
 if [ "${1:-}" = "--list" ]; then
   : > $LIST
-  for d in $R/*/dst_*; do
+  for d in $R/*/dst*; do
     [ -d "$d" ] || continue
-    mode=$(basename $(dirname $d)); pol=$(basename $d); pol=${pol#dst_}
-    for f in $d/*.hipo; do [ -f "$f" ] && echo "$f $mode $pol" >> $LIST; done
+    mode=$(basename $(dirname $d))
+    b=$(basename $d); sfx=${b#dst}            # "_inb", or empty
+    pol=${sfx#_}; pol=${pol:-none}
+    outdir=$(dirname $d)/out$sfx
+    for f in $d/*.hipo; do [ -f "$f" ] && echo "$f $mode $pol $outdir" >> $LIST; done
   done
   echo "$LIST: $(wc -l < $LIST) DSTs"
-  awk '{print $2}' $LIST | sort | uniq -c
+  awk '{print $2, $3}' $LIST | sort | uniq -c
   exit 0
 fi
 
 I=${SLURM_ARRAY_TASK_ID:?no array id}
-read -r DST MODE POL < <(sed -n "${I}p" $LIST)
-[ -n "${DST:-}" ] || { echo "FATAL: line $I of $LIST is empty"; exit 1; }
-[ -f "$DST" ]     || { echo "FATAL: $DST does not exist"; exit 1; }
+read -r DST MODE POL OUTDIR < <(sed -n "${I}p" $LIST)
+[ -n "${DST:-}" ]    || { echo "FATAL: line $I of $LIST is empty"; exit 1; }
+[ -f "$DST" ]        || { echo "FATAL: $DST does not exist"; exit 1; }
+[ -n "${OUTDIR:-}" ] || { echo "FATAL: line $I of $LIST has no output directory -- rebuild the list with --list"; exit 1; }
 TAG=$(basename "$DST" .hipo)
-OUT=$R/$MODE/out_$POL/$TAG.f32
-echo "task $I: $TAG   mode $MODE  pol $POL"
+OUT=$OUTDIR/$TAG.f32
+echo "task $I: $TAG   mode $MODE  pol $POL  -> $OUT"
 
 # ------------------------------------------------------------- the channel
 # From the card that produced the arm, as everywhere else.  An arm set aside
@@ -117,7 +131,7 @@ fi
 # reader wrote nothing".  Nothing was lost, because the old file is only
 # replaced after the checks, but the work was.
 W=/volatile/clas12/vpk/rentuple_work/${SLURM_ARRAY_JOB_ID:-$(hostname -s)_$(basename $R)}_$I
-rm -rf $W; mkdir -p $W "$R/$MODE/out_$POL"; cd $W
+rm -rf $W; mkdir -p $W "$OUTDIR"; cd $W
 export TMPDIR=$W                          # /tmp is noexec on the compute nodes
 unset JDK_JAVA_OPTIONS                    # java 21 from coatjava breaks run-groovy
 export PATH=/group/clas12/packages/groovy/4.0.3/bin:$PATH
