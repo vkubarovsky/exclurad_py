@@ -176,55 +176,163 @@ def page(pdf, sets, title, subtitle):
     plt.close(fig)
 
 
-def page_vertex(pdf, sets, lund_patterns, title, cell=None):
-    """Where along the target the events happen.
+# The analysis vertex cuts from VPK's note, Tables 7-10.  Read literally,
+# |vz| < cut keeps only the downstream end of a cell that sits at -5.5..-0.5,
+# which is worth seeing on the plot rather than discovering in a table.
+VZ_CUT = {"inb": 2.2, "outb": 2.5}
 
-    Its own page, not a panel, because this is the one distribution that was
-    never looked at and therefore the one that went wrong: on 2026-10-21 a
-    Born arm came out as a point at z = 0, outside the cell, because itarg
-    gated the vertex draw as well as the radiator.  GEMC keeps the LUND
-    vertex exactly, so a point target there is a point target in the
-    detector, and acceptance follows the vertex.
 
-    VPK, the same day: plot the vertex after every generator run.
+def page_vertex(pdf, root, configs, channel, cell=None, max_files=8):
+    """Everything about the vertex, on one page.
+
+    Six panels, because the vertex is the one distribution nothing plotted
+    and therefore the one that went wrong: a Born arm spent a day at a single
+    point, z = 0, outside the target cell, and no figure could have shown it.
+    VPK, 2026-10-22: plot this after every generator run.
+
+    GEMC keeps the LUND vertex exactly -- BEAM_V and SPREAD_V in the gcard are
+    not applied to LUND input, checked on 40k events per arm -- so the
+    generated vertex is also the true vertex in the detector, and
+    reconstructed minus generated is the vertex resolution.
     """
-    fig, axes = plt.subplots(1, 2, figsize=(11.0, 3.8))
-    ed = None
-    for nm, pat in lund_patterns.items():
-        try:
-            v = cl.lund_vz(pat)
-        except Exception as e:                                     # noqa: BLE001
-            axes[0].text(0.5, 0.5 - 0.1 * list(lund_patterns).index(nm),
-                         f"{nm}: {e}", transform=axes[0].transAxes,
-                         ha="center", fontsize=7.5, color="#aa3333")
+    import glob as _g
+    fig, axes = plt.subplots(2, 3, figsize=(13.5, 7.6))
+    ax = axes.ravel()
+    lo, hi = cell if cell else (-5.5, -0.5)
+
+    # ---- 1. the generated vertex -----------------------------------------
+    pad = max(0.6, 0.25 * (hi - lo))
+    ed = np.linspace(lo - pad, hi + pad, 80)
+    pol0 = configs[0][0] if configs else "inb"
+    bg0 = configs[0][1] if configs else "none"
+    for nm in ("born", "rad"):
+        pat = os.path.join(root, nm, "out_" + pol0, f"*_bg{bg0}_*.f32")
+        if not _g.glob(pat):
             continue
-        if ed is None:
-            lo, hi = (cell if cell else (v.min(), v.max()))
-            pad = max(0.35, 0.08 * (hi - lo))
-            ed = np.linspace(lo - pad, hi + pad, 90)
-        axes[0].hist(v, bins=ed, histtype="step", density=True,
-                     color=STY[nm]["color"], ls=STY[nm]["ls"], lw=STY[nm]["lw"],
-                     label=f"{STY[nm]['label']}   {v.min():.2f} .. {v.max():.2f} cm")
-        axes[1].text(0.02, 0.80 - 0.3 * list(lund_patterns).index(nm),
-                     f"{STY[nm]['label']}\n  span {v.max() - v.min():.3f} cm,"
-                     f"  median {np.median(v):.3f}\n  n = {len(v)}",
-                     transform=axes[1].transAxes, fontsize=8.5,
-                     color=STY[nm]["color"], va="top", family="monospace")
-    if cell:
-        for x in cell:
-            axes[0].axvline(x, color="#888888", lw=0.9, ls=":")
-        axes[1].text(0.02, 0.12, f"cell from the card: {cell[0]:.2f} .. {cell[1]:.2f} cm",
-                     transform=axes[1].transAxes, fontsize=8.5, color="#555555",
-                     family="monospace")
-    axes[0].set_xlabel("vertex $z$  [cm]")
-    axes[0].set_ylabel("events / bin, normalised")
-    axes[0].legend(loc="upper center", fontsize=7.4)
-    axes[1].axis("off")
-    fig.suptitle(title, y=0.99, fontsize=12.5, fontweight="semibold")
-    fig.text(0.5, 0.925, "GEMC keeps the LUND vertex exactly -- a point here is a point "
-             "in the detector, and acceptance follows the vertex",
+        d = cl.load(pat, channel, rec=False, require=(), max_files=max_files)
+        if not d.get("has_vz"):
+            ax[0].text(0.5, 0.5 - 0.08 * (nm == "rad"),
+                       f"{nm}: record has no vertex (pre-2026-10-22 ntuple)",
+                       transform=ax[0].transAxes, ha="center", fontsize=8,
+                       color="#aa3333")
+            continue
+        v = d["vz_gen"]
+        ax[0].hist(v, bins=ed, histtype="step", density=True, color=STY[nm]["color"],
+                   ls=STY[nm]["ls"], lw=STY[nm]["lw"],
+                   label=f"{STY[nm]['label']}: {v.min():.2f} .. {v.max():.2f} cm")
+    for x in (lo, hi):
+        ax[0].axvline(x, color="#333333", lw=1.1)
+    ax[0].set_xlabel("generated vertex $z$  [cm]")
+    ax[0].set_ylabel("normalised")
+    ax[0].set_title(f"Generated vertex: uniform over the {hi - lo:.0f} cm cell", fontsize=9)
+    ax[0].legend(loc="lower center", fontsize=7)
+
+    # ---- 2, 3. the reconstructed electron vertex, per polarity -----------
+    for i, pol in enumerate(("inb", "outb")):
+        a = ax[1 + i]
+        cfg = [c for c in configs if c[0] == pol]
+        if not cfg:
+            a.text(0.5, 0.5, f"no {pol} configuration on disk", transform=a.transAxes,
+                   ha="center", fontsize=8.5, color="#777777")
+            a.set_xticks([]); a.set_yticks([]); continue
+        bg = cfg[0][1]
+        edr = np.linspace(lo - 8, hi + 8, 110)
+        for nm in ("born", "rad"):
+            pat = os.path.join(root, nm, "out_" + pol, f"*_bg{bg}_*.f32")
+            if not _g.glob(pat):
+                continue
+            d = cl.load(pat, channel, rec=True, require=cl.TOPOLOGY["full"],
+                        max_files=max_files)
+            if not d.get("has_vz"):
+                continue
+            v = d["escat_vz"]
+            a.hist(v, bins=edr, histtype="step", density=True, color=STY[nm]["color"],
+                   ls=STY[nm]["ls"], lw=STY[nm]["lw"], label=f"{STY[nm]['label']}, N={len(v)}")
+        for x in (lo, hi):
+            a.axvline(x, color="#333333", lw=1.0)
+        c = VZ_CUT.get(pol)
+        if c:
+            for x in (-c, c):
+                a.axvline(x, color=C_BORN, lw=1.0, ls="--")
+        a.set_xlabel(f"reconstructed electron $v_z$, {pol}bending  [cm]")
+        a.set_title(f"solid: target;  dashed: note |vz| < {c}", fontsize=8.5)
+        a.legend(loc="upper right", fontsize=7)
+
+    # ---- 4. resolution ----------------------------------------------------
+    a = ax[3]
+    edres = np.linspace(-6, 6, 90)
+    rows = []
+    for pol in ("inb", "outb"):
+        cfg = [c for c in configs if c[0] == pol]
+        if not cfg:
+            continue
+        bg = cfg[0][1]
+        for nm in ("born", "rad"):
+            pat = os.path.join(root, nm, "out_" + pol, f"*_bg{bg}_*.f32")
+            if not _g.glob(pat):
+                continue
+            d = cl.load(pat, channel, rec=True, require=cl.TOPOLOGY["full"],
+                        max_files=max_files)
+            if not d.get("has_vz"):
+                continue
+            r = d["escat_vz"] - d["vz_gen"]
+            q = np.percentile(r, [16, 50, 84])
+            a.hist(r, bins=edres, histtype="step", density=True, color=STY[nm]["color"],
+                   ls="-" if pol == "inb" else "--", lw=1.4,
+                   label=f"{nm} {pol}: med {q[1]:+.2f}, $\\sigma_{{68}}$ {0.5 * (q[2] - q[0]):.2f}")
+            keep_cut = (np.abs(d["escat_vz"]) < VZ_CUT.get(pol, 99)).mean()
+            keep_cell = ((d["escat_vz"] > lo) & (d["escat_vz"] < hi)).mean()
+            rows.append((f"{nm} {pol}", 100 * keep_cut, 100 * keep_cell, len(r)))
+    a.set_xlabel("electron $v_z$: reconstructed $-$ generated  [cm]")
+    a.set_title("Vertex resolution, electron", fontsize=9)
+    if a.has_data():
+        a.legend(loc="upper left", fontsize=6.6)
+
+    # ---- 5. electron minus proton ----------------------------------------
+    a = ax[4]
+    edd = np.linspace(-10, 10, 90)
+    for pol in ("inb", "outb"):
+        cfg = [c for c in configs if c[0] == pol]
+        if not cfg:
+            continue
+        bg = cfg[0][1]
+        for nm in ("born", "rad"):
+            pat = os.path.join(root, nm, "out_" + pol, f"*_bg{bg}_*.f32")
+            if not _g.glob(pat):
+                continue
+            d = cl.load(pat, channel, rec=True, require=cl.TOPOLOGY["full"],
+                        max_files=max_files)
+            if not d.get("has_vz"):
+                continue
+            dv = d["escat_vz"] - d["prot_vz"]
+            a.hist(dv, bins=edd, histtype="step", density=True, color=STY[nm]["color"],
+                   ls="-" if pol == "inb" else "--", lw=1.4,
+                   label=f"{nm} {pol}, N={len(dv)}")
+    a.set_xlabel("$v_z(e') - v_z(p')$ reconstructed  [cm]")
+    a.set_title("Electron$-$proton vertex difference", fontsize=9)
+    if a.has_data():
+        a.legend(loc="upper left", fontsize=6.6)
+
+    # ---- 6. the table -----------------------------------------------------
+    a = ax[5]; a.axis("off")
+    if rows:
+        txt = ["Fraction of reconstructed electrons kept", "",
+               "%-11s %9s %11s" % ("", "|vz|<cut", f"{lo:.1f}..{hi:.1f}")]
+        for nm, kc, kcell, n in rows:
+            txt.append("%-11s %8.1f%% %10.1f%%" % (nm, kc, kcell))
+        txt += ["", "cut = %.1f cm inbending, %.1f cm outbending" % (VZ_CUT["inb"], VZ_CUT["outb"]),
+                "(note Tables 7-10).  Read literally, |vz| < cut",
+                "keeps only the downstream end of a cell that",
+                "sits at %.1f .. %.1f cm." % (lo, hi)]
+        a.text(0.0, 0.95, "\n".join(txt), transform=a.transAxes, va="top",
+               fontsize=8.2, family="monospace")
+
+    fig.suptitle("Interaction point, radiative and Born", y=0.995, fontsize=12.5,
+                 fontweight="semibold")
+    fig.text(0.5, 0.963, "GEMC keeps the LUND vertex exactly, so the generated vertex is the "
+             "true one in the detector and reconstructed minus generated is the resolution",
              ha="center", fontsize=8.0, color="#555555")
-    fig.tight_layout(rect=(0, 0, 1, 0.88))
+    fig.tight_layout(rect=(0, 0, 1, 0.952))
     pdf.savefig(fig)
     plt.close(fig)
 

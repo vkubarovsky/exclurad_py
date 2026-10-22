@@ -39,10 +39,15 @@ import numpy as np
 #               only the two photons whose MC::Lund parent is the pi0 row, so
 #               the production photon never reaches the ntuple and the
 #               "where the radiation goes" page cannot be built for pi0/eta.
+# nf is the record before the vertices were appended on 2026-10-22, nf_vz the
+# record with them.  Both are accepted: a file written by the old reader still
+# reads, it simply has no vertex and the vertex pages say so.  The vertices
+# went on the END precisely so that every existing offset stayed where it was.
 LAYOUT = {
-    "vector": dict(nf=73, rec0=19, slots=("escat", "prot", "hplus", "hminus",
-                                          "gdec", "gprod")),
-    "pseudo": dict(nf=50, rec0=13, slots=("escat", "prot", "hplus", "hminus")),
+    "vector": dict(nf=73, nf_vz=80, vz_gen=73, vz_rec0=74, rec0=19,
+                   slots=("escat", "prot", "hplus", "hminus", "gdec", "gprod")),
+    "pseudo": dict(nf=50, nf_vz=55, vz_gen=50, vz_rec0=51, rec0=13,
+                   slots=("escat", "prot", "hplus", "hminus")),
 }
 MP = 0.938272
 MN = 0.939565
@@ -170,22 +175,38 @@ def load(pattern, channel, ebeam=10.6, rec=False, require=(0, 1, 2, 3),
     """
     ch = CHANNELS[channel]
     lay = LAYOUT[ch["layout"]]
-    NF, REC0, SLOTS = lay["nf"], lay["rec0"], lay["slots"]
+    REC0, SLOTS = lay["rec0"], lay["slots"]
     files = sorted(glob.glob(pattern))
     if max_files:
         files = files[:max_files]
     if not files:
         raise RuntimeError(f"no files match {pattern}")
-    chunks = []
+    # Which record is this?  The vertices were appended on 2026-10-22, so a
+    # file divides by nf_vz if it has them and by nf if it does not.  Deciding
+    # per file rather than per campaign means a half-reprocessed directory
+    # still reads, and mixing the two is refused rather than silently
+    # reinterpreted.
+    sizes = set()
+    raw = []
     for f in files:
         a = np.fromfile(f, dtype="<f4")
-        # A record size that does not divide the file is the loudest symptom
-        # of reading one layout with the other's, so it is an error and not
-        # a truncation.
-        if a.size % NF:
-            raise RuntimeError(f"{f}: {a.size} floats is not a multiple of {NF} "
-                               f"-- wrong layout for channel {channel}?")
-        chunks.append(a.reshape(-1, NF))
+        if a.size % lay["nf_vz"] == 0 and a.size % lay["nf"] != 0:
+            nf = lay["nf_vz"]
+        elif a.size % lay["nf"] == 0 and a.size % lay["nf_vz"] != 0:
+            nf = lay["nf"]
+        elif a.size % lay["nf_vz"] == 0:
+            nf = lay["nf_vz"]          # divides by both: the longer wins
+        else:
+            raise RuntimeError(f"{f}: {a.size} floats divides neither {lay['nf']} "
+                               f"nor {lay['nf_vz']} -- wrong layout for {channel}?")
+        sizes.add(nf)
+        raw.append(a.reshape(-1, nf))
+    if len(sizes) > 1:
+        raise RuntimeError(f"{pattern}: records of {sorted(sizes)} floats in one "
+                           f"set -- reprocess them all or read them separately")
+    NF = sizes.pop()
+    has_vz = NF == lay["nf_vz"]
+    chunks = raw
     a = np.concatenate(chunks).astype(np.float64)
     n_read = len(a)
 
@@ -227,6 +248,7 @@ def load(pattern, channel, ebeam=10.6, rec=False, require=(0, 1, 2, 3),
     MB = ch["baryon"]
     out = dict(n_files=len(files), n_read=n_read, n_kept=len(a), weight=a[:, 0],
                channel=channel, layout=ch["layout"],
+               has_vz=has_vz,
                n_zero_momentum=(nzero if rec and require else {}),
                n_dp_rejected=(nmis if rec and require else {}),
                dp_cut=bool(dp_cut) and bool(rec and require))
@@ -265,6 +287,12 @@ def load(pattern, channel, ebeam=10.6, rec=False, require=(0, 1, 2, 3),
     pv = ph + pm
     out["m_pair"] = np.sqrt(np.maximum(Eh ** 2 - (pv ** 2).sum(1), 0))
     out["meson_p"], out["meson_theta"], out["meson_phi"] = _pmag_theta_phi(pv)
+
+    # --- the vertex, when the record carries it ----------------------------
+    if has_vz:
+        out["vz_gen"] = a[:, lay["vz_gen"]]
+        for k, name in enumerate(SLOTS):
+            out[name + "_vz"] = a[:, lay["vz_rec0"] + k]
 
     # --- t', the distance from the physical forward edge --------------------
     # |t_min| runs over three orders of magnitude across a wide box, so |t|

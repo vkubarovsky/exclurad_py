@@ -153,20 +153,19 @@ with PdfPages(OUT) as pdf:
     log.append(f"generated: rad {g['rad']['d']['n_kept']}, born {g['born']['d']['n_kept']}")
     cp.page(pdf, g, "Generator level - the full million", BOX)
 
-    # The vertex, every time.  Nothing else plots it: the f32 record carries
-    # momenta only, so it has to be read from lund_osg/, and that is exactly
-    # why a Born arm sat at a point for a day without anyone seeing it.
+    # The vertex, every time.  Six panels: where the event was generated,
+    # where the electron was reconstructed in each polarity against the
+    # note's cuts, the resolution, the electron-proton difference, and what
+    # the cuts keep.  Nothing else plots any of it -- the f32 record carried
+    # momenta only until 2026-10-22, which is why a Born arm sat at a point
+    # for a day unseen.
     try:
-        _cell = cl.CARD_VZ if hasattr(cl, "CARD_VZ") else None
         _vz_card = [float(x) for x in CARD[18].split()[:2]] if len(CARD) > 18 else None
     except Exception:                                              # noqa: BLE001
         _vz_card = None
-    cp.page_vertex(pdf,
-                   {m: dict(d=None) for m in ("rad", "born")},
-                   {m: os.path.join(ROOT_DIR, m, "lund_osg", "*.lund")
-                    for m in ("rad", "born")},
-                   "Generator level - the vertex along the target",
+    cp.page_vertex(pdf, ROOT_DIR, PRESENT, CH,
                    cell=tuple(sorted(_vz_card)) if _vz_card and len(_vz_card) == 2 else None)
+
     # The pseudoscalar ntuple keeps only the two photons whose MC::Lund parent
     # is the meson row, so the radiated photon is not in the record and this
     # page cannot be built from it.  Say so rather than draw an empty one.
