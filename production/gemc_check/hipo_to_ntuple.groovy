@@ -5,7 +5,7 @@
 // the record, so a hardcoded 2212 silently picks the SPECTATOR and the ntuple
 // describes the wrong particle without failing.  Found by the fermi session,
 // 2026-09-26; it affects no proton-target sample, and every neutron one.
-// Record per event (NFLD floats):
+// Record per event (NFLD = 55 floats):
 //   [0]      weight (MC::Event)
 //   [1..12]  gen px,py,pz for e, p, g1, g2 (MC::Lund order)
 //   for k in e,p,g1,g2 (block of 8 each, starting at 13):
@@ -13,6 +13,13 @@
 //                                                       (one row per MC particle; pindex=-1 -> not found)
 //   [45] n_e(rec pid 11)  [46] n_baryon(rec pid = hadron pid)  [47] n_gamma(rec pid 22)
 //   [48] n_rec rows   [49] flag: MC::Particle row count != MC::Lund row count (status-0 rows in Lund)
+//   [50]      GENERATED vertex z (MC::Lund), cm -- one per event
+//   [51..54]  RECONSTRUCTED vertex z per slot k = 0..3 (REC::Particle), cm;
+//             0 where the slot was not matched
+//
+// Added 2026-10-22, for the reason given in vm_to_ntuple.groovy: the record
+// carried momenta only, so nothing could plot the vertex, and a Born arm sat
+// at z = 0 for a day unseen.
 import org.jlab.jnp.hipo4.data.*
 import org.jlab.jnp.hipo4.io.*
 import java.nio.*
@@ -22,7 +29,7 @@ int maxev = args[1] as int
 def oname = args[2]
 int skip = args.size() > 3 ? args[3] as int : 0
 int hpid = args.size() > 4 ? args[4] as int : 2212   // 2112 for a neutron target
-final int NFLD = 50
+final int NFLD = 55
 
 def reader = new HipoReader(); reader.open(fname)
 def ev = new Event()
@@ -63,6 +70,12 @@ try {
     // the status-0 pi0 row and the indices do not line up.
     double[][] pi0gam = new double[2][3]
     int npi0gam = 0
+    // GENERATED VERTEX, one per event.  Every row of MC::Lund carries the same
+    // vz for an exclusive event, so the first row is as good as any.  GEMC
+    // keeps it exactly -- BEAM_V/SPREAD_V are not applied to LUND input -- so
+    // this is also the true vertex in the detector, and [51+k] minus this is
+    // the vertex resolution of slot k.
+    if (lund.getRows() > 0) r[50] = lund.getFloat("vz", 0)
     if (lund.getRows() > 0) {
       int pi0row = -1
       for (int i = 0; i < lund.getRows(); i++) if (lund.getInt("pid", i) == 111) { pi0row = i + 1; break }
@@ -117,6 +130,7 @@ try {
         r[b] = 1f; r[b+1] = rec.getInt("pid", pi); r[b+2] = rec.getByte("charge", pi); r[b+3] = rec.getShort("status", pi)
         r[b+4] = gm.getFloat("quality", j)
         r[b+5] = rec.getFloat("px", pi); r[b+6] = rec.getFloat("py", pi); r[b+7] = rec.getFloat("pz", pi)
+        r[51 + k] = rec.getFloat("vz", pi)
       }
     }
     int ne=0, np=0, ng=0
