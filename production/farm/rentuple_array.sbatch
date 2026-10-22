@@ -5,8 +5,9 @@
 #SBATCH --time=2:00:00
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=4000
-#SBATCH --output=/volatile/clas12/vpk/rentuple_logs/%A_%a.out
-#SBATCH --error=/volatile/clas12/vpk/rentuple_logs/%A_%a.out
+#SBATCH --output=/farm_out/vpk/rentuple_%A_%a.out
+#SBATCH --error=/farm_out/vpk/rentuple_%A_%a.out
+#   the farm's cli_filter refuses --output anywhere but /farm_out or /dev/null
 #
 # RE-READ AN EXISTING DST INTO THE CURRENT NTUPLE RECORD.  No gemc, no
 # reconstruction -- the DST is primary data and is never touched; the .f32 is
