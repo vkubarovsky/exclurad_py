@@ -86,17 +86,37 @@ NFLD=$(awk '/final int NFLD/{print $NF+0; exit}' "$NTG")
 [ "${NFLD:-0}" -gt 0 ] || { echo "FATAL: cannot read NFLD from $NTG"; exit 1; }
 echo "channel $CHAN  model ${MODEL:-?}  hpid $HPID  reader $(basename $NTG)  NFLD $NFLD"
 
-# how many records the existing file holds, so the rebuild can be compared
+# How many records the existing file holds, so the rebuild can be compared.
+#
+# ONLY THIS CHANNEL'S TWO LENGTHS, longer first.  The first version of this
+# tried 80 73 55 50 in turn and took whatever divided first, which is wrong
+# because a size can divide a length belonging to the other channel: an old
+# pi0 file of 5000 records x 50 fields is 250000 floats, and 250000/80 = 3125
+# exactly, so it was read as 3125 records of 80 and every one of the 800 files
+# in prod_pi0_rga_t25_20260928 was refused with "rebuilt 5000 against the old
+# file's 3125".  The rebuild had been right; the comparison was not.
+# Longer first matches campaign_lib: a new pi0 file of 5000 x 55 = 275000
+# floats also divides 50 (5500), and 55 is the true one.
+case "$CHAN" in
+  jpsi|phi|rho) TRY="80 73" ;;
+  *)            TRY="55 50" ;;
+esac
 OLDSZ=$(stat -c %s "$OUT" 2>/dev/null || echo 0)
 OLDN=0
 if [ "$OLDSZ" -gt 0 ]; then
-  for f in 80 73 55 50; do
+  for f in $TRY; do
     if [ $((OLDSZ % (f*4))) -eq 0 ]; then OLDN=$((OLDSZ / (f*4))); OLDF=$f; break; fi
   done
-  echo "existing f32: $OLDSZ bytes = $OLDN records x ${OLDF:-?} fields"
+  echo "existing f32: $OLDSZ bytes = $OLDN records x ${OLDF:-?} fields (tried $TRY)"
 fi
 
-W=/volatile/clas12/vpk/rentuple_work/${SLURM_ARRAY_JOB_ID:-local}_$I
+# UNIQUE PER RUNNER, not just per task index.  Driven by hand on two
+# interactive nodes at once -- jpsi on one, phi on the other -- every task
+# fell back to "local_$I", both nodes see the same /volatile, and the `rm -rf`
+# below wiped the other node's work in progress: 989 files came back "the
+# reader wrote nothing".  Nothing was lost, because the old file is only
+# replaced after the checks, but the work was.
+W=/volatile/clas12/vpk/rentuple_work/${SLURM_ARRAY_JOB_ID:-$(hostname -s)_$(basename $R)}_$I
 rm -rf $W; mkdir -p $W "$R/$MODE/out_$POL"; cd $W
 export TMPDIR=$W                          # /tmp is noexec on the compute nodes
 unset JDK_JAVA_OPTIONS                    # java 21 from coatjava breaks run-groovy
