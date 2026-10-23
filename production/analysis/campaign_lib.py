@@ -19,6 +19,7 @@ Slots, by role and not by pid, so phi and rho read the same way:
 """
 import glob
 import json
+import re
 import os
 
 import numpy as np
@@ -104,8 +105,46 @@ def _pmag_theta_phi(p):
     return m, th, ph
 
 
-def sigma_nb(prov_dir, mode):
+def chunks_present(root, mode):
+    """The chunk indices that actually have an ntuple, as a sorted list.
+
+    The normalisation has to come from the chunks you LOADED, not from every
+    chunk the provenance directory happens to hold.  On 2026-10-23 a second
+    million was generated as chunks 201-400 while the ntuples were still only
+    1-200: sigma_nb then averaged 400 sidecars for a 200-chunk sample, and the
+    plot book printed 0.94679 for a ratio that is 0.94658.  The peer session
+    found it in the book's own header.
+    """
+    idx = set()
+    for od in sorted(glob.glob(os.path.join(root, mode, "out_*"))):
+        for f in glob.glob(os.path.join(od, "*.f32")):
+            m = re.search(r"_(\d+)\.f32$", os.path.basename(f))
+            if m:
+                idx.add(int(m.group(1)))
+    return sorted(idx)
+
+
+def events_per_chunk(root, mode, channel):
+    """Records in one ntuple file, from its size -- not a remembered 5000."""
+    lay = LAYOUT["vector" if channel in ("jpsi", "phi", "rho") else "pseudo"]
+    for od in sorted(glob.glob(os.path.join(root, mode, "out_*"))):
+        fs = glob.glob(os.path.join(od, "*.f32"))
+        if not fs:
+            continue
+        sz = os.path.getsize(fs[0])
+        for nf in (lay["nf_vz"], lay["nf"]):
+            if sz % (nf * 4) == 0:
+                return sz // (nf * 4)
+    raise RuntimeError(f"cannot size an ntuple under {root}/{mode}")
+
+
+def sigma_nb(prov_dir, mode, chunks=None):
     """Mean sigma_nb over a set's chunks, and its spread.
+
+    `chunks` restricts the average to those chunk indices -- pass
+    chunks_present() so the normalisation matches the sample.  Without it
+    every sidecar in the directory is averaged, which is right only when the
+    ntuples cover every chunk.
 
     Every chunk of a set ran the same box with a different seed, so the chunk
     sigmas are repeated measurements of one number: the mean is the sample's
@@ -114,16 +153,29 @@ def sigma_nb(prov_dir, mode):
     returned, because that is a symptom (a stale majorant cache gave sigmas
     low by <B> ~ 2x for a week in September and nothing said so).
     """
-    vals = []
+    want = set(chunks) if chunks is not None else None
+    vals, missing = [], []
     for f in sorted(glob.glob(os.path.join(prov_dir, f"{mode}_*.config.json"))):
+        m = re.search(r"_(\d+)\.config\.json$", os.path.basename(f))
+        i = int(m.group(1)) if m else None
+        if want is not None and i not in want:
+            continue
         try:
             with open(f) as fh:
                 vals.append(json.load(fh)["report"]["sigma_nb"])
         except (KeyError, ValueError, OSError):
-            pass
+            missing.append(i)
     v = np.array(vals, dtype=float)
     if v.size == 0:
         raise RuntimeError(f"no sigma_nb found in {prov_dir} for {mode}")
+    if want is not None and v.size != len(want):
+        # Loudly, not silently: a sample whose chunks do not all have a
+        # sidecar is normalised by a subset, and that is a fact about the
+        # number, not a detail of the loop.
+        raise RuntimeError(
+            f"{prov_dir}: {len(want)} chunks loaded but {v.size} sidecars "
+            f"readable{' (unreadable: %s)' % missing[:5] if missing else ''} -- "
+            f"generate the missing provenance or restrict the sample")
     return dict(mean=v.mean(), err=v.std(ddof=1) / np.sqrt(v.size) if v.size > 1 else 0.0,
                 n=v.size, min=v.min(), max=v.max(), spread_rel=(v.max() - v.min()) / v.mean())
 

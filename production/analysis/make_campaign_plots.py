@@ -73,8 +73,24 @@ BOX = ("RG-A Fall 2018  |  gemc 5.13 + coatjava 10.0.7  |  "
        f"E = {CARD[1]} GeV  |  $W^2$ {CARD[4]},  $Q^2$ {CARD[5]},  "
        f"$t$ {CARD[6]} GeV$^2$,  vcut {CARD[7]}")
 
-SIG = {m: cl.sigma_nb(os.path.join(ROOT_DIR, m, "prov"), m) for m in ("rad", "born")}
-NGEN = {m: 200 * 5000 for m in ("rad", "born")}
+# THE NORMALISATION COMES FROM THE CHUNKS THAT ARE ACTUALLY HERE.
+# NGEN was 200 * 5000, a remembered number, and sigma averaged every sidecar
+# in prov/.  Both were right only while a campaign had exactly 200 chunks and
+# ntuples for all of them.  On 2026-10-23 a second million was generated as
+# chunks 201-400 with no GEMC behind it yet: sigma then averaged 400 sidecars
+# for a 200-chunk sample -- the peer session caught that in this book's own
+# header, 0.94679 printed for a ratio that is 0.94658 -- and NGEN would have
+# been wrong by a factor two the moment the new ntuples appeared, silently
+# halving every per-event normalisation.
+CHUNKS = {m: cl.chunks_present(ROOT_DIR, m) for m in ("rad", "born")}
+NEV1 = {m: cl.events_per_chunk(ROOT_DIR, m, CH) for m in ("rad", "born")}
+SIG = {m: cl.sigma_nb(os.path.join(ROOT_DIR, m, "prov"), m, chunks=CHUNKS[m])
+       for m in ("rad", "born")}
+NGEN = {m: len(CHUNKS[m]) * NEV1[m] for m in ("rad", "born")}
+for m in ("rad", "born"):
+    c = CHUNKS[m]
+    print("  %-5s %d chunks (%d-%d) x %d events = %d generated, sigma over %d sidecars"
+          % (m, len(c), min(c), max(c), NEV1[m], NGEN[m], SIG[m]["n"]))
 log = []
 
 
