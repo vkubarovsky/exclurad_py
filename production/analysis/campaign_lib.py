@@ -270,7 +270,10 @@ def load(pattern, channel, ebeam=10.6, rec=False, require=(0, 1, 2, 3),
     out["Q2"] = 2 * ebeam * Ee * (1 - cth)
     out["nu"] = ebeam - Ee                     # = E_gamma for quasi-real photoproduction
     out["W2"] = MB ** 2 + 2 * MB * out["nu"] - out["Q2"]
-    out["W"] = np.sqrt(np.maximum(out["W2"], 0))
+    # W where W2 < 0 is not 0, it does not exist.  Same argument as t_min
+    # below: a NaN is dropped by the histogram, a 0 pulls the axis to zero.
+    with np.errstate(invalid="ignore"):
+        out["W"] = np.where(out["W2"] > 0, np.sqrt(np.abs(out["W2"])), np.nan)
     out["y"] = out["nu"] / ebeam
 
     # --- the recoil proton: t, straight from its energy --------------------
@@ -299,12 +302,39 @@ def load(pattern, channel, ebeam=10.6, rec=False, require=(0, 1, 2, 3),
     # and t' are not the same picture at all: a fixed cut in |t| removes a
     # different slice of t' in every (W2, Q2) cell.  Both are plotted.
     mV = m["meson"]
-    W = np.sqrt(np.maximum(out["W2"], 1e-9))
-    Eg = (out["W2"] - out["Q2"] - MB ** 2) / (2 * W)
-    pg = np.sqrt(np.maximum(Eg ** 2 + out["Q2"], 0))
-    EV = (out["W2"] + mV ** 2 - MB ** 2) / (2 * W)
-    pV_cm = np.sqrt(np.maximum(EV ** 2 - mV ** 2, 0))
-    t0 = -out["Q2"] + mV ** 2 - 2 * (Eg * EV - pg * pV_cm)
+
+    # t_min DOES NOT EXIST BELOW THRESHOLD, and the honest value is NaN.
+    #
+    # This line used to read  W = np.sqrt(np.maximum(out["W2"], 1e-9)),  and
+    # the floor was there to stop a NaN.  Stopping it was the mistake.  A
+    # RECONSTRUCTED W2 can come out negative -- 10 of 14393 on the Born
+    # inbending set -- and the floor then gives W = 3.2e-5 and t_min = 1.8e11,
+    # a number eleven orders of magnitude wrong instead of no number at all.
+    # That is strictly worse than a NaN: np.histogram DROPS a NaN and the axis
+    # is then set by the real entries, while 1.8e11 silently sets the axis for
+    # the whole panel.  It is why -t' ran negative and the W axis started at
+    # 2.5 on the reconstructed pages -- not a plotting choice, a derived
+    # quantity computed where it is not defined.  Found by the analysis
+    # session, 2026-10-23, chasing an artefact spike that t' had hidden.
+    #
+    # Measured on born inbending 45 nA: 274 of 14393 events (1.90 %) sit below
+    # (M_B + m_V)^2 in reconstructed W2, and FIVE of them carried the axis.
+    #
+    # Mariana's data has the same disease from an independent code: her handoff
+    # warns that t_prime reaches -3.6e8 because t_min goes as 1/E_gamma^2 and
+    # the reconstructed E_photon passes through zero.  Two codes, one undefined
+    # quantity computed anyway.  Check it in any t' this group produces.
+    thr = (MB + mV) ** 2
+    below = out["W2"] < thr
+    out["n_below_threshold"] = int(below.sum())
+    with np.errstate(invalid="ignore", divide="ignore"):
+        W = np.where(out["W2"] > 0, np.sqrt(np.abs(out["W2"])), np.nan)
+        Eg = (out["W2"] - out["Q2"] - MB ** 2) / (2 * W)
+        pg = np.sqrt(np.maximum(Eg ** 2 + out["Q2"], 0))
+        EV = (out["W2"] + mV ** 2 - MB ** 2) / (2 * W)
+        pV_cm = np.sqrt(np.maximum(EV ** 2 - mV ** 2, 0))
+        t0 = -out["Q2"] + mV ** 2 - 2 * (Eg * EV - pg * pV_cm)
+    t0 = np.where(below, np.nan, t0)
     out["t_min"] = t0
     out["tprime"] = np.abs(t0) - out["mt"]      # >= 0 inside the physical region
     out["mtprime"] = out["mt"] - np.abs(t0)     # = -t' , the usual plotting variable
