@@ -307,19 +307,35 @@ def load(pattern, channel, ebeam=10.6, rec=False, require=(0, 1, 2, 3),
     # the same mistake as quoting one channel's CARD for another, and it was
     # made here by the same author on the same day.
     #
-    # What actually drives the W dependence of a fixed |t| cut is how close the
-    # cut sits to t_min, not how much t_min varies.  Measured on the generated
-    # samples, a cut |t| > 1.0 GeV^2:
+    # What drives the W dependence of a fixed |t| cut is where the cut sits
+    # relative to t_min, and the dependence is NOT monotonic in that ratio --
+    # it peaks in the shoulder of the t distribution and dies at both ends.
+    # Swept on the generated J/psi sample, median |t_min| = 0.4909, lowest
+    # against highest W2 decile:
     #
-    #            median |t_min|   cut/t_min   kept, low W2 decile -> high
-    #   J/psi        0.491            2.0          76.1 % -> 58.1 %   18 points
-    #   phi          0.029           34.5          31.2 % -> 27.6 %    3.6
+    #   |t| cut   cut/t_min   kept all   low W2   high W2   spread
+    #     0.55        1.1       95.2 %   100.0 %   92.1 %   + 7.9 pt
+    #     0.70        1.4       82.6 %    97.1 %   78.5 %   +18.6 pt   <- peak
+    #     1.00        2.0       61.4 %    76.1 %   58.1 %   +18.0 pt   <- our cut
+    #     1.50        3.1       38.0 %    47.6 %   35.9 %   +11.7 pt
+    #     2.00        4.1       24.0 %    29.3 %   23.0 %   + 6.3 pt
+    #     3.00        6.1        9.5 %    11.0 %    9.1 %   + 1.9 pt
+    #     4.00        8.1        3.1 %     3.3 %    3.0 %   + 0.3 pt
     #
-    # So the channel with the 214-fold spread in t_min has the WEAKER W
-    # dependence, because its cut is far out on the tail, while J/psi's cut
-    # sits at twice t_min and bites.  Both |t| and t' are plotted; which one a
-    # binning should use depends on where the cut is, and that has to be
-    # measured per channel rather than inferred from the spread.
+    # Far out, the exponential fall dominates and a shift in t_min is a small
+    # relative displacement, so the cut takes the same fraction everywhere --
+    # which is why phi, whose |t| > 1.0 sits at 34 x t_min, shows only 3.6
+    # points despite a 214-fold spread in t_min.  Right AT t_min it dies for
+    # the opposite reason: the cut keeps essentially everything in every cell
+    # (100.0 % against 92.1 %) and there is nothing for t_min to move across.
+    #
+    # J/psi's cut sits at 2.0 x t_min, within noise of the maximum, so this
+    # channel is the WORST case for the effect rather than a typical one.
+    # Moving the lowest bin edge out to 2-3 GeV^2 would reduce the spread from
+    # 18 to 2-6 points at the cost of 60-75 % of the sample; stated as a trade,
+    # not a recommendation.  Both |t| and t' are plotted; which a binning
+    # should use has to be measured per channel at the cut it actually uses.
+    # Swept by the analysis session, 2026-10-23.
     mV = m["meson"]
 
     # t_min DOES NOT EXIST BELOW THRESHOLD, and the honest value is NaN.
