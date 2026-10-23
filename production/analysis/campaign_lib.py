@@ -322,7 +322,10 @@ def load(pattern, channel, ebeam=10.6, rec=False, require=(0, 1, 2, 3),
     out["Q2"] = 2 * ebeam * Ee * (1 - cth)
     out["nu"] = ebeam - Ee                     # = E_gamma for quasi-real photoproduction
     out["W2"] = MB ** 2 + 2 * MB * out["nu"] - out["Q2"]
-    out["W"] = np.sqrt(np.maximum(out["W2"], 0))
+    # W where W2 < 0 is not 0, it does not exist.  Same argument as t_min
+    # below: a NaN is dropped by the histogram, a 0 pulls the axis to zero.
+    with np.errstate(invalid="ignore"):
+        out["W"] = np.where(out["W2"] > 0, np.sqrt(np.abs(out["W2"])), np.nan)
     out["y"] = out["nu"] / ebeam
 
     # --- the recoil proton: t, straight from its energy --------------------
@@ -347,16 +350,78 @@ def load(pattern, channel, ebeam=10.6, rec=False, require=(0, 1, 2, 3),
             out[name + "_vz"] = a[:, lay["vz_rec0"] + k]
 
     # --- t', the distance from the physical forward edge --------------------
-    # |t_min| runs over three orders of magnitude across a wide box, so |t|
-    # and t' are not the same picture at all: a fixed cut in |t| removes a
-    # different slice of t' in every (W2, Q2) cell.  Both are plotted.
+    # |t| and t' are not the same picture, but NOT for the reason this comment
+    # used to give.  It said "|t_min| runs over three orders of magnitude
+    # across a wide box", which is true of phi (measured 213.6 here) and false
+    # of J/psi (4.0), whose W2 box is narrow -- 16.29 to 20.80, with |t_min|
+    # from 0.4700 to 1.8816 and the 1st to 75th percentile inside 0.470-0.526.
+    # Writing one channel's number into shared code as if it were universal is
+    # the same mistake as quoting one channel's CARD for another, and it was
+    # made here by the same author on the same day.
+    #
+    # What drives the W dependence of a fixed |t| cut is where the cut sits
+    # relative to t_min, and the dependence is NOT monotonic in that ratio --
+    # it peaks in the shoulder of the t distribution and dies at both ends.
+    # Swept on the generated J/psi sample, median |t_min| = 0.4909, lowest
+    # against highest W2 decile:
+    #
+    #   |t| cut   cut/t_min   kept all   low W2   high W2   spread
+    #     0.55        1.1       95.2 %   100.0 %   92.1 %   + 7.9 pt
+    #     0.70        1.4       82.6 %    97.1 %   78.5 %   +18.6 pt   <- peak
+    #     1.00        2.0       61.4 %    76.1 %   58.1 %   +18.0 pt   <- our cut
+    #     1.50        3.1       38.0 %    47.6 %   35.9 %   +11.7 pt
+    #     2.00        4.1       24.0 %    29.3 %   23.0 %   + 6.3 pt
+    #     3.00        6.1        9.5 %    11.0 %    9.1 %   + 1.9 pt
+    #     4.00        8.1        3.1 %     3.3 %    3.0 %   + 0.3 pt
+    #
+    # Far out, the exponential fall dominates and a shift in t_min is a small
+    # relative displacement, so the cut takes the same fraction everywhere --
+    # which is why phi, whose |t| > 1.0 sits at 34 x t_min, shows only 3.6
+    # points despite a 214-fold spread in t_min.  Right AT t_min it dies for
+    # the opposite reason: the cut keeps essentially everything in every cell
+    # (100.0 % against 92.1 %) and there is nothing for t_min to move across.
+    #
+    # J/psi's cut sits at 2.0 x t_min, within noise of the maximum, so this
+    # channel is the WORST case for the effect rather than a typical one.
+    # Moving the lowest bin edge out to 2-3 GeV^2 would reduce the spread from
+    # 18 to 2-6 points at the cost of 60-75 % of the sample; stated as a trade,
+    # not a recommendation.  Both |t| and t' are plotted; which a binning
+    # should use has to be measured per channel at the cut it actually uses.
+    # Swept by the analysis session, 2026-10-23.
     mV = m["meson"]
-    W = np.sqrt(np.maximum(out["W2"], 1e-9))
-    Eg = (out["W2"] - out["Q2"] - MB ** 2) / (2 * W)
-    pg = np.sqrt(np.maximum(Eg ** 2 + out["Q2"], 0))
-    EV = (out["W2"] + mV ** 2 - MB ** 2) / (2 * W)
-    pV_cm = np.sqrt(np.maximum(EV ** 2 - mV ** 2, 0))
-    t0 = -out["Q2"] + mV ** 2 - 2 * (Eg * EV - pg * pV_cm)
+
+    # t_min DOES NOT EXIST BELOW THRESHOLD, and the honest value is NaN.
+    #
+    # This line used to read  W = np.sqrt(np.maximum(out["W2"], 1e-9)),  and
+    # the floor was there to stop a NaN.  Stopping it was the mistake.  A
+    # RECONSTRUCTED W2 can come out negative -- 10 of 14393 on the Born
+    # inbending set -- and the floor then gives W = 3.2e-5 and t_min = 1.8e11,
+    # a number eleven orders of magnitude wrong instead of no number at all.
+    # That is strictly worse than a NaN: np.histogram DROPS a NaN and the axis
+    # is then set by the real entries, while 1.8e11 silently sets the axis for
+    # the whole panel.  It is why -t' ran negative and the W axis started at
+    # 2.5 on the reconstructed pages -- not a plotting choice, a derived
+    # quantity computed where it is not defined.  Found by the analysis
+    # session, 2026-10-23, chasing an artefact spike that t' had hidden.
+    #
+    # Measured on born inbending 45 nA: 274 of 14393 events (1.90 %) sit below
+    # (M_B + m_V)^2 in reconstructed W2, and FIVE of them carried the axis.
+    #
+    # Mariana's data has the same disease from an independent code: her handoff
+    # warns that t_prime reaches -3.6e8 because t_min goes as 1/E_gamma^2 and
+    # the reconstructed E_photon passes through zero.  Two codes, one undefined
+    # quantity computed anyway.  Check it in any t' this group produces.
+    thr = (MB + mV) ** 2
+    below = out["W2"] < thr
+    out["n_below_threshold"] = int(below.sum())
+    with np.errstate(invalid="ignore", divide="ignore"):
+        W = np.where(out["W2"] > 0, np.sqrt(np.abs(out["W2"])), np.nan)
+        Eg = (out["W2"] - out["Q2"] - MB ** 2) / (2 * W)
+        pg = np.sqrt(np.maximum(Eg ** 2 + out["Q2"], 0))
+        EV = (out["W2"] + mV ** 2 - MB ** 2) / (2 * W)
+        pV_cm = np.sqrt(np.maximum(EV ** 2 - mV ** 2, 0))
+        t0 = -out["Q2"] + mV ** 2 - 2 * (Eg * EV - pg * pV_cm)
+    t0 = np.where(below, np.nan, t0)
     out["t_min"] = t0
     out["tprime"] = np.abs(t0) - out["mt"]      # >= 0 inside the physical region
     out["mtprime"] = out["mt"] - np.abs(t0)     # = -t' , the usual plotting variable
