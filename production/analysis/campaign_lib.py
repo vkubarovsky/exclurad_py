@@ -298,9 +298,28 @@ def load(pattern, channel, ebeam=10.6, rec=False, require=(0, 1, 2, 3),
             out[name + "_vz"] = a[:, lay["vz_rec0"] + k]
 
     # --- t', the distance from the physical forward edge --------------------
-    # |t_min| runs over three orders of magnitude across a wide box, so |t|
-    # and t' are not the same picture at all: a fixed cut in |t| removes a
-    # different slice of t' in every (W2, Q2) cell.  Both are plotted.
+    # |t| and t' are not the same picture, but NOT for the reason this comment
+    # used to give.  It said "|t_min| runs over three orders of magnitude
+    # across a wide box", which is true of phi (measured 213.6 here) and false
+    # of J/psi (4.0), whose W2 box is narrow -- 16.29 to 20.80, with |t_min|
+    # from 0.4700 to 1.8816 and the 1st to 75th percentile inside 0.470-0.526.
+    # Writing one channel's number into shared code as if it were universal is
+    # the same mistake as quoting one channel's CARD for another, and it was
+    # made here by the same author on the same day.
+    #
+    # What actually drives the W dependence of a fixed |t| cut is how close the
+    # cut sits to t_min, not how much t_min varies.  Measured on the generated
+    # samples, a cut |t| > 1.0 GeV^2:
+    #
+    #            median |t_min|   cut/t_min   kept, low W2 decile -> high
+    #   J/psi        0.491            2.0          76.1 % -> 58.1 %   18 points
+    #   phi          0.029           34.5          31.2 % -> 27.6 %    3.6
+    #
+    # So the channel with the 214-fold spread in t_min has the WEAKER W
+    # dependence, because its cut is far out on the tail, while J/psi's cut
+    # sits at twice t_min and bites.  Both |t| and t' are plotted; which one a
+    # binning should use depends on where the cut is, and that has to be
+    # measured per channel rather than inferred from the spread.
     mV = m["meson"]
 
     # t_min DOES NOT EXIST BELOW THRESHOLD, and the honest value is NaN.
