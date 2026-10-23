@@ -202,15 +202,31 @@ def page(pdf, sets, title, subtitle, require=None):
         if logy:
             ax.set_yscale("log")
             _clip_log(ax)
-    for ax in axes.ravel()[len(pl):]:
-        ax.axis("off")
     axes.ravel()[0].legend(loc="upper right")
     for ax in axes.ravel()[len(pl):]:
         ax.set_visible(False)
-    fig.suptitle(title, y=0.997, fontsize=12.5, fontweight="semibold")
-    for i, line in enumerate(subtitle.split("\n")):
-        fig.text(0.5, 0.9755 - 0.0105 * i, line, ha="center", fontsize=8.0, color="#555555")
-    fig.tight_layout(rect=(0, 0, 1, 0.958))
+    # THE HEADER IS MEASURED IN INCHES, NOT IN FIGURE FRACTIONS.
+    #
+    # These were y=0.997, 0.9755 - 0.0105*i and rect top 0.958 -- fractions
+    # calibrated by eye against the one figure height this function used to
+    # have, 12.4 in.  Dropping the proton panels made the height depend on the
+    # panel count (3.1 in per row), and on a 9-row-less page of 9.3 in the same
+    # fractions are 25 % fewer inches: the subtitle line spacing fell from
+    # 0.130 to 0.098 in against a line height of about 0.11, so two subtitle
+    # lines printed on top of each other and the first ran into the title.
+    # Found by the analysis session on the merged tip, 2026-10-23, in an
+    # end-to-end render -- neither branch shows it alone.
+    #
+    # The constants below are the old fractions times 12.4, so a 12.4 in page
+    # is laid out exactly as before and every other height now matches it
+    # physically instead of proportionally.
+    H = fig.get_figheight()
+    lines = subtitle.split("\n")
+    fig.suptitle(title, y=1.0 - 0.037 / H, fontsize=12.5, fontweight="semibold")
+    for i, line in enumerate(lines):
+        fig.text(0.5, 1.0 - (0.304 + 0.130 * i) / H, line,
+                 ha="center", fontsize=8.0, color="#555555")
+    fig.tight_layout(rect=(0, 0, 1, 1.0 - (0.391 + 0.130 * len(lines)) / H))
     pdf.savefig(fig)
     plt.close(fig)
 
