@@ -35,12 +35,43 @@ def _card(path):
     the plotting code is a plot book that will one day describe a different
     run than the one it shows, and nothing will say so.
     """
-    vals = []
+    vals, labelled = [], {}
     for line in open(path):
-        line = line.split("!")[0].strip()
-        if line:
-            vals.append(line)
-    return vals
+        body, _, comment = line.partition("!")
+        body = body.strip()
+        if not body:
+            continue
+        vals.append(body)
+        # KEYED BY THE CARD'S OWN LABEL, not by position.  The positional list
+        # is kept because the channel and the beam energy are the first two
+        # fields by definition, but the BOX used to index CARD[4..7] and
+        # CARD[18], which is right only for today's field order: insert or
+        # reorder one field above those and the header silently relabels
+        # itself, describing a box the campaign never ran.  That is exactly
+        # what this function's docstring promises not to do.  Found by the
+        # analysis session, 2026-10-23.
+        key = comment.strip().split()[0].rstrip(":=") if comment.strip() else ""
+        if key and key not in labelled:
+            labelled[key] = body
+    return _Card(vals, labelled)
+
+
+class _Card(list):
+    """The card's fields, indexable by position AND by the card's own label."""
+
+    def __init__(self, vals, labelled):
+        super().__init__(vals)
+        self._by_label = labelled
+
+    def field(self, label, default=None):
+        """The value whose comment starts with `label`, e.g. 'W2' or 'vertex'."""
+        if label in self._by_label:
+            return self._by_label[label]
+        if default is not None:
+            return default
+        raise KeyError(
+            "no field labelled %r in the card; it has %s"
+            % (label, ", ".join(sorted(self._by_label))))
 
 
 CARD = _card(os.path.join(ROOT_DIR, "cards", "rga_rad.txt"))
@@ -70,8 +101,9 @@ def _discover(root):
     return [(pol, bg, lab(pol, bg))
             for pol, bg in sorted(seen, key=lambda k: (order.get(k[0], 9), k[1] == "none", k[1]))]
 BOX = ("RG-A Fall 2018  |  gemc 5.13 + coatjava 10.0.7  |  "
-       f"E = {CARD[1]} GeV  |  $W^2$ {CARD[4]},  $Q^2$ {CARD[5]},  "
-       f"$t$ {CARD[6]} GeV$^2$,  vcut {CARD[7]}")
+       f"E = {CARD.field('ebeam')} GeV  |  $W^2$ {CARD.field('W2')},  "
+       f"$Q^2$ {CARD.field('Q2')},  $t$ {CARD.field('t')} GeV$^2$,  "
+       f"vcut {CARD.field('vcut')}")
 
 # THE NORMALISATION COMES FROM THE CHUNKS THAT ARE ACTUALLY HERE.
 # NGEN was 200 * 5000, a remembered number, and sigma averaged every sidecar
@@ -167,7 +199,7 @@ with PdfPages(OUT) as pdf:
     # ---- generator level --------------------------------------------------
     g = sets_for(S3POL, S3BG, rec=False, require=())
     log.append(f"generated: rad {g['rad']['d']['n_kept']}, born {g['born']['d']['n_kept']}")
-    cp.page(pdf, g, "Generator level - the full million", BOX)
+    cp.page(pdf, g, "Generator level - the full million", BOX, require=())
 
     # The vertex, every time.  Six panels: where the event was generated,
     # where the electron was reconstructed in each polarity against the
@@ -176,7 +208,7 @@ with PdfPages(OUT) as pdf:
     # momenta only until 2026-10-22, which is why a Born arm sat at a point
     # for a day unseen.
     try:
-        _vz_card = [float(x) for x in CARD[18].split()[:2]] if len(CARD) > 18 else None
+        _vz_card = [float(x) for x in CARD.field("vertex", "").split()[:2]] or None
     except Exception:                                              # noqa: BLE001
         _vz_card = None
     cp.page_vertex(pdf, ROOT_DIR, PRESENT, CH,
@@ -204,13 +236,17 @@ with PdfPages(OUT) as pdf:
         log.append(f"rec {FS_FULL_TXT} {lab}: rad {n['rad']}, born {n['born']}"
                    + (f"   [rad dropped on the momentum match: "
                       + ", ".join(f"{k} {v}" for k, v in zr.items() if v) + "]" if any(zr.values()) else ""))
+        # NOT "of 1 000 000".  The generated total is NGEN, derived from the
+        # chunks present; it was a literal here as well as in NGEN itself and
+        # would have printed half the true percentage on the second million.
         cp.page(pdf, s, f"Reconstructed   {FS_FULL}   -   {lab}",
                 f"matched, carrying momentum, and agreeing with the generated momentum "
                 f"to {int(100 * cl.DP_MAX['charged'])} % (charged) / "
                 f"{int(100 * cl.DP_MAX['photon'])} % (photons)   |   "
-                f"rad {n['rad']} of 1 000 000"
-                f" ({100 * n['rad'] / 1e6:.3f} %),  Born {n['born']}"
-                f" ({100 * n['born'] / 1e6:.3f} %)")
+                f"rad {n['rad']} of {NGEN['rad']}"
+                f" ({100.0 * n['rad'] / NGEN['rad']:.3f} %),  Born {n['born']}"
+                f" ({100.0 * n['born'] / NGEN['born']:.3f} %)",
+                require=cl.TOPOLOGY["full"])
         if bg == "none":
             cp.page_ratio(pdf, s, f"Reconstructed - radiative / Born - {lab}",
                           "acceptance divides out of this ratio; what is left is radiation")
@@ -223,7 +259,8 @@ with PdfPages(OUT) as pdf:
                f"born {s3['born']['d']['n_kept']}")
     cp.page(pdf, s3, f"Reconstructed   {FS_NOBAR}   (recoil baryon not required)   -   " + S3LAB,
             f"the recoil {_N} is dropped: no t measurement, and for J/psi roughly four "
-            "times the data statistics")
+            "times the data statistics",
+            require=cl.TOPOLOGY["no_baryon"])
 
     # ---- data -------------------------------------------------------------
     # One page per (topology, period).  The exclusive topology is the four-track
@@ -263,9 +300,10 @@ with PdfPages(OUT) as pdf:
     rows = ["%-34s %12s %12s %10s" % ("configuration", "radiative", "Born", "rad/Born"), ""]
     for lab, nr, nb in yields:
         rows.append("%-34s %12d %12d %10.4f" % (lab, nr, nb, nr / nb if nb else float("nan")))
-    rows += ["", "%-34s %12s %12s" % ("", "of 1 000 000 generated", "")]
+    rows += ["", "%-34s %12s %12s" % ("", "of %d generated" % NGEN["rad"], "")]
     for lab, nr, nb in yields:
-        rows.append("%-34s %11.3f %% %11.3f %%" % (lab, 100 * nr / 1e6, 100 * nb / 1e6))
+        rows.append("%-34s %11.3f %% %11.3f %%"
+                    % (lab, 100.0 * nr / NGEN["rad"], 100.0 * nb / NGEN["born"]))
     fig.text(0.07, 0.80, "\n".join(rows), fontsize=10, va="top", family="monospace",
              linespacing=1.6)
     fig.text(0.07, 0.22, "\n".join(log), fontsize=8, va="top", family="monospace",

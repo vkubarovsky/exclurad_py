@@ -143,11 +143,48 @@ def _panels_for(sets, channel):
     return out
 
 
-def page(pdf, sets, title, subtitle):
-    """One page: every panel, both samples, femtobarns per bin."""
+# Panels that only mean something when the recoil baryon was REQUIRED to
+# match.  On a no-baryon page the proton slot was never matched, so
+# MC::GenMatch is free to attach a REC row with pid 0, 22 or 2112 and momentum
+# exactly zero -- which, read as a four-vector, gives |p| = 0 and theta = 90
+# deg exactly.  Measured on born inbending 45 nA, no_baryon, N = 18875: 3177
+# events, 16.83 %, sit in that spike in prot_p, prot_theta AND mt, because t
+# is built from the proton.  t' is worse rather than better: t' = t - t_min
+# moves the spike off zero, so it lands among the real entries and stops
+# looking like an artefact at all (0 events exactly at zero).
+#
+# The data page already guarded against this and the MC pages did not.  These
+# panels are not thin on a no-baryon page, they are undefined, so they are
+# dropped and the page says so instead of drawing them.  Found by the analysis
+# session, 2026-10-23.
+_NEEDS_BARYON = ("prot", "mt", "mtprime")
+
+
+def _drop_baryon_panels(pl):
+    return [q for q in pl if not (q[0].startswith("prot") or q[0] in ("mt", "mtprime"))]
+
+
+def page(pdf, sets, title, subtitle, require=None):
+    """One page: every panel, both samples, femtobarns per bin.
+
+    `require` is the topology tuple the sample was loaded with.  When slot 1
+    (the recoil baryon) is not in it, the proton and t panels are dropped --
+    see _NEEDS_BARYON above.  Passing None keeps every panel, which is correct
+    only for a sample where the baryon was required.
+    """
     channel = next(iter(sets.values()))["d"]["channel"]
-    fig, axes = plt.subplots(4, 3, figsize=(11.0, 12.4))
     pl = _panels_for(sets, channel)
+    dropped = []
+    if require is not None and 1 not in tuple(require):
+        before = [q[0] for q in pl]
+        pl = _drop_baryon_panels(pl)
+        dropped = [k for k in before if k not in [q[0] for q in pl]]
+        if dropped:
+            subtitle = subtitle + ("\n" if "\n" not in subtitle else "  ") + \
+                ("the recoil baryon was not required, so the proton slot is unmatched: "
+                 + ", ".join(dropped) + " are undefined here and are not drawn")
+    nrow = max(1, -(-len(pl) // 3))
+    fig, axes = plt.subplots(nrow, 3, figsize=(11.0, 3.1 * nrow), squeeze=False)
     if not cl.CHANNELS[channel]["ordered"]:
         subtitle = subtitle + ("\n" if "\n" not in subtitle else "  ") + \
             "the two decay photons are in MC::Lund order, not sorted by energy "\
@@ -165,6 +202,8 @@ def page(pdf, sets, title, subtitle):
         if logy:
             ax.set_yscale("log")
             _clip_log(ax)
+    for ax in axes.ravel()[len(pl):]:
+        ax.axis("off")
     axes.ravel()[0].legend(loc="upper right")
     for ax in axes.ravel()[len(pl):]:
         ax.set_visible(False)
