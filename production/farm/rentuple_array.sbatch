@@ -30,20 +30,20 @@
 # minutes loads the scheduler out of proportion to the work, because the fixed
 # per-job cost is then most of the job.  They are right.  Array task I now
 # processes lines (I-1)*STRIDE+1 .. I*STRIDE of the list serially, so the same
-# 5199 files go as about a hundred jobs of ten to fifteen minutes.
+# 5199 files go as 52 jobs of fifteen to twenty minutes.
 #
 #   usage:  PROD_DIR=<campaign root> bash rentuple_array.sbatch --list
 #           (prints the list and the --array range to use)
 #
 #           PROD_DIR=<campaign root> sbatch --array=1-NJOB rentuple_array.sbatch
 #
-#           STRIDE=<n>   files per job, default 50
+#           STRIDE=<n>   files per job, default 100
 #
 set -u
 R=${PROD_DIR:?set PROD_DIR to the campaign root}
 EX=${EXRU:-/home/vpk/exclurad_py}
 LIST=$R/rentuple.list
-STRIDE=${STRIDE:-50}                      # files per array task; see the header
+STRIDE=${STRIDE:-100}                     # files per array task; see the header
 
 # ---------------------------------------------------------------- the list
 # One line per DST: <dst path> <mode> <pol>.  Modes are taken from the
