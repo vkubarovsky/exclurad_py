@@ -42,6 +42,8 @@
 set -u
 R=${PROD_DIR:?set PROD_DIR to the campaign root}
 EX=${EXRU:-/home/vpk/exclurad_py}
+EX_PY=${EXRU_PY:-/work/clas12/vpk/venv-prod-numba}/bin/python
+[ -x "$EX_PY" ] || EX_PY=python3
 LIST=$R/rentuple.list
 STRIDE=${STRIDE:-100}                     # files per array task; see the header
 
@@ -140,13 +142,22 @@ do_one() {
     jpsi|phi|rho) TRY="80 73" ;;
     *)            TRY="55 50" ;;
   esac
+  # A HEADERED FILE IS ASKED, NOT MEASURED.  Since 2026-10-23 an .f32 may carry
+  # a 64-byte header stating its record length; f32_format reads it and the size
+  # arithmetic is the fallback for legacy files only.  Guessing is how an old pi0
+  # file of 5000 x 50 came out as 3125 x 80 and 800 rebuilds were refused.
   OLDSZ=$(stat -c %s "$OUT" 2>/dev/null || echo 0)
-  OLDN=0
+  OLDN=0; OLDF=""
   if [ "$OLDSZ" -gt 0 ]; then
-    for f in $TRY; do
-      if [ $((OLDSZ % (f*4))) -eq 0 ]; then OLDN=$((OLDSZ / (f*4))); OLDF=$f; break; fi
-    done
-    echo "existing f32: $OLDSZ bytes = $OLDN records x ${OLDF:-?} fields (tried $TRY)"
+    read -r OLDF OLDN < <("$EX_PY" "$EX/production/analysis/f32_format.py" --fields "$OUT" 2>/dev/null) || { OLDF=""; OLDN=0; }
+    if [ -z "${OLDF:-}" ]; then
+      for f in $TRY; do
+        if [ $((OLDSZ % (f*4))) -eq 0 ]; then OLDN=$((OLDSZ / (f*4))); OLDF=$f; break; fi
+      done
+      echo "existing f32: $OLDSZ bytes = $OLDN records x ${OLDF:-?} fields (legacy, tried $TRY)"
+    else
+      echo "existing f32: $OLDSZ bytes, header says $OLDN records x $OLDF fields"
+    fi
   fi
 
   # UNIQUE PER RUNNER, not just per task index.  Driven by hand on two
@@ -169,9 +180,14 @@ do_one() {
   NEWSZ=$(stat -c %s $W/new.f32 2>/dev/null || echo 0)
   if [ "$NEWSZ" -eq 0 ]; then
     echo "FATAL: the reader wrote nothing -- keeping $OUT as it was"; return 1; fi
-  if [ $((NEWSZ % (NFLD*4))) -ne 0 ]; then
-    echo "FATAL: $NEWSZ bytes is not a whole number of $NFLD-field records"; return 1; fi
-  NEWN=$((NEWSZ / (NFLD*4)))
+  # The reader now writes a header, so the record bytes are the file minus it,
+  # and f32_format validates the count rather than this arithmetic doing it.
+  NEWN=$("$EX_PY" "$EX/production/analysis/f32_format.py" --records $W/new.f32 2>/dev/null || echo "")
+  if [ -z "$NEWN" ]; then
+    if [ $((NEWSZ % (NFLD*4))) -ne 0 ]; then
+      echo "FATAL: $NEWSZ bytes is not a whole number of $NFLD-field records"; return 1; fi
+    NEWN=$((NEWSZ / (NFLD*4)))
+  fi
   if [ "$OLDN" -gt 0 ] && [ "$NEWN" -ne "$OLDN" ]; then
     echo "FATAL: rebuilt $NEWN records against the old file's $OLDN."
     echo "       Same DST, same reader logic -- a different count means the"

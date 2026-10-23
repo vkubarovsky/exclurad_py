@@ -24,6 +24,8 @@ import os
 
 import numpy as np
 
+import f32_format
+
 # Two record layouts, because two groovy scripts write them.  The vector one
 # (vm_to_ntuple.groovy) carries six slots and 73 floats; the pseudoscalar one
 # (hipo_to_ntuple.groovy) carries four and 50.  Reading one with the other's
@@ -238,21 +240,49 @@ def load(pattern, channel, ebeam=10.6, rec=False, require=(0, 1, 2, 3),
     # per file rather than per campaign means a half-reprocessed directory
     # still reads, and mixing the two is refused rather than silently
     # reinterpreted.
+    # A FILE THAT STATES ITS RECORD LENGTH IS NOT GUESSED AT.  Since
+    # 2026-10-23 the writers put a 64-byte header in front of the records that
+    # names the length, the channel and the commit; f32_format.read() returns
+    # it, or None for a legacy bare stream, and only the legacy ones fall
+    # through to the inference below.  See f32_format for why: 1600 superseded
+    # files were read as current ones and nothing in the bytes could object.
     sizes = set()
     raw = []
+    headered = 0
     for f in files:
-        a = np.fromfile(f, dtype="<f4")
-        if a.size % lay["nf_vz"] == 0 and a.size % lay["nf"] != 0:
-            nf = lay["nf_vz"]
-        elif a.size % lay["nf"] == 0 and a.size % lay["nf_vz"] != 0:
-            nf = lay["nf"]
-        elif a.size % lay["nf_vz"] == 0:
-            nf = lay["nf_vz"]          # divides by both: the longer wins
+        hd = f32_format.read(f)
+        if hd is not None:
+            if hd["channel"] and hd["channel"] != channel:
+                raise RuntimeError(
+                    f"{f}: its header says channel {hd['channel']!r} and you asked "
+                    f"for {channel!r}.  Reading one channel's ntuple as another is "
+                    f"exactly what the header exists to stop.")
+            if hd["nfields"] not in (lay["nf"], lay["nf_vz"]):
+                raise RuntimeError(
+                    f"{f}: its header says {hd['nfields']} fields, which is not a "
+                    f"{channel} record ({lay['nf']} or {lay['nf_vz']})")
+            a = np.fromfile(f, dtype="<f4", offset=hd["header_bytes"])
+            nf = hd["nfields"]
+            headered += 1
         else:
-            raise RuntimeError(f"{f}: {a.size} floats divides neither {lay['nf']} "
-                               f"nor {lay['nf_vz']} -- wrong layout for {channel}?")
+            a = np.fromfile(f, dtype="<f4")
+            if a.size % lay["nf_vz"] == 0 and a.size % lay["nf"] != 0:
+                nf = lay["nf_vz"]
+            elif a.size % lay["nf"] == 0 and a.size % lay["nf_vz"] != 0:
+                nf = lay["nf"]
+            elif a.size % lay["nf_vz"] == 0:
+                nf = lay["nf_vz"]      # divides by both: the longer wins
+            else:
+                raise RuntimeError(f"{f}: {a.size} floats divides neither {lay['nf']} "
+                                   f"nor {lay['nf_vz']} -- wrong layout for {channel}?")
         sizes.add(nf)
         raw.append(a.reshape(-1, nf))
+    if headered and headered != len(files):
+        # Said, not refused.  A campaign simulated across the change
+        # legitimately holds both kinds, and the lengths still have to agree,
+        # which the check below enforces either way.
+        print("  %d of %d files carry a header; the other %d are legacy and were "
+              "sized by inference" % (headered, len(files), len(files) - headered))
     if len(sizes) > 1:
         raise RuntimeError(f"{pattern}: records of {sorted(sizes)} floats in one "
                            f"set -- reprocess them all or read them separately")
