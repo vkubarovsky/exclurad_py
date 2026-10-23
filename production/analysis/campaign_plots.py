@@ -480,14 +480,15 @@ def page_ratio(pdf, sets, title, subtitle):
 
 
 # ---------------------------------------------------------------- Mariana ---
-def load_mariana(d, topology, period, ebeam=10.6):
+def load_mariana(d, topology, period, ebeam=10.6, fiducial=(8.0, 15.75)):
     """Mariana Tenorio's CLAS12 J/psi ntuples, with her event selection.
 
     Three traps, all of them measured and all of them silent:
       - angles here are in RADIANS, unlike the upstream toroot_v2 ntuple;
       - the FT fiducial is NOT the branch called radius_FT (that is a cluster
-        shape, 0..3.8); it is sqrt(x_FT^2 + y_FT^2) <= 16.065 cm.  A cut on
-        radius_FT > 8 returns zero events and reads as an empty sample;
+        shape, 0..3.8); it is sqrt(x_FT^2 + y_FT^2), and the thesis cuts
+        8 < r < 15.75 cm.  A cut on radius_FT > 8 returns zero events and
+        reads as an empty sample;
       - t_prime reaches -3.6e8 because t_min ~ 1/E_photon^2 and E_photon
         passes through zero, so E_photon >= 8.1 has to come FIRST.
     These files carry no run_number and beamCharge is a cumulative scaler, so
@@ -505,13 +506,50 @@ def load_mariana(d, topology, period, ebeam=10.6):
     v = {k: np.asarray(a, dtype=float) for k, a in df.AsNumpy(br).items()}
     n = len(v["E_photon"])
     r = np.hypot(v["x_FT"], v["y_FT"])
-    sel = (v["E_photon"] >= 8.1) & (np.abs(v["time_ee"]) <= 2.5) & (r <= 16.065)
+    # THE FT FIDUCIAL, with where each number comes from.
+    #
+    # The thesis (p. 73) uses 8 < r < 15.75 cm: the nominal 7.25 .. 16.5
+    # trimmed by half a crystal width at each edge.  This code had r <= 16.065
+    # with NO lower bound, and I do not know the provenance of 16.065 -- it is
+    # not the thesis number and nothing here records where it came from.  The
+    # thesis values are therefore the default, because the point of this
+    # loader is to reproduce HER selection; `fiducial` overrides it for anyone
+    # who wants the older behaviour and wants to say so.
+    #
+    # The two differ by 5.4 % of the baseline sample, measured on ee+e-p
+    # F18in: 6452 events under r <= 16.065, 6102 under 8 < r < 15.75.
+    rlo, rhi = fiducial
+    sel = (v["E_photon"] >= 8.1) & (np.abs(v["time_ee"]) <= 2.5) & (r > rlo) & (r < rhi)
     out = dict(n_read=n, n_kept=int(sel.sum()), path=path)
     out["nu"] = v["E_photon"][sel]
     out["Q2"] = v["Q2"][sel]
     out["W"] = v["W"][sel]
     out["m_pair"] = v["invariantMass"][sel]
-    out["mt"] = -v["t_prime"][sel]
+    # HER t_prime IS OUR mtprime, AND IT IS POSITIVE.
+    #
+    # This line was  out["mt"] = -v["t_prime"]  and "mt" is the panel labelled
+    # -t, which campaign_lib fills with |t| > 0.  Her t_prime is already
+    # |t| - |t_min| >= 0 by the thesis definition (Eq. 43, t' = -(t - t_min)
+    # with t and t_min both negative and |t| > |t_min|), so negating it put a
+    # negative number on an axis the MC fills with a positive one.  Measured
+    # on ee+e-p F18in against born inbending 45 nA: data median -1.765 over
+    # -7.43 .. +0.83 against MC +1.435 over +0.51 .. +5.12.  The two never
+    # overlapped, so that panel has never compared anything.  Two faults at
+    # once: the sign, and the variable.  Found by the analysis session,
+    # 2026-10-23.
+    #
+    # |t| CANNOT BE FORMED FROM THESE FILES.  They carry t_prime and no t_min,
+    # so there is no |t| to put on an -t axis; the comparable quantity is t'
+    # on both sides.  page_data therefore plots mtprime when data is present.
+    #
+    # AND THE TWO t' ARE NOT BUILT WITH THE SAME t_min.  Hers comes from her
+    # code, ours from campaign_lib, and the thesis Eq. 44 prints a t_min that
+    # is dimensionless rather than a GeV^2 -- so a disagreement on this panel
+    # may be a convention and not physics.  Measured in 2.9 < M < 3.3: data t'
+    # median +1.202 over 55 events, MC +0.671 over 1170, a factor 1.8, with
+    # our |t_min| median 0.679 at the same kinematics.  Do not read that as a
+    # physics result until both sides use one t_min.
+    out["mtprime"] = v["t_prime"][sel]
     for a, b in (("escat", "scattered"), ("prot", "proton"),
                  ("hplus", "positron"), ("hminus", "electron")):
         out[a + "_theta"] = np.degrees(v[b + "_theta"][sel])
@@ -534,10 +572,28 @@ def page_data(pdf, sets, data_all, data_sig, title, subtitle):
             ("escat_theta", r"$\theta_{e'}$  [deg]", (2.0, 5.0), 18),
             ("prot_theta", r"$\theta_{p'}$  [deg]", (0.0, 50.0), 20),
             ("hplus_theta", r"$\theta_{e^+}$  [deg]", (0.0, 40.0), 20),
-            ("hplus_p", r"$|p_{e^+}|$  [GeV]", (0.0, 9.0), 20)]
+            ("hplus_p", r"$|p_{e^+}|$  [GeV]", (0.0, 9.0), 20),
+            ("mtprime", r"$|t| - |t_{min}|$  [GeV$^2$]", (0.0, 4.0), 20)]
     has_proton = data_sig["prot_theta"].size > 0 and np.isfinite(data_sig["prot_theta"]).any()
     if not has_proton:
         keys = [k for k in keys if not k[0].startswith("prot")]
+    # t WAS NOT ON THIS PAGE AT ALL until 2026-10-23, which is a worse gap
+    # than the loader bug that led me here: t is the variable the analysis
+    # bins in, and the only data-against-MC comparison in the book did not
+    # contain it.  It is plotted as |t| - |t_min| and labelled so, rather than
+    # as t' -- her thesis calls that quantity t' and campaign_lib calls it
+    # -t', the same number under two names, and writing either would have one
+    # reader in two reading a sign that is not there.
+    #
+    # THE TWO SIDES DO NOT SHARE A t_min.  Hers is computed by her code and
+    # ours by campaign_lib, and the thesis Eq. 44 prints a t_min that is
+    # dimensionless rather than GeV^2.  Measured in 2.9 < M < 3.3 on ee+e-p
+    # F18in: data median 1.202 over 55 events against MC 0.671 over 1170, a
+    # factor 1.8, with our |t_min| median 0.679 there.  Until both sides use
+    # one t_min that difference cannot be called physics.
+    if "mtprime" not in data_sig or not np.isfinite(np.asarray(
+            data_sig.get("mtprime", np.array([]))), ).any():
+        keys = [k for k in keys if k[0] != "mtprime"]
 
     fig, axes = plt.subplots(3, 3, figsize=(11.0, 9.8))
     ax = axes.ravel()[0]
