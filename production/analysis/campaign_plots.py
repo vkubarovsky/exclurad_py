@@ -20,6 +20,9 @@ import os
 import sys
 
 import numpy as np
+
+MP = 0.9382720813      # proton mass, GeV
+MV = 3.0969            # J/psi mass, GeV
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -549,7 +552,40 @@ def load_mariana(d, topology, period, ebeam=10.6, fiducial=(8.0, 15.75)):
     # median +1.202 over 55 events, MC +0.671 over 1170, a factor 1.8, with
     # our |t_min| median 0.679 at the same kinematics.  Do not read that as a
     # physics result until both sides use one t_min.
-    out["mtprime"] = v["t_prime"][sel]
+    # |t| IS RECOVERABLE FROM HER OWN PROTON, AND NEEDS NO t_min.
+    # For t taken at the target vertex, t = (p - p')^2 = 2 m_p^2 - 2 m_p E_p',
+    # so |t| = 2 m_p (sqrt(p_p^2 + m_p^2) - m_p) -- the recoil momentum and
+    # nothing else.  That is the quantity to compare, because it removes both
+    # t_min conventions from the comparison instead of reconciling them.
+    #
+    # DO NOT USE HER PUBLISHED t_prime.  On the baseline it EXCEEDS the |t|
+    # rebuilt from her own proton -- medians 1.762 against 1.028 -- which
+    # requires a negative |t_min| and so cannot be |t| - |t_min| there at all.
+    # In the J/psi window it is 1.202 against |t| 1.220, implying |t_min|
+    # = 0.018 where ours at her own nu and Q2 is 0.559.  Measured against our
+    # Born MC in 2.9 < M < 3.3, data/MC is
+    #     1.79  with her t_prime as published
+    #     1.02  with t' built from OUR t_min on both sides
+    #     0.87  with |t|, no t_min anywhere
+    # so the factor was a convention and not physics, and it vanishes the
+    # moment one definition is used.  Found by the analysis session and
+    # reproduced here, 2026-10-23.
+    #
+    # mtprime is still provided, from OUR t_min on her kinematics, for anyone
+    # who wants t'; it is not what the data page plots.
+    pp = v["proton_p"][sel]
+    out["mt"] = 2 * MP * (np.sqrt(pp ** 2 + MP ** 2) - MP)
+    out["t_prime_published"] = v["t_prime"][sel]
+    _nu, _Q2 = out["nu"], out["Q2"]
+    _W2 = MP ** 2 + 2 * MP * _nu - _Q2
+    with np.errstate(invalid="ignore", divide="ignore"):
+        _W = np.where(_W2 > 0, np.sqrt(np.abs(_W2)), np.nan)
+        _Eg = (_W2 - _Q2 - MP ** 2) / (2 * _W)
+        _pg = np.sqrt(np.maximum(_Eg ** 2 + _Q2, 0))
+        _EV = (_W2 + MV ** 2 - MP ** 2) / (2 * _W)
+        _pV = np.sqrt(np.maximum(_EV ** 2 - MV ** 2, 0))
+        _t0 = np.abs(-_Q2 + MV ** 2 - 2 * (_Eg * _EV - _pg * _pV))
+    out["mtprime"] = out["mt"] - _t0
     for a, b in (("escat", "scattered"), ("prot", "proton"),
                  ("hplus", "positron"), ("hminus", "electron")):
         out[a + "_theta"] = np.degrees(v[b + "_theta"][sel])
@@ -573,10 +609,25 @@ def page_data(pdf, sets, data_all, data_sig, title, subtitle):
             ("prot_theta", r"$\theta_{p'}$  [deg]", (0.0, 50.0), 20),
             ("hplus_theta", r"$\theta_{e^+}$  [deg]", (0.0, 40.0), 20),
             ("hplus_p", r"$|p_{e^+}|$  [GeV]", (0.0, 9.0), 20),
-            ("mtprime", r"$|t| - |t_{min}|$  [GeV$^2$]", (0.0, 4.0), 20)]
-    has_proton = data_sig["prot_theta"].size > 0 and np.isfinite(data_sig["prot_theta"]).any()
+            ("mt", r"$-t$  [GeV$^2$]  (from the recoil proton)", (0.0, 4.0), 20)]
+    # HAS A PROTON MEANS MOST EVENTS HAVE ONE, not that the array is finite.
+    # This test was `size > 0 and isfinite(...).any()`, and a zero is finite:
+    # on the ee+e- data, 21385 of 27701 entries -- 77.2 % -- are exactly 0
+    # because those events have no detected proton, and the panel was drawn
+    # with a spike at zero made of absences.  That is the same artefact as the
+    # unmatched-proton slot on the MC no-baryon page, fixed this morning, and
+    # the data page had it too.  The proton and t panels are defined only
+    # where there is a proton, so they are dropped unless most events have
+    # one, and the fraction is said rather than left to be noticed.
+    _pt = np.asarray(data_sig.get("prot_theta", np.array([])), dtype=float)
+    _have = float(np.count_nonzero(np.isfinite(_pt) & (_pt != 0.0))) / max(_pt.size, 1)
+    has_proton = _pt.size > 0 and _have > 0.5
     if not has_proton:
         keys = [k for k in keys if not k[0].startswith("prot")]
+        if _pt.size and _have > 0:
+            subtitle = subtitle + ("\n" if "\n" not in subtitle else "  ") + \
+                ("a recoil proton is reconstructed in only %.0f %% of these events, "
+                 "so the proton and t panels are not drawn" % (100.0 * _have))
     # t WAS NOT ON THIS PAGE AT ALL until 2026-10-23, which is a worse gap
     # than the loader bug that led me here: t is the variable the analysis
     # bins in, and the only data-against-MC comparison in the book did not
@@ -585,15 +636,10 @@ def page_data(pdf, sets, data_all, data_sig, title, subtitle):
     # -t', the same number under two names, and writing either would have one
     # reader in two reading a sign that is not there.
     #
-    # THE TWO SIDES DO NOT SHARE A t_min.  Hers is computed by her code and
-    # ours by campaign_lib, and the thesis Eq. 44 prints a t_min that is
-    # dimensionless rather than GeV^2.  Measured in 2.9 < M < 3.3 on ee+e-p
-    # F18in: data median 1.202 over 55 events against MC 0.671 over 1170, a
-    # factor 1.8, with our |t_min| median 0.679 there.  Until both sides use
-    # one t_min that difference cannot be called physics.
-    if "mtprime" not in data_sig or not np.isfinite(np.asarray(
-            data_sig.get("mtprime", np.array([]))), ).any():
-        keys = [k for k in keys if k[0] != "mtprime"]
+
+    if not has_proton or "mt" not in data_sig or not np.isfinite(
+            np.asarray(data_sig.get("mt", np.array([])))).any():
+        keys = [k for k in keys if k[0] != "mt"]
 
     fig, axes = plt.subplots(3, 3, figsize=(11.0, 9.8))
     ax = axes.ravel()[0]
