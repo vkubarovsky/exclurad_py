@@ -5,7 +5,26 @@
 # the sbatch command line still override these.
 #SBATCH --account=clas12
 #SBATCH --partition=production
-#SBATCH --mem=6G
+# 3G, NOT 6G.  The farm administrators wrote on 2026-10-26 that at least 118
+# recently completed jobs used under 32.34 % of the requested memory, and that
+# the farm is provisioned for 2 GB per CPU.  They are right: measured over
+# 14134 job steps from the J/psi, phi and pi0 campaigns, MaxRSS is
+#
+#     median 1.87 GB   90th 2.20   99th 2.49   99.9th 2.71   max 2.84
+#
+# so 6G was 24 % efficient on average.  At 3G nothing in those 14134 steps
+# would have exceeded the request -- zero, not a small number -- and the mean
+# efficiency becomes 49 %.  2.5G was considered and rejected: 130 of the 14134
+# would have been killed, 0.92 %, and an OOM after six hours of GEMC costs far
+# more than the half gigabyte saves.
+#
+# Checked for gemc 5.14 as well, which writes nearly twice the output: its two
+# test jobs peaked at 1.83 and 2.19 GB, inside the same envelope.
+#
+# 3G against one CPU is still 1.5x the farm's 2 GB/CPU provisioning rather
+# than at it; going lower means OOM risk, and that trade is stated here rather
+# than left for the next person to rediscover.
+#SBATCH --mem=3G
 #SBATCH --cpus-per-task=1
 #
 # HOW TO RUN A CAMPAIGN WITH THESE: docs/farm_practice.md
