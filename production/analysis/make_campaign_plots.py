@@ -248,8 +248,37 @@ with PdfPages(OUT) as pdf:
                 f" ({100.0 * n['born'] / NGEN['born']:.3f} %)",
                 require=cl.TOPOLOGY["full"])
         if bg == "none":
+            # THE SUBTITLE USED TO CLAIM "acceptance divides out of this ratio;
+            # what is left is radiation".  That is false, and measurably so.
+            # The acceptance ratio A_rad/A_Born is NOT 1: measured on the
+            # campaigns, inbending with no background, 300 000 events per arm,
+            # the fraction of generated events in which GenMatch finds each
+            # slot, rad over Born --
+            #
+            #     slot        pi0      phi
+            #     e'         0.969    0.980
+            #     proton     1.006    1.002
+            #     daughter1  0.913    0.998      (gamma 1 / K+)
+            #     daughter2  0.922    0.998      (gamma 2 / K-)
+            #     all four   0.868    0.978
+            #
+            # For pi0 the acceptance differs by 13 % between the arms, which
+            # is why the bulk of that page sits near 1.1 and not at the dashed
+            # sigma ratio of 1.2852.  The cause is the two decay photons and
+            # nothing else: a radiated photon takes energy out of the hadronic
+            # system, the pi0 is softer, and its photons stop being ECAL
+            # clusters.  A kaon of the same reduced momentum is still tracked,
+            # which is why phi loses only 2 %.  Found by the analysis session
+            # and reproduced here, 2026-10-26.
+            #
+            # So the page now states the measured ratio instead of asserting
+            # it away.
+            accr = (len(s["rad"]["d"]["Q2"]) / NGEN["rad"]) / \
+                   max(len(s["born"]["d"]["Q2"]) / NGEN["born"], 1e-300)
             cp.page_ratio(pdf, s, f"Reconstructed - radiative / Born - {lab}",
-                          "acceptance divides out of this ratio; what is left is radiation")
+                          "acceptance does NOT divide out: A(rad)/A(Born) = "
+                          f"{accr:.3f} for this selection, so this ratio is "
+                          "radiation times that, not radiation alone")
         del s
         gc.collect()
 
