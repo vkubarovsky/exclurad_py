@@ -44,7 +44,21 @@ have(){ ls "$R/$1/dst_$2"/*_bg$3_*.hipo 2>/dev/null | wc -l; }
 # chunk lund_NNN.dat", and the gap would then look filled to `queued`.
 # -e, not -s: the chunk is a SYMLINK into lund_osg, and -s on a dangling
 # link is false for the right reason while -f would be true for the wrong one.
-missing(){ for i in $(seq -w 1 $N); do
+# THE CHUNK NAME IS printf %03d, NOT seq -w.
+#
+# This was `for i in $(seq -w 1 $N)`, and seq -w pads to the width of N: with
+# N=400 that is three digits and matches lund_001.dat, with N=2000 it is FOUR
+# and looks for lund_0001.dat, which does not exist.  gen_array.sbatch names
+# chunks with printf %03d -- three digits up to 999 and four from 1000 -- so
+# the two agreed only while N was under 1000.
+#
+# Found on 2026-10-26 starting the 10-million J/psi campaign at NCHUNK=2000:
+# the conductor came up, logged "conductor started", found no chunk for any of
+# indices 1-999, submitted NOTHING and did not even rewrite STATUS.txt.  It
+# would have sat there silently for ever.  A conductor that finds no work is
+# indistinguishable from a conductor with no work to do, which is the whole
+# problem with the old loop.
+missing(){ for i in $(seq 1 $N | while read x; do printf "%03d\n" "$x"; done); do
              [ -e "$R/$1/chunks/lund_$i.dat" ] || continue
              [ -s "$R/$1/dst_$2/excluradpy_${CHAN}_${1}_fa18_${2}_bg${3}_$i.hipo" ] || echo $((10#$i))
            done | paste -sd,; }
