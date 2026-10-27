@@ -58,19 +58,51 @@ have(){ ls "$R/$1/dst_$2"/*_bg$3_*.hipo 2>/dev/null | wc -l; }
 # would have sat there silently for ever.  A conductor that finds no work is
 # indistinguishable from a conductor with no work to do, which is the whole
 # problem with the old loop.
+# The index list goes to `sbatch --array=`, which takes a BOUNDED string.  It
+# was `paste -sd,`, one index per comma: with 2000 missing chunks that is an
+# 8900-character argument and slurm refuses the whole submission with
+#   sbatch: error: Batch job submission failed: Pathname of a file, directory
+#           or other parameter too long
+# Found on 2026-10-27 with the campaign stalled at 2186 of 16000 DSTs: 36
+# submissions had succeeded and 140 had failed, every no-background set among
+# them, and the conductor had been looping on those four failures ever since.
+# Nothing was wrong with the farm -- the work was never submitted.
+#
+# So emit slurm RANGE syntax instead.  The gaps are large contiguous blocks,
+# so 1,2,3,...,2000 collapses to 1-2000: nine characters instead of 8900.
+# Singletons stay single, which is what the a==p test is for.
+#
+# MAXSUB caps one submission.  MaxSubmit on this account is 10000 tasks and the
+# conductor drives eight sets, so an uncapped 2000 per set would ask for 16000
+# and fail again -- differently, and just as silently.  The conductor loops, so
+# a cap costs nothing: each pass tops the set back up.
+MAXSUB=${MAXSUB:-1000}
 missing(){ for i in $(seq 1 $N | while read x; do printf "%03d\n" "$x"; done); do
              [ -e "$R/$1/chunks/lund_$i.dat" ] || continue
              [ -s "$R/$1/dst_$2/excluradpy_${CHAN}_${1}_fa18_${2}_bg${3}_$i.hipo" ] || echo $((10#$i))
-           done | paste -sd,; }
+           done | head -n "$MAXSUB" | awk '
+             NR==1          { s=$1; p=$1; next }
+             $1==p+1        { p=$1; next }
+                            { out = out sep (s==p ? s : s "-" p); sep=","; s=$1; p=$1 }
+             END            { if (NR) print out sep (s==p ? s : s "-" p) }'; }
 queued(){ squeue -u "$USER" -h -o "%j" 2>/dev/null | grep -c "^$1$"; }
 
 submit(){ # mode pol bgcur jobname timelimit indices
   local m=$1 p=$2 bg=$3 jn=$4 tl=$5 idx=$6
   [ -z "$idx" ] && return 0
   cd "$EX" || return 1
-  local id
+  # sbatch's output went straight into the log line whatever it was, so a
+  # refusal was recorded as "submitted ... -> sbatch: error: ...".  STATUS.txt
+  # and the log then both read as though the work were queued, which is how 140
+  # consecutive failures went unnoticed.  A job id is all digits; anything else
+  # is a failure and has to say so.
+  local id rc
   id=$(sbatch --parsable --export=ALL,BGCUR="$bg" --array="$idx" \
        --job-name="$jn" --time="$tl" production/farm/sim_array.sbatch "$m" "$p" 2>&1)
+  rc=$?
+  case $id in
+    *[!0-9]*|"") say "SUBMIT FAILED $jn rc=$rc array=$idx -- $id"; return 1 ;;
+  esac
   say "submitted $jn [$idx] -> $id"
 }
 
