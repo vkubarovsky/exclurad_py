@@ -324,7 +324,14 @@ def load(pattern, channel, ebeam=10.6, rec=False, require=(0, 1, 2, 3),
 
     m = ch
     MB = ch["baryon"]
+    # The selection mask itself, over the n_read events in file order, so a
+    # caller can line a reconstructed event up with its GENERATED one: load()
+    # with rec=False reads the same files in the same sorted order, so
+    # gen[...][keep] is the generated partner of rec[...].  Without it the two
+    # calls return arrays of different length and nothing says which is which,
+    # and a study that needs bin migration cannot be written at all.
     out = dict(n_files=len(files), n_read=n_read, n_kept=len(a), weight=a[:, 0],
+               keep=(keep if rec and require else np.ones(n_read, dtype=bool)),
                channel=channel, layout=ch["layout"],
                has_vz=has_vz,
                n_zero_momentum=(nzero if rec and require else {}),
@@ -335,6 +342,12 @@ def load(pattern, channel, ebeam=10.6, rec=False, require=(0, 1, 2, 3),
         p = _p3(a, k, rec, REC0)
         out[name + "_p"], out[name + "_theta"], out[name + "_phi"] = _pmag_theta_phi(p)
         out[name + "_p3"] = p
+        # The REC row's pid and status, so an analysis can apply its own PID
+        # cut (pid +-11 on the decay leptons, 2212 on the proton) instead of
+        # trusting that MC::GenMatch paired like with like.
+        if rec:
+            out[name + "_pid"] = np.rint(a[:, REC0 + 8 * k + 1]).astype(int)
+            out[name + "_status"] = np.rint(a[:, REC0 + 8 * k + 3]).astype(int)
     for miss in ("gdec", "gprod"):                 # absent in the pseudoscalar record
         if miss + "_p" not in out:
             z = np.zeros(len(a))
