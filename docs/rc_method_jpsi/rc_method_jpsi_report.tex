@@ -234,6 +234,66 @@ bottom row.}
 \end{figure}
 
 %=====================================================================
+\section{$\crad$ tables for the cross section}\label{sec:tables}
+These are the numbers to apply. Each is method~1:
+\[
+\crad = \frac{N^{\rm rec}_{\rm rad}/N^{\rm gen}_{\rm rad}\cdot\sigma_{\rm rad}}{N^{\rm rec}_{\rm Born}/N^{\rm gen}_{\rm Born}\cdot\sigma_{\rm Born}},
+\]
+with her selection, the $\sigma$ normalisation of Sec.~2, and statistical errors only. The Born cross section in a bin is
+\[
+\sigma_{\rm Born} = \frac{Y}{\mathcal{L}\;\varepsilon\;\crad}.
+\]
+\begin{itemize}
+\item \textbf{What $\crad$ contains.} It is the \emph{whole} radiative correction: electron-line radiation, straggling before
+the vertex, and decay-lepton radiation, all for her selection including the window $2.95<M(ee)<3.20$~GeV. It
+\emph{replaces} her $0.88\times0.85$; it is not to be multiplied by either factor.
+\item \textbf{The efficiency $\varepsilon$ must be a Born efficiency}: Born MC, or her own MC without radiation. A radiative
+MC efficiency already contains part of $\crad$.
+\item \textbf{Hard bins against effective windows.} Her yields are counted in the hard $W$ bins (Table~\ref{tab:hardW}), so those
+are the factors for the yields. The effective windows (Table~\ref{tab:eff}) are given for completeness; they agree with the hard
+bins within errors.
+\item \textbf{Topology.} Use the table of the topology the yield comes from: $e'e^+e^-$ and $e'e^+e^-p'$ differ by up to
+2--3\% in a bin.
+\item \textbf{Polarity.} ``F18 combined'' weights each polarity by her charge (Table~1 of her note: 35.0234 inbending, 32.7332
+outbending) times the Born acceptance in that bin. That is how her summed F18 yield mixes them. For a yield from one polarity,
+use that column. The two agree everywhere within errors (Sec.~\ref{sec:pol}).
+\item \textbf{Scope.} F18 at 10.6~GeV only. Spring~2018 (10.6~GeV, other conditions) and Spring~2019 (10.2~GeV) are not
+simulated. The outbending MC is at torus $+1.000$. Her PCAL, BDT, $\chi^2_{\rm PID}$ and timing cuts are not applied.
+\item \textbf{Three-track $|t|$.} Factors binned in $|t|$ from $e'e^+e^-$ (Appendix) carry the decay-radiation migration of
+Sec.~\ref{sec:diff}, by construction, since the MC has it. They are correct for $t$ built that way, and only for that.
+\end{itemize}
+Conventions in every table:
+\begin{itemize}
+\item ``---'': fewer than 100 events in an arm.
+\item $^\dagger$: one polarity only; the other is below threshold.
+\item \textit{Italic}: statistical error above 10\%. That is not a measurement; use a coarser bin.
+\end{itemize}
+All values are also in \texttt{crad\_tables.csv} (178 rows: topology, binning, bin edges, $\crad$ and error per polarity
+and combined, event counts).
+
+\begin{table}[H]\centering\small
+\input{tab_crad_hardW.tex}
+\caption{$\crad$ in her hard $W$ bins, $Q^2$ 0.02--0.12 (her Table~6). These are the factors for her $W$-dependent yields.}
+\label{tab:hardW}
+\end{table}
+\begin{table}[H]\centering\small
+\input{tab_crad_eff.tex}
+\caption{$\crad$ in her effective $(W,Q^2)$ windows: Table~13 for $e'e^+e^-$, Table~17 for $e'e^+e^-p'$.}
+\label{tab:eff}
+\end{table}
+\begin{table}[H]\centering\small
+\input{tab_crad_Q2.tex}
+\caption{$\crad$ in her $Q^2$ bins (Table~21), $W$ 4.15--4.48.}
+\label{tab:Q2}
+\end{table}
+\begin{table}[H]\centering\small
+\input{tab_crad_WQ2.tex}
+\caption{$\crad$ on the two-dimensional grid of her $W$ bins $\times$ her $Q^2$ bins. ``---'': fewer than 100 events per arm. The
+cell $Q^2$ 0.06--0.11, $W$ 4.40--4.48 is at the beam-energy edge and holds almost no events.}
+\label{tab:WQ2}
+\end{table}
+
+%=====================================================================
 \section{Where the two methods differ, and why}\label{sec:diff}
 Fig.~\ref{fig:vdist} is the key plot. Each cut's survival is plotted against the \emph{generated} radiation: production $v$, and the
 decay-photon energy $k^*$ in the $J/\psi$ frame. Her chain does not cut where its nominal edges are:
@@ -298,7 +358,7 @@ The flat average would be wrong by that much.
 curves because they share a denominator; it is statistical, not that ripple.
 
 %=====================================================================
-\section{Inbending against outbending}
+\section{Inbending against outbending}\label{sec:pol}
 Method~2 has no torus in it. Any polarity dependence of method~1 is therefore acceptance acting on radiation. Over all cells
 of all binnings:
 \begin{itemize}
@@ -361,4 +421,24 @@ Branch \texttt{jpsi-rc-method-comparison} of \texttt{exclurad\_py}, \texttt{prod
 \texttt{\_closure.py}, \texttt{\_gencuts.py}, \texttt{\_cutvars.py}, \texttt{\_vdist.py}, \texttt{\_plots.py}, \texttt{\_tables.py}.
 Data and caches are in \texttt{/Volumes/wd\_14tb/rc\_method\_jpsi}. Every number in this report is in
 \texttt{docs/rc\_method\_jpsi/summary.json} and enters the text through \texttt{numbers.tex}.
+
+\appendix
+\section{$\crad$ in $(W,|t|)$ at three $Q^2$, and one variable at a time}
+The Q$^2$ slices are tertiles, as described in Sec.~5.3. $|t|$ is taken from $e'e^+e^-$ for three tracks and from $p'$ for four tracks.
+\begin{table}[H]\centering\footnotesize
+\input{tab_crad_maps_3trk.tex}
+\caption{$\crad(W,|t|)$, $e'e^+e^-$.}
+\end{table}
+\begin{table}[H]\centering\footnotesize
+\input{tab_crad_maps_4trk.tex}
+\caption{$\crad(W,|t|)$, $e'e^+e^-p'$.}
+\end{table}
+\begin{table}[H]\centering\footnotesize
+\input{tab_crad_1d_3trk.tex}
+\caption{$\crad$ in one variable, the other two integrated over the box ($W$ 4.04--4.60, $Q^2$ 0.001--0.143, $|t|$ 0.3--5.0), $e'e^+e^-$.}
+\end{table}
+\begin{table}[H]\centering\footnotesize
+\input{tab_crad_1d_4trk.tex}
+\caption{As above, $e'e^+e^-p'$.}
+\end{table}
 \end{document}

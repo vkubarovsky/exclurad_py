@@ -118,3 +118,108 @@ with open(os.path.join(D, "tab_gencuts.tex"), "w") as f:
         f.write("\\midrule\n" if t == "3trk" else "")
     f.write("\\bottomrule\\end{tabular}\n")
 print("written", D)
+
+
+# =============================================================================
+# C_rad TABLES FOR THE CROSS SECTION, method 1, from the combos run itself
+# =============================================================================
+# F18 combined as her summed yields combine the two polarities: each polarity
+# enters with weight  Q_pol x Acc_Born,pol(bin),  Acc_Born = n_born / N_gen,born,
+# charges from her note, Table 1 (F18 inbending 35.0234, outbending 32.7332).
+CHARGE = {"inb": 35.0234, "outb": 32.7332}
+RUN = sys.argv[2] if len(sys.argv) > 2 else "/Volumes/wd_14tb/rc_method_jpsi/out"
+cmb = json.load(open(os.path.join(RUN, "rc_method_jpsi_combos.json")))
+
+
+def cellmap(topo, pol, binning):
+    return {json.dumps(c["range"], sort_keys=True): c for c in cmb["cells"][f"{topo}_{pol}"] if c["binning"] == binning}
+
+
+def combine(ci, co, topo):
+    # one polarity below threshold: the other alone, flagged -- the two agree
+    # within errors everywhere they both exist (polarity chi2 51/67, 32/50)
+    if "B" not in ci and "B" not in co:
+        return None
+    if "B" not in ci or "B" not in co:
+        c = ci if "B" in ci else co
+        return c["B"], c["B_err"], True
+    w = {}
+    for pol, c in (("inb", ci), ("outb", co)):
+        ngen = cmb["sample"][f"{topo}_{pol}"]["born"]["n_gen"]
+        w[pol] = CHARGE[pol] * c["n_born"] / ngen
+    W = w["inb"] + w["outb"]
+    C = (w["inb"] * ci["B"] + w["outb"] * co["B"]) / W
+    E = ((w["inb"] * ci["B_err"]) ** 2 + (w["outb"] * co["B_err"]) ** 2) ** 0.5 / W
+    return C, E, False
+
+
+def fmt(c):
+    """Value +- error; italic when the error exceeds 10 % (not a measurement), dagger when one polarity only."""
+    if c is None:
+        return "---"
+    t = f"{c[0]:.3f}$\\pm${c[1]:.3f}"
+    if c[1] > 0.10 * c[0]:
+        t = f"\\textit{{{t}}}"
+    if len(c) > 2 and c[2]:
+        t += "$^\\dagger$"
+    return t
+
+
+CSV = ["topology,binning,Q2_lo,Q2_hi,W_lo,W_hi,t_lo,t_hi,C_inb,err_inb,C_outb,err_outb,C_F18,err_F18,F18_one_polarity,n_rad_inb,n_rad_outb"]
+
+
+def rows(topo, binning):
+    ci, co = cellmap(topo, "inb", binning), cellmap(topo, "outb", binning)
+    out = []
+    for k in ci:
+        a, b = ci[k], co.get(k, {})
+        f = combine(a, b, topo)
+        rg = a["range"]
+        out.append((rg, (a["B"], a["B_err"]) if "B" in a else None,
+                    (b["B"], b["B_err"]) if "B" in b else None, f, a["n_rad"], b.get("n_rad", 0)))
+        g = lambda v, i: "" if v not in rg else rg[v][i]
+        val = lambda x, i: "" if x is None else f"{x[i]:.5f}"
+        aa = (a["B"], a["B_err"]) if "B" in a else None
+        bb = (b["B"], b["B_err"]) if "B" in b else None
+        CSV.append(",".join(map(str, [topo, binning, g("Q2", 0), g("Q2", 1), g("W", 0), g("W", 1), g("mt", 0), g("mt", 1),
+                                       val(aa, 0), val(aa, 1), val(bb, 0), val(bb, 1), val(f, 0), val(f, 1),
+                                       "" if f is None else int(f[2]),
+                                       a["n_rad"], b.get("n_rad", 0)])))
+    return out
+
+
+def rng(r, v, d=3):
+    return f"{r[v][0]:.{d}f}--{r[v][1]:.{d}f}"
+
+
+HEAD = "inbending & outbending & \\textbf{F18 combined} & $n_{\\rm rad}$ \\\\\\midrule\n"
+
+
+def table(fname, spec):
+    """spec: list of (topology, binning, column labels, column formatter)."""
+    with open(os.path.join(D, fname), "w") as f:
+        for topo, binning, cols, cf in spec:
+            f.write("\\begin{tabular}{" + "l" * len(cols) + "cccr}\\toprule\n")
+            f.write(f"\\multicolumn{{{len(cols) + 4}}}{{l}}{{${TOP[topo]}$}}\\\\\n")
+            f.write(" & ".join(cols) + " & " + HEAD)
+            for r_, a, b, c, na, nb in rows(topo, binning):
+                f.write(" & ".join(cf(r_)) + f" & {fmt(a)} & {fmt(b)} & \\textbf{{{fmt(c)}}} & {na + nb} \\\\\n")
+            f.write("\\bottomrule\\end{tabular}\n\n\\medskip\n\n")
+
+
+both = ("3trk", "4trk")
+table("tab_crad_hardW.tex", [(t, "mariana", ["W (GeV)"], lambda r: [rng(r, "W", 2)]) for t in both])
+table("tab_crad_eff.tex", [("3trk", "her_eff3", ["$Q^2$ (GeV$^2$)", "W (GeV)"], lambda r: [rng(r, "Q2", 4), rng(r, "W", 4)]),
+                           ("4trk", "her_eff4", ["$Q^2$ (GeV$^2$)", "W (GeV)"], lambda r: [rng(r, "Q2", 4), rng(r, "W", 4)])])
+table("tab_crad_Q2.tex", [(t, "her_Q2", ["$Q^2$ (GeV$^2$)"], lambda r: [rng(r, "Q2", 2)]) for t in both])
+table("tab_crad_WQ2.tex", [(t, "her_WQ2", ["$Q^2$ (GeV$^2$)", "W (GeV)"], lambda r: [rng(r, "Q2", 2), rng(r, "W", 2)]) for t in both])
+for t in both:
+    table(f"tab_crad_maps_{t}.tex",
+          [(t, f"map_Q2_{a}_{b}", ["$Q^2$ (GeV$^2$)", "W (GeV)", "$|t|$ (GeV$^2$)"],
+            lambda r: [rng(r, "Q2", 3), rng(r, "W", 2), rng(r, "mt", 2)]) for a, b in cmb["qslices"]])
+for t in both:
+    table(f"tab_crad_1d_{t}.tex", [(t, v, [lab], (lambda r, v=v, d=d: [rng(r, v, d)]))
+                                   for v, lab, d in (("W", "W (GeV)", 2), ("Q2", "$Q^2$ (GeV$^2$)", 3), ("mt", "$|t|$ (GeV$^2$)", 1))])
+with open(os.path.join(D, "crad_tables.csv"), "w") as f:
+    f.write("\n".join(CSV) + "\n")
+print("C_rad tables written:", len(CSV) - 1, "rows in crad_tables.csv")

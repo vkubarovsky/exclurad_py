@@ -57,6 +57,17 @@ QSLICES = [(0.02, 0.027), (0.027, 0.038), (0.038, 0.12)]
 MAP = {"W": [4.15, 4.33, 4.40, 4.45, 4.60], "mt": [0.3, 1.0, 1.36, 1.9, 5.0]}
 MARIANA = dict(Q2=(0.02, 0.12), W=[4.15, 4.29, 4.40, 4.48],
                gen10M=[(0.9017, 0.0027), (0.9250, 0.0023), (0.9333, 0.0023)])
+# Her cross-section binning (note Tables 6, 13, 17, 21).  The yields are
+# counted in the HARD W bins at Q2 0.02-0.12; the cross sections are quoted
+# over the EFFECTIVE windows, which differ by topology; the Q2 dependence uses
+# three hard Q2 bins in the combined W range (3 tracks).
+HER = dict(
+    Q2=[0.020, 0.040, 0.060, 0.110], Wall=(4.15, 4.48),
+    eff3=[((0.0253, 0.0811), (4.1813, 4.2700)), ((0.0126, 0.0620), (4.3205, 4.3911)),
+          ((0.0100, 0.0548), (4.4214, 4.5000))],
+    eff4=[((0.0286, 0.0711), (4.2019, 4.2560)), ((0.0182, 0.0467), (4.3203, 4.3867)),
+          ((0.0162, 0.0433), (4.4258, 4.4874))],
+)
 MODEL = {"3trk": "jpsi.diffrad_vm", "4trk": "jpsi.diffrad_vm_pdet"}
 MU2 = {"3trk": R.MP ** 2, "4trk": R.MJ ** 2}
 NMIN = 100
@@ -173,6 +184,18 @@ def cell_specs():
     for i in range(len(w) - 1):
         spec = [(ci["Q2"], *MARIANA["Q2"]), (ci["W"], w[i], w[i + 1]), full["mt"]]
         out.append(("mariana", {"Q2": MARIANA["Q2"], "W": (w[i], w[i + 1])}, spec))
+    # her effective windows, both sets (each table uses its own topology's)
+    for tag in ("eff3", "eff4"):
+        for q, ww in HER[tag]:
+            out.append((f"her_{tag}", {"Q2": q, "W": ww}, [(ci["Q2"], *q), (ci["W"], *ww), full["mt"]]))
+    # her Q2 bins in the combined W range, and the W x Q2 grid
+    hq = HER["Q2"]
+    for j in range(len(hq) - 1):
+        out.append(("her_Q2", {"Q2": (hq[j], hq[j + 1]), "W": HER["Wall"]},
+                    [(ci["Q2"], hq[j], hq[j + 1]), (ci["W"], *HER["Wall"]), full["mt"]]))
+        for i in range(len(w) - 1):
+            out.append(("her_WQ2", {"Q2": (hq[j], hq[j + 1]), "W": (w[i], w[i + 1])},
+                        [(ci["Q2"], hq[j], hq[j + 1]), (ci["W"], w[i], w[i + 1]), full["mt"]]))
     return out
 
 

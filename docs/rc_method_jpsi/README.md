@@ -41,6 +41,19 @@ The shapes agree everywhere except 3-track |t|. Built from e+e-, t is moved by d
 a t-dependent systematic in M. Tenorio's 3-track t results, which her single factor 0.88 cannot carry.
 Inbending = outbending (chi2 51/67, 32/50).
 
+## Tables for the cross section
+
+Section 6 of the report and `crad_tables.csv` (178 rows) give method-1 C_rad for each topology, in these binnings:
+- her hard W bins;
+- her effective windows;
+- her Q2 bins;
+- the W x Q2 grid;
+- the (W,|t|) maps and 1-D.
+
+Each bin has inb, outb and F18 combined (her charge x Born acceptance); `F18_one_polarity` = 1 when only one arm passes.
+C_rad is the WHOLE correction. It replaces 0.88 x 0.85, and it must be divided into a yield corrected with a Born
+efficiency.
+
 ## Reproduce
 
 ```
