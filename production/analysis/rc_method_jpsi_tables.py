@@ -39,6 +39,12 @@ for pol, tag in (("inb", "In"), ("outb", "Out")):
         num(f"nsel{tt}{tag}", sm["rad"]["n_sel"], "%d"); num(f"nselB{tt}{tag}", sm["born"]["n_sel"], "%d")
         num(f"Bher{tt}{tag}", s["cutvars"][f"{t}_{pol}"]["mariana"]["B"])
         num(f"Bherr{tt}{tag}", s["cutvars"][f"{t}_{pol}"]["mariana"]["B_err"])
+sr, sb = s["sample"]["3trk_inb"]["rad"], s["sample"]["3trk_inb"]["born"]
+kept = (sr["sigma_nb"] / sr["sigma_pre"]) / (sb["sigma_nb"] / sb["sigma_pre"])
+num("keptRad", sr["sigma_nb"] / sr["sigma_pre"]); num("keptBorn", sb["sigma_nb"] / sb["sigma_pre"])
+num("keptratio", kept); num("keptpct", 100 * (1 - kept), "%.2f")
+num("sigpreIn", sr["sigma_pre"] / sb["sigma_pre"], "%.5f")
+num("expectclos", 100 * (s["effective"]["hard"] * kept - 1), "%+.2f")
 mu, sg = s["sample"]["3trk_inb"]["born"]["cal"]
 num("mxmu", mu, "%.3f"); num("mxsig", sg, "%.3f")
 cl = s["closure"]["t_proton"]["integrated"]
@@ -55,15 +61,17 @@ for t, tt in (("3trk", "Three"), ("4trk", "Four")):
 # 3 tracks inbending, at her MX cut: the number her 0.85 stands for
 for i, (q, tag) in enumerate(zip([q for q in s["mariana"]["3trk"] if q["pol"] == "inb"], ("One", "Two", "Three"))):
     num(f"prod{tag}", q["A_int"] * q["ext"] * s["effective"]["hard"], "%.3f")
+for i, (v, tag) in enumerate(zip(s["gen10M_corrected"]["values"], ("One", "Two", "Three"))):
+    num(f"genc{tag}", v[0], "%.3f")
 with open(os.path.join(D, "numbers.tex"), "w") as f:
     for k, v in N.items():
         f.write("\\newcommand{\\%s}{%s}\n" % (k, v))
 
 # ---- her three W bins -------------------------------------------------------
-gen = [(0.9017, 0.0027), (0.9250, 0.0023), (0.9333, 0.0023)]
+gen = s["gen10M_corrected"]["values"]
 with open(os.path.join(D, "tab_mariana.tex"), "w") as f:
     f.write("\\begin{tabular}{llcccccc}\\toprule\n")
-    f.write("topology & W (GeV) & method 1 inb & method 1 outb & method 2 nominal & method 2 effective & generated 10M & M.~Tenorio \\\\\\midrule\n")
+    f.write("topology & W (GeV) & method 1 inb & method 1 outb & method 2 nominal & method 2 effective & generated 10M$^*$ & M.~Tenorio \\\\\\midrule\n")
     for t in ("3trk", "4trk"):
         rows = {(q["pol"], tuple(q["W"])): q for q in s["mariana"][t]}
         for i, W in enumerate(sorted({tuple(q["W"]) for q in s["mariana"][t]})):

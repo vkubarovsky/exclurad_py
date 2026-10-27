@@ -37,6 +37,7 @@ through the lepton momenta that FSR changes, which the M(ee) window already
 dominates.
 """
 import glob
+import json
 import os
 import re
 import sys
@@ -135,8 +136,30 @@ def chunk_ids(arm, pol):
 
 
 def sigma(arm, pol):
-    """sigma_nb over exactly the chunks that are read (campaign_lib rule)."""
-    return C.sigma_nb(f"{DATA}/prov/{arm}", arm, chunks=chunk_ids(arm, pol))
+    """The cross section OF THE WRITTEN EVENTS, over exactly the chunks that are read.
+
+    sigma_nb in the sidecar is NOT that.  The generator counts it from every
+    event that passed the accept-reject (n_accept2 for rad, n_accept for Born),
+    and only afterwards applies the iacc=jpsi preset to the decay daughters
+    (|p| > 1 GeV, 5-40 deg) and drops what fails: in every chunk
+    accepted - cut_acceptance = 5000 written.  So sigma_nb / 5000 overweights
+    each written event by accepted/5000, and the cut is NOT the same in the two
+    arms -- a hard decay photon or production photon leaves a lepton below
+    1 GeV.  Measured on this snapshot: rad keeps 0.6168, Born 0.6251, so the
+    rad/Born normalisation was 1.33 % high.  It is the same 0.85 % of decays
+    missing above k* = 1 GeV that made the generated F(K) 0.9 % high.
+    Here: sigma_post = sigma_nb x written/accepted, chunk by chunk.
+    """
+    s = C.sigma_nb(f"{DATA}/prov/{arm}", arm, chunks=chunk_ids(arm, pol))
+    post = []
+    for i in chunk_ids(arm, pol):
+        with open(f"{DATA}/prov/{arm}/{arm}_{i:03d}.config.json") as fh:
+            r = json.load(fh)["report"]
+        acc = r["accept2"] if r.get("accept2") else r["accepted"]
+        post.append(r["sigma_nb"] * (acc - r["cut_acceptance"]) / acc)
+    post = np.array(post)
+    return dict(mean=post.mean(), err=post.std(ddof=1) / np.sqrt(post.size), n=post.size,
+                pre=s["mean"], kept=post.mean() / s["mean"])
 
 
 def load(arm, pol, topo):
@@ -149,6 +172,7 @@ def load(arm, pol, topo):
     s = sigma(arm, pol)
     return dict(arm=arm, pol=pol, topo=topo,
                 n_gen=gen["n_read"], n_chunks=gen["n_files"], sigma_nb=s["mean"], sigma_err=s["err"],
+                sigma_pre=s["pre"],
                 rec=kinematics(rec), gen=kinematics(gen, keep),
                 gen_all=gen, w=s["mean"] / gen["n_read"])
 

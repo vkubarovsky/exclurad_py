@@ -206,11 +206,17 @@ with PdfPages(os.path.join(FIG, "rc_method_jpsi.pdf")) as pdf:
 
     # ---- F3: her three W bins ---------------------------------------------------
     fig, axs = plt.subplots(1, 2, figsize=(13, 4.6), sharey=True)
-    gen = r["mariana"]["gen10M"]; wb = r["mariana"]["W"]
+    # the Launch generator's 10M numbers were normalised with sigma_nb, which
+    # counts events the daughter preset later dropped (rc_method_jpsi.sigma);
+    # shown here with the same written/accepted correction as method 1
+    KEPT = (r["sample"]["3trk_inb"]["rad"]["sigma_nb"] / r["sample"]["3trk_inb"]["rad"]["sigma_pre"]) / \
+           (r["sample"]["3trk_inb"]["born"]["sigma_nb"] / r["sample"]["3trk_inb"]["born"]["sigma_pre"])
+    gen = [(g[0] * KEPT, g[1] * KEPT) for g in r["mariana"]["gen10M"]]; wb = r["mariana"]["W"]
+    summary["gen10M_corrected"] = dict(factor=KEPT, values=gen)
     xc = np.array([(wb[i] + wb[i + 1]) / 2 for i in range(3)])
     for ax, topo in zip(axs, r["model"]):
         ax.errorbar(xc - 0.012, [g[0] for g in gen], yerr=[g[1] for g in gen], fmt="D", ms=5, color=MUTED,
-                    label="generated 10M, no cuts (Launch generator)")
+                    label="generated 10M, generation acceptance only (normalisation corrected)")
         ax.axhline(0.75, color=INK, ls="--", lw=0.9, label="M. Tenorio: 0.88 x 0.85")
         rows = []
         for k, pol in enumerate(POLS):

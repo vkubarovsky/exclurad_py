@@ -99,6 +99,7 @@ def collect(cache):
                     rec=columns(S[a]["rec"], topo)[m], gen=columns(S[a]["gen"], topo)[m],
                     n_gen=S[a]["n_gen"], n_chunks=S[a]["n_chunks"],
                     sigma=S[a]["sigma_nb"], sigma_err=S[a]["sigma_err"], w=S[a]["w"],
+                    sigma_pre=S[a]["sigma_pre"],
                     flow={n: int(v.sum()) for n, v in L.items()}, cal=cal)
                 print(topo, pol, a, "selected", int(m.sum()), flush=True)
     np.savez(cache, ev=np.array(ev, dtype=object))
@@ -243,6 +244,7 @@ def main():
         for pol in ("inb", "outb"):
             rad, born = ev[(topo, pol, "rad")], ev[(topo, pol, "born")]
             res["sample"][f"{topo}_{pol}"] = {a: dict(n_gen=e["n_gen"], n_chunks=e["n_chunks"], sigma_nb=e["sigma"],
+                                                      sigma_pre=e.get("sigma_pre"),
                                                       sigma_err=e["sigma_err"], flow=e["flow"],
                                                       n_sel=int(len(e["rec"])),
                                                       cal=e["cal"]) for a, e in (("rad", rad), ("born", born))}
