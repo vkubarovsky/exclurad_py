@@ -138,6 +138,66 @@ def events_per_chunk(root, mode, channel):
     raise RuntimeError(f"cannot size an ntuple under {root}/{mode}")
 
 
+def _preset_factor(rep, path, nopreset, unknown):
+    """written / counted, for the chunk whose report dict this is.
+
+    sigma_total() normalises with n_accept2 (rad, exact-accept) or n_accept
+    (Born), and both counters are incremented INSIDE the sampling loop --
+    events.py:1434 and :1469.  The iacc daughter preset (|p| > 1 GeV,
+    theta 5-40 deg for the jpsi preset) is applied LATER, in the outer loop at
+    events.py:1645, where a failing event increments n_cut_acc and is dropped.
+    So a dropped event is absent from the LUND file and present in sigma.
+
+    Spreading sigma_nb over the written events as sigma_nb/n_events therefore
+    overweights each one by counted/written, and -- this is the part that
+    matters -- by a DIFFERENT amount in the two arms, because a hard decay or
+    production photon leaves a lepton below the 1 GeV threshold.  Measured over
+    the whole 2026-10-09 J/psi campaign, 2000 chunks per arm:
+
+        rad   written/counted = 0.61665 +- 0.00012
+        born  written/counted = 0.62499 +- 0.00012
+        ratio                 = 0.98666 +- 0.00027
+
+    so every rad/Born ratio built from an uncorrected sigma_nb is 1.3 % high.
+    sigma_rad/sigma_Born on this campaign is 0.9331, not 0.9457.  Found by the
+    rc_method_jpsi study on 2026-10-27; the 0.9457 is still right as the
+    PRE-acceptance ratio, it is simply not the normalisation of the events that
+    were written.
+
+    The correction is applied here, at the consumer, and not in sigma_total().
+    sigma_total() reporting the cross section within the ELECTRON acceptance is
+    deliberate and documented (events.py:758-775); changing what it means would
+    make every existing sidecar incomparable with every future one, silently.
+
+    iacc = none leaves cut_acceptance at 0 and this returns exactly 1.0 --
+    measured on the phi and pi0 campaigns, whose cards declare none.
+    """
+    a2 = rep.get("accept2", 0) or 0
+    a1 = rep.get("accepted", 0) or 0
+    counted = a2 if a2 > 0 else a1          # exactly what sigma_total() divides by
+    if counted <= 0:
+        # Pre-counter sidecar: the factor cannot be established either way, and
+        # assuming 1.0 is how a 1.3 % bias stayed invisible for three weeks.
+        raise RuntimeError(
+            f"{path}: report carries neither accept2 nor accepted, so the iacc "
+            f"preset normalisation cannot be checked.  Regenerate the "
+            f"provenance, or read this set with a reader that does not claim "
+            f"an absolute sigma.")
+    if "cut_acceptance" not in rep:
+        unknown.append(path)
+        return 1.0
+    cut = rep["cut_acceptance"] or 0
+    if cut == 0:
+        nopreset.append(path)
+        return 1.0
+    written = counted - cut
+    if written <= 0:
+        raise RuntimeError(
+            f"{path}: counted {counted} - cut_acceptance {cut} = {written}, "
+            f"which is not a number of written events.")
+    return written / counted
+
+
 def sigma_nb(prov_dir, mode, chunks=None):
     """Mean sigma_nb over a set's chunks, and its spread.
 
@@ -155,6 +215,10 @@ def sigma_nb(prov_dir, mode, chunks=None):
     """
     want = set(chunks) if chunks is not None else None
     vals, missing = [], []
+    # Which chunks needed no correction (iacc = none) and which could not be
+    # checked, reported rather than swallowed: a caller that sees
+    # preset_unknown > 0 is reading a sigma whose normalisation is unverified.
+    nopreset, unknown = [], []
     for f in sorted(glob.glob(os.path.join(prov_dir, f"{mode}_*.config.json"))):
         m = re.search(r"_(\d+)\.config\.json$", os.path.basename(f))
         i = int(m.group(1)) if m else None
@@ -162,7 +226,8 @@ def sigma_nb(prov_dir, mode, chunks=None):
             continue
         try:
             with open(f) as fh:
-                vals.append(json.load(fh)["report"]["sigma_nb"])
+                rep = json.load(fh)["report"]
+            vals.append(rep["sigma_nb"] * _preset_factor(rep, f, nopreset, unknown))
         except (KeyError, ValueError, OSError):
             missing.append(i)
     v = np.array(vals, dtype=float)
@@ -177,7 +242,9 @@ def sigma_nb(prov_dir, mode, chunks=None):
             f"readable{' (unreadable: %s)' % missing[:5] if missing else ''} -- "
             f"generate the missing provenance or restrict the sample")
     return dict(mean=v.mean(), err=v.std(ddof=1) / np.sqrt(v.size) if v.size > 1 else 0.0,
-                n=v.size, min=v.min(), max=v.max(), spread_rel=(v.max() - v.min()) / v.mean())
+                n=v.size, min=v.min(), max=v.max(), spread_rel=(v.max() - v.min()) / v.mean(),
+                preset_corrected=v.size - len(nopreset) - len(unknown),
+                preset_none=len(nopreset), preset_unknown=len(unknown))
 
 
 # The two topologies Mariana Tenorio's analysis uses, as slot tuples.  The
