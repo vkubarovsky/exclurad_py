@@ -48,8 +48,13 @@ EDGES = {
     "mt": [0.3, 0.5, 0.7, 0.9, 1.2, 1.6, 2.2, 3.0, 5.0],
 }
 RANGE = {"W": (4.04, 4.60), "Q2": (0.001, 0.143), "mt": (0.3, 5.0)}
-QSLICES = [(0.02, 0.05), (0.05, 0.09), (0.09, 0.13)]
-MAP = {"W": [4.04, 4.20, 4.30, 4.40, 4.60], "mt": [0.3, 0.7, 1.1, 1.7, 5.0]}
+# Q2 slices are TERTILES of the selected sample inside her range, not the
+# brief's 0.02-0.05 / 0.05-0.09 / 0.09-0.13: after the FT cut 90 % of the events
+# sit below Q2 = 0.056 and 1 % above 0.09, so that third slice is empty.  The
+# W and |t| edges of the maps are quartiles of the same sample, for the same
+# reason (W piles up at 4.40-4.48 from the beam-energy edge).
+QSLICES = [(0.02, 0.027), (0.027, 0.038), (0.038, 0.12)]
+MAP = {"W": [4.15, 4.33, 4.40, 4.45, 4.60], "mt": [0.3, 1.0, 1.36, 1.9, 5.0]}
 MARIANA = dict(Q2=(0.02, 0.12), W=[4.15, 4.29, 4.40, 4.48],
                gen10M=[(0.9017, 0.0027), (0.9250, 0.0023), (0.9333, 0.0023)])
 MODEL = {"3trk": "jpsi.diffrad_vm", "4trk": "jpsi.diffrad_vm_pdet"}

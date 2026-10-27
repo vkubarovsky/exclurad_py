@@ -1,0 +1,328 @@
+\documentclass[11pt]{article}
+\usepackage[margin=2.0cm]{geometry}
+\usepackage{graphicx,amsmath,booktabs,hyperref,float,caption}
+\graphicspath{{./}}
+\hypersetup{colorlinks=true,linkcolor=blue,urlcolor=blue}
+\captionsetup{font=small}
+\input{numbers.tex}
+\newcommand{\crad}{C_{\rm rad}}
+
+\title{Radiative correction for near-threshold $J/\psi$ electroproduction at CLAS12:\\
+GEMC rad/Born Monte Carlo against the analytic \texttt{rc\_factor}\\[4pt]
+\large F18 inbending and outbending, M.~Tenorio's selection}
+\author{exclurad\_py study, branch \texttt{jpsi-rc-method-comparison}}
+\date{27 October 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We compute the radiative correction $\crad$ for $ep\to e'p'J/\psi$, $J/\psi\to e^+e^-$, two ways that share
+no code path after event generation.
+\textbf{Method~1} is the ratio of the reconstructed radiative and Born arms of the GEMC~5.14 campaign
+\texttt{prod\_jpsi\_f18in\_20261009}, with M.~Tenorio's selection applied to both.
+\textbf{Method~2} is analytic: the ratio $\sigma_{\rm obs}/\sigma_{\rm Born}$ from \texttt{rc\_factor}, times the
+pre-vertex radiator, times the decay-lepton radiation $F(K)$. It uses no Born Monte Carlo.
+The rad arm differs from the Born arm in three card fields (\texttt{iborn}, \texttt{itarg}, \texttt{idecay}), so
+both methods describe the \emph{whole} correction: electron-line radiation, straggling in the target before the vertex,
+and decay-lepton radiation.
+
+With the nominal cuts written into method~2 ($M(ee)>2.95$~GeV, her MX window), method~2 is 3--5\% \emph{above} method~1.
+\textbf{The whole difference is explained.} Three terms, each measured separately:
+\begin{itemize}
+\item the hard part of the pre-vertex radiator, $-\hardpct\%$;
+\item the decay-photon cut acting at $k^*\approx\KfiftyThree$~GeV and not at the $M(ee)$ edge (0.143~GeV), because of the
+$M(ee)$ and MX resolution, $-1.1$ to $-1.8\%$;
+\item the production cut acting at its effective $v_{50}$, $-0.5$ to $-1\%$.
+\end{itemize}
+Bin migration and acceptance weighting are each below 2\% except in the threshold bin.
+With those two effective edges taken from the MC chain, method~2 reproduces method~1 in every binning of the four-track
+sample ($\chi^2$ per cell $\approx1$) and in $W$, $Q^2$ and her three $W$ bins of the three-track sample.
+It fails in one place: $|t|$ built from $e'e^+e^-$. There, decay-lepton radiation moves $t$ and no analytic factor
+contains it.
+Inbending and outbending agree ($\chi^2=\polchiThree/\polnThree$ and $\polchiFour/\polnFour$). So at the
+$\sim$1\% level, method~1 measures radiation, not acceptance.
+In her three $W$ bins, method~1 gives $\crad=0.77$--$0.80$, against her $0.88\times0.85=0.75$. Her $0.88$ for the decay agrees with ours.
+Her $0.85$ for the electron line is 5--7\% below the $\prodOne$--$\prodThree$ that \texttt{rc\_factor} gives at her cut.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+%=====================================================================
+\section{The two methods}
+
+\paragraph{Method 1, Monte Carlo.} Both arms were generated with the same box, the same model
+(\texttt{jpsi.diffrad\_vm\_pdet}) and the same number of events per chunk. Both were simulated with GEMC~5.14
+and reconstructed. M.~Tenorio's selection (Sec.~\ref{sec:sel}) is applied identically to both. Per bin:
+\begin{equation}
+\crad^{(1)} = \frac{N^{\rm rec}_{\rm rad}/N^{\rm gen}_{\rm rad}\cdot\sigma_{\rm rad}}
+                   {N^{\rm rec}_{\rm Born}/N^{\rm gen}_{\rm Born}\cdot\sigma_{\rm Born}} ,
+\end{equation}
+binned in \emph{reconstructed} kinematics. $N^{\rm gen}$ and $\sigma$ come from the chunks actually read:
+\begin{itemize}
+\item inbending: \nchRadIn{} rad chunks ($\ngenRadIn$ events) and \nchBornIn{} Born chunks ($\ngenBornIn$);
+\item outbending: \nchRadOut{} and \nchBornOut{};
+\item $\sigma_{\rm rad}/\sigma_{\rm Born}=\sigratioIn$ and $\sigratioOut$ over those chunks.
+\end{itemize}
+The raw count ratio is the acceptance ratio. It is \emph{not} $\crad$, and it is never quoted as such here.
+
+\paragraph{Method 2, analytic.} For every selected rad event $i$, at its own reconstructed $(Q^2,W^2,t,\phi)$:
+\begin{equation}
+\eta_i = \eta_{\rm int}(v)\;\eta_{\rm ext}(v)\;F(K), \qquad
+\crad^{(2)} = N\Big/\sum_i \eta_i^{-1}.
+\end{equation}
+\begin{itemize}
+\item $\eta_{\rm int}$ is \texttt{rc\_factor} (\texttt{exclurad\_py/core/rc.py}) with $MX^2<m_U^2+v$. The model is the one whose missing
+particle is the one the topology misses:
+\begin{itemize}
+\item \texttt{jpsi.diffrad\_vm} for $e'e^+e^-$: the proton is missing, and $t$ is taken from $e'$ and $J/\psi$;
+\item \texttt{jpsi.diffrad\_vm\_pdet} for $e'e^+e^-p'$: the $J/\psi$ is missing, $t$ is taken from $p'$, and $t_{\rm nucl}=t$ is set per event.
+\end{itemize}
+The two models have identical structure functions.
+\item $\eta_{\rm ext}$ is the pre-vertex radiator of the generator (straggling law $y^{bt}$, vertex uniform in the 5~cm cell), in the
+peaking approximation: the probability that the beam photon keeps $v$ below the cut.
+\item $F(K)$ is the cumulative decay-photon spectrum of \texttt{generator/decay\_rad.py} (Ehlotzky--Mitter, exponentiated) at
+$K=(M_{J/\psi}^2-2.95^2)/2M_{J/\psi}$: $F=\Ffsr$. This reproduces her $0.88$.
+\end{itemize}
+Rad events are distributed as $\sigma_{\rm Born}\,\eta\,{\rm Acc}$, so $\crad^{(2)}$ is the Born- and
+acceptance-weighted mean of $\eta$ in the bin. This is exactly what method~1 weights by. We also compute the flat average
+(no acceptance) on a grid, to measure the weighting.
+
+Both methods use the same radiative engine, so this is a test of the \emph{method}, not of QED. What differs: method~2 knows two
+numbers about the selection, the $v$ cut and the $M(ee)$ edge. Method~1 knows the whole selection and the detector.
+
+%=====================================================================
+\section{Monte Carlo sample}
+\begin{itemize}
+\item \texttt{ifarm:/volatile/clas12/vpk/prod\_jpsi\_f18in\_20261009}, out\_inb and out\_outb of both arms, GEMC~5.14.
+Copied to \texttt{/Volumes/wd\_14tb/rc\_method\_jpsi}: 2177 files, every one 5000 events $\times$ 80 floats, identical to
+ifarm by sha256 (0 mismatches). The farm fill was still running; this is a fixed snapshot.
+\item Card differences between the arms: \texttt{iborn} (0/1), \texttt{itarg} (1/0), \texttt{idecay} (2/1). All three are part of
+the correction. The Born arm is the cross section at nominal beam energy, with no straggling and no decay radiation.
+\item Vertex: generated $v_z$ is uniform over $-5.5\ldots-0.5$~cm in all four samples (mean $-3.0$, rms 1.44~cm). The
+$v_z=0$ defect of the superseded Born vintage is absent.
+\item Generator commits: four, all \texttt{-dirty} (7d91bc7, a245229, a2c878d, ff3b63a in Born; a2c878d, ff3b63a, one 8ac2fc0
+in rad). The arms are not of one vintage. The generator-level closure (Sec.~\ref{sec:closure}) shows no effect of that at
+the 0.2\% level.
+\item F18 outbending ran at two torus settings: $+1.008$ for runs 5423--5476 (25.3\% of the data) and $+1.000$ for
+5478--5666 (74.7\%). The simulation has $+1.000$, so the outbending MC represents three quarters of that run period.
+\end{itemize}
+
+%=====================================================================
+\section{Event selection}\label{sec:sel}
+Her note, Secs.~3--4, as far as the ntuple carries the variable. The cuts are applied identically to both arms and both topologies:
+\begin{itemize}
+\item Scattered electron: an identified FT electron ($|{\rm status}|$ 1000--1999, pid 11). Her FT-face fiducial cut
+$8<r<15.75$~cm becomes $2.45^\circ<\theta_e<6.45^\circ$. The ntuple has no FT hit position. On her own F18in
+$e'e^+e^-$ data this window reproduces her $r$ cut event by event for 91\% of events.
+\item $\nu>8.1$~GeV.
+\item Leptons: pid $\pm11$, $|p|>1.95$~GeV, $e^-$ $|p|<10.6$~GeV. $-8<v_z<4$~cm on the inward-bending lepton.
+\item $2.95<M(ee)<3.20$~GeV.
+\item $e'e^+e^-$: $\Delta p_z>-2.5$~GeV, and $MX(e'e^+e^-)$ within $\mu\pm4\sigma$, with $\mu=\mxmu$ and $\sigma=\mxsig$~GeV from a
+Gaussian fit to the Born MC (her rule, applied to our sample). Its upper edge is $v=\vherIn$ (inb) and $\vherOut$ (outb)~GeV$^2$.
+\item $e'e^+e^-p'$: proton pid 2212 with $|p|>0.4$~GeV, $-0.7<\Delta p_z<0.5$~GeV, $|MX^2(e'e^+e^-p')|<0.036$~GeV$^2$.
+\end{itemize}
+\textbf{Not applied}, because the ntuple does not carry them: PCAL energy and fiducial, BDT scores, the triangular cut,
+$\chi^2_{\rm PID}$, $\beta$, the $\theta(E)$ cut on two-hit FT clusters, and lepton timing.
+
+Selected events, inbending: $e'e^+e^-$ $\nselThreeIn$ rad / $\nselBThreeIn$ Born; $e'e^+e^-p'$ $\nselFourIn$ / $\nselBFourIn$.
+Outbending: $\nselThreeOut$ / $\nselBThreeOut$ and $\nselFourOut$ / $\nselBFourOut$.
+
+Table~\ref{tab:cutvars} gives each cut N$-$1: the survival of the cut with all others applied, rad over Born. The cuts are
+strongly correlated \emph{through the decay photon}. Its momentum is missing from $MX(e'e^+e^-)$ and from $\Delta p_z$, so
+those cuts remove decay-radiation events before $M(ee)$ sees them. In the three-track sample, $M(ee)$ alone then costs only 1\%,
+not 12\%. N$-$1 ratios therefore do not factorise $\crad$, and the decomposition is done on the effective edges
+instead (Sec.~\ref{sec:diff}).
+\begin{table}[H]\centering\small
+\input{tab_cutvars.tex}
+\caption{N$-$1 per cut in her window ($Q^2$ 0.02--0.12, $W$ 4.15--4.48). $r$ = rad survival / Born survival. A cut that
+\texttt{rc\_factor} knows nothing about must give $r=1$ unless radiation acts through it. Lepton PID gives $r=0.991$--$0.996$:
+the detector's response to the decay-photon shower next to the lepton.}
+\label{tab:cutvars}
+\end{table}
+
+%=====================================================================
+\section{Generator-level closure}\label{sec:closure}
+No detector and no cut. All generated events of both arms are binned in generated kinematics, against \texttt{rc\_factor}
+with no cut, evaluated per event on 8000 rad events. With $t$ from the proton, the MC is $\closdev\%$ below the formula
+everywhere in $W$, $Q^2$ and $|t|$ (Fig.~\ref{fig:closure}): $\closB$ against $\closA$ integrated.
+This is the energy shift of the pre-vertex radiator, which $\eta_{\rm ext}$ in the peaking approximation leaves out. The
+campaign's own itarg$=$1 Born run measures it independently: $\sigma$ falls by $\hardpct\%$ (0.345396 against 0.349740~nb).
+\textbf{The engine closes to 0.1\%.} The factor $\hard$ is applied in method~2 from here on.
+
+With $t$ built from the $e^+e^-$ pair, the same closure fails by $-35\%$ to $+20\%$ across $|t|$, while $W$ and
+$Q^2$ stay within 1--3\%. Decay-lepton radiation takes momentum out of the pair and moves $t$. Nothing analytic contains
+that. It returns in Sec.~\ref{sec:diff}.
+\begin{figure}[H]\centering
+\includegraphics[width=\textwidth]{f7_closure.png}
+\caption{Generator level, no cut: generated rad/Born over \texttt{rc\_factor}.}\label{fig:closure}
+\end{figure}
+
+Her kinematic cuts applied to the \emph{generated} momenta, still with no detector, are shown in Table~\ref{tab:gencuts}.
+The generated decay-photon fraction below the $M(ee)$ edge is $\Fgen$, against $F=\Ffsr$ from the formula. That is a +0.9\%
+inconsistency between the decay generator and its own spectrum, noted and not chased here. The MX window removes another
+$\mxsoft\%$ of the \emph{soft} decay-photon events, which pass $M(ee)$.
+\begin{table}[H]\centering\small
+\input{tab_gencuts.tex}
+\caption{$\crad$ at generator level with her kinematic cuts on generated $e',e^\pm,p'$ (no photons, nominal beam), F18in files.}
+\label{tab:gencuts}
+\end{table}
+
+%=====================================================================
+\section{Results}
+\subsection{Her three $W$ bins}
+\begin{table}[H]\centering\footnotesize
+\input{tab_mariana.tex}
+\caption{$\crad$ in M.~Tenorio's bins, $Q^2$ 0.02--0.12. Method~2 is inbending; method~2 has no torus in it.
+``Nominal'': her MX edge (three tracks) or no $v$ cut (four tracks; her selection has no $MX(e'p)$ cut), $F$ at
+$M(ee)=2.95$. ``Effective'': the edges where her chain actually cuts (Sec.~\ref{sec:diff}). ``Generated 10M'': the
+Launch generator's generator-level numbers, no cuts.}
+\label{tab:mariana}
+\end{table}
+\begin{figure}[H]\centering
+\includegraphics[width=\textwidth]{f3_mariana.png}
+\caption{Her three $W$ bins, both topologies and polarities.}
+\end{figure}
+
+\subsection{One variable at a time}
+\begin{figure}[H]\centering
+\includegraphics[width=\textwidth]{f1_1d_3trk.png}
+\includegraphics[width=\textwidth]{f1_1d_4trk.png}
+\caption{$\crad$ against $W$, $Q^2$, $|t|$, the other two integrated. Solid lines: method~2 at nominal cuts. Dashed lines:
+method~2 at effective cuts. Lower panels: method 1/method 2 $-1$, with nominal (filled) and effective (open) cuts.}
+\end{figure}
+
+\subsection{The $(W,|t|)$ maps at three $Q^2$}
+The brief's $Q^2$ slices (0.02--0.05, 0.05--0.09, 0.09--0.13) do not fit this sample. After the FT cut, 90\% of the events lie
+below $Q^2=0.056$ and 1\% above 0.09, so the third slice would be empty. The slices are therefore tertiles of the selected
+sample inside her range: 0.02--0.027, 0.027--0.038, 0.038--0.12. The $W$ and $|t|$ edges are quartiles, $4\times4$ per slice.
+Most cells carry 4--8\% statistical errors. These maps are a coarse first pass: they test the methods against each
+other, and they cannot resolve a structure of a few percent inside a slice.
+\begin{figure}[H]\centering
+\includegraphics[width=\textwidth]{f2_maps_3trk.png}
+\caption{$e'e^+e^-$: method~1 $\pm$ stat and its deviation from method~2 (effective cuts), inb and outb; method~2 in the
+bottom row.}
+\end{figure}
+\begin{figure}[H]\centering
+\includegraphics[width=\textwidth]{f2_maps_4trk.png}
+\caption{As above, $e'e^+e^-p'$.}
+\end{figure}
+
+%=====================================================================
+\section{Where the two methods differ, and why}\label{sec:diff}
+Fig.~\ref{fig:vdist} is the key plot. Each cut's survival is plotted against the \emph{generated} radiation: production $v$, and the
+decay-photon energy $k^*$ in the $J/\psi$ frame. Her chain does not cut where its nominal edges are:
+\begin{itemize}
+\item \textbf{Decay photon.} The 50\% point of the chain is at $K_{50}=\KfiftyThree$~GeV (three tracks) and $\KfiftyFour$~GeV (four
+tracks), not at 0.143. The $M(ee)$ resolution moves events with $k^*\approx0.1$ below 2.95. The MX window and $\Delta p_z$
+see the missing photon. $F(K_{50})=\FfiftyThree$ and $\FfiftyFour$, against $\Ffsr$.
+\item \textbf{Production radiation.} The 50\% point in $v$ is $\vfiftyThree$~GeV$^2$ (three tracks, her MX window at nominal
+$\vherIn$) and $\vfiftyFour$~GeV$^2$ (four tracks, set by $\Delta p_z$ and $|MX^2|$, since her four-track selection has no
+$MX(e'p)$ cut).
+\end{itemize}
+\begin{figure}[H]\centering
+\includegraphics[width=\textwidth]{v1_cuts_vs_radiation.png}
+\caption{Survival of the cumulative chain against generated production $v$ (left) and generated decay-photon $k^*$ (right), rad
+arm, F18in. The drop from one curve to the next is what that cut removes.}\label{fig:vdist}
+\end{figure}
+
+\textbf{Method 2 with the effective cuts} is
+$\eta_{\rm int}(v_{50})\,\eta_{\rm ext}(v_{50})\times\hard\times F(K_{50})$. It is still \texttt{rc\_factor} and still uses no Born
+MC; the selection enters as its two 50\% points. Against method~1 (Table~\ref{tab:chi2}):
+\begin{itemize}
+\item $e'e^+e^-p'$: agreement in every binning, both polarities, $\chi^2$ per cell $\approx1$, mean deviation $<0.4\%$.
+\item $e'e^+e^-$: agreement in $W$, $Q^2$ and her bins. \textbf{Failure in $|t|$} ($\chi^2\approx35/7$), which carries
+over into the maps: $-10$ to $-15\%$ at the lowest $|t|$. This is the decay-radiation migration in $t_{e'J/\psi}$ that
+the generator-level closure already shows. It is real, it is not acceptance, and an analysis binned in $t$ from the
+lepton pair has to take it from the Monte Carlo.
+\end{itemize}
+\begin{table}[H]\centering\small
+\input{tab_chi2.tex}
+\caption{Method 1 against method 2 at effective cuts: $\chi^2$ over cells (statistical error of method 1 only) and the
+error-weighted mean deviation.}\label{tab:chi2}
+\end{table}
+
+\paragraph{Decomposition} (Fig.~\ref{fig:decomp}). Method 1/method 2 at nominal cuts $-1$, in $W$, split into:
+\begin{itemize}
+\item the pre-vertex hard part, $-\hardpct\%$;
+\item the decay-photon effective edge, $F(K_{50})/F(K)-1$: $-1.8\%$ and $-1.1\%$;
+\item the production effective $v$: 0 to $-1\%$;
+\item bin migration, method 1 in reconstructed bins against the same events in generated bins: below 1.5\% except at threshold;
+\item the residual, the detector's response to radiation beyond those two edges (lepton PID and $|p|$ on radiating
+leptons, Table~\ref{tab:cutvars}): within $\pm2\%$, consistent with zero within statistics.
+\end{itemize}
+Acceptance weighting inside the bin, per-event method~2 against the flat grid, reaches $\pm2\%$ in individual $W$ bins and
+$-4\%$ at threshold. It is shown for information. Method~2 is acceptance-weighted per event, so it is not a term of the sum.
+The flat average would be wrong by that much.
+\begin{figure}[H]\centering
+\includegraphics[width=\textwidth]{f4_decomp_3trk.png}
+\includegraphics[width=\textwidth]{f4_decomp_4trk.png}
+\caption{Decomposition of method 1 $-$ method 2 (nominal cuts) in $W$.}\label{fig:decomp}
+\end{figure}
+
+\paragraph{The known generator artefact.} $dN/dE_\gamma$ carries a $\pm8\%$ ripple from the 20-cell majorant grid
+(\texttt{generator/tail.py:83}). It is visible in no $\crad$ figure here. The jitter of Fig.~\ref{fig:vdist} is coherent across
+curves because they share a denominator; it is statistical, not that ripple.
+
+%=====================================================================
+\section{Inbending against outbending}
+Method~2 has no torus in it. Any polarity dependence of method~1 is therefore acceptance acting on radiation. Over all cells
+of all binnings:
+\begin{itemize}
+\item three tracks: $\chi^2=\polchiThree/\polnThree$, mean difference $\polmeanThree\%$;
+\item four tracks: $\chi^2=\polchiFour/\polnFour$, mean difference $\polmeanFour\%$.
+\end{itemize}
+In her window, three tracks, method 1 is $\BherThreeIn\pm\BherrThreeIn$ (inb) against $\BherThreeOut\pm\BherrThreeOut$ (outb).
+\textbf{No polarity dependence is seen at the 1\% level.} Method~1 is radiation, not detector, to that precision.
+The parts of it that \emph{are} detector (the effective edges, the PID response) are the same for both torus settings.
+\begin{figure}[H]\centering
+\includegraphics[width=\textwidth]{f5_polarity.png}
+\caption{(inb $-$ outb)/$\sigma$ for every cell.}
+\end{figure}
+
+%=====================================================================
+\section{Against M.~Tenorio's $\crad=0.88\times0.85$}
+\begin{itemize}
+\item \textbf{Decay radiation.} Her 0.88 is $F(K)$ at the nominal edge, $\Ffsr$ here. It agrees. The cut her chain really applies is at $K_{50}$, worth
+another $-1.1$ to $-1.8\%$ when the yield is counted in the $M(ee)$ window. Her fit-based yield includes the radiative
+tail in the line shape, so this part applies to her counting method, not to the fit.
+\item \textbf{Electron line.} Her 0.85 at $v_{\max}\approx0.6$. \texttt{rc\_factor} at her actual MX edge, with the pre-vertex
+radiator, gives $\prodOne$, $\prodTwo$, $\prodThree$ in her three bins. The generated 10M gives 0.939 at $v<0.6$. Her factor is
+5--7\% low. That is the largest single difference in this study, and it is in the input to her note, not between our
+two methods.
+\item \textbf{Total.} Method~1 in her bins is 0.77--0.80 against her 0.75. The closeness is a partial cancellation: her
+electron-line factor is too low by 5--7\%, and she omits 2--4\% of selection and detector effects on the decay radiation.
+\end{itemize}
+
+%=====================================================================
+\section{Conclusions}
+\begin{enumerate}
+\item The two methods agree once method~2 is told where the selection really cuts: two numbers, $K_{50}$ and $v_{50}$, read
+from the MC. With nominal cuts, method~2 is 3--5\% high. That gap is fully decomposed into the pre-vertex hard part, the
+decay-photon effective edge and the production effective $v$. Migration and acceptance weighting are each below 2\%,
+except at threshold.
+\item The one place an analytic correction cannot replace the MC is $|t|$ built from $e'e^+e^-$: decay radiation moves it
+by up to 15\% at low $|t|$.
+\item Inbending and outbending agree to 1\%.
+\item In her bins, $\crad=0.77$--$0.80$. Her decay factor is confirmed. Her electron-line factor 0.85 is 5--7\% lower than
+\texttt{rc\_factor} at her cut.
+\end{enumerate}
+
+\section{What does not reproduce, or is open}
+\begin{itemize}
+\item Generated decay-photon fraction $\Fgen$ against the formula's $\Ffsr$ at the same $K$: +0.9\%, not understood.
+\item Cuts the ntuple cannot carry (PCAL, BDT, $\chi^2_{\rm PID}$, timing, two-hit FT): they act on the leptons that radiate, as lepton PID does
+(0.4--0.9\%). Their effect on $\crad$ is unmeasured.
+\item Her MX window was fitted on data, ours on Born MC ($\sigma=\mxsig$~GeV). A wider data window moves $v_{50}$; the
+three-track $\crad$ depends on it at the $\sim$1\% level (Fig.~\ref{fig:vdist}).
+\item Outbending MC at $+1.000$ only (Sec.~2).
+\end{itemize}
+
+\section{Reproducibility}
+Branch \texttt{jpsi-rc-method-comparison} of \texttt{exclurad\_py}, \texttt{production/analysis/}:
+\texttt{rc\_method\_jpsi.py} (reader, selection), \texttt{\_combos.py} (both methods, all binnings),
+\texttt{\_closure.py}, \texttt{\_gencuts.py}, \texttt{\_cutvars.py}, \texttt{\_vdist.py}, \texttt{\_plots.py}, \texttt{\_tables.py}.
+Data and caches are in \texttt{/Volumes/wd\_14tb/rc\_method\_jpsi}. Every number in this report is in
+\texttt{docs/rc\_method\_jpsi/summary.json} and enters the text through \texttt{numbers.tex}.
+\end{document}
