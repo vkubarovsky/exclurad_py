@@ -146,7 +146,25 @@ while :; do
   # One task proves the configuration before 799 follow it.  The gate earned
   # itself on 2026-10-14: MS was unset in the no-background branch under
   # `set -u` and every task died at line 198 -- after a six-hour GEMC pass.
-  if [ "$(have rad inb none)" -ge 1 ]; then
+  # The no-background sets go LAST.  VPK, 2026-10-27: they are a systematic
+  # check, the with-background sets are the measurement, and on 2026-10-27 the
+  # conductor put 4000 no-background tasks in the queue ahead of a
+  # with-background campaign that was 14 % done.  So they are gated on all four
+  # with-background sets being FULL, not merely on the one proving task.
+  #
+  # The proving-task gate is kept inside that: one clean task before 999 follow
+  # it.  It earned itself on 2026-10-14, when MS was unset in the
+  # no-background branch under `set -u` and every task died at line 198 --
+  # after a full six-hour GEMC pass.
+  bgfull=1
+  for m in rad born; do for p in inb outb; do
+    bg=$([ "$p" = inb ] && echo "${BGIN%%_*}" || echo "${BGOUT%%_*}")
+    [ "$(have "$m" "$p" "$bg")" -ge "$N" ] || bgfull=0
+  done; done
+
+  if [ "$bgfull" -eq 0 ]; then
+    :   # with-background still running; no-background waits its turn
+  elif [ "$(have rad inb none)" -ge 1 ]; then
     for m in rad born; do for p in inb outb; do
       jn="nobg_${m}_${p}"
       [ "$(queued "$jn")" -gt 0 ] && continue
