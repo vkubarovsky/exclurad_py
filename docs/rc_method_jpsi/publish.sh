@@ -21,7 +21,7 @@ mkdir -p "$DEST/figs"
             && pdflatex -interaction=nonstopmode -halt-on-error "$NAME.tex" >/dev/null ) \
   || { echo "pdflatex failed, see $SRC/$NAME.log" >&2; exit 1; }
 
-cp "$SRC/$NAME.tex" "$SRC/$NAME.pdf" "$DEST/"
+cp "$SRC/$NAME.tex" "$SRC/$NAME.pdf" "$SRC/crad_tables.csv" "$DEST/"
 n=0
 for f in "$SRC"/*.png "$SRC"/*.pdf; do
   case "$(basename "$f")" in "$NAME.pdf") continue ;; esac
