@@ -204,3 +204,52 @@ Read from 8 DSTs per arm and polarity (40k events each), via `vz.groovy` on ifar
   itarg = 1. With itarg = 0 (production `cd0e621`, every Born card) every Born event gets vz = 0, a
   point 3 cm downstream of the cell centre, while rad stays spread over the cell. The September π⁰ and
   15.10 φ campaigns are not affected (both arms itarg = 1). Reported to Launch generator 2026-10-22.
+
+## Why amp2614 gives σ_rad/σ_Born = 1.285 (`rc_method_pi0_eta_vscan.py`, `rc_method_pi0_leak.py`)
+
+Raised 2026-10-28 by Launch generator: σ_rad/σ_Born = 1.28522 ± 0.00125 in
+`prod_pi0_amp2614_20261021`, against 0.934 for J/ψ and 0.974 for φ. **This is not a bug.** The rad card has
+`vcut = 0`, so σ_rad is the radiative cross section with no cut at all. No analysis ever quotes that number.
+
+**`rc_factor` alone, with no MC** (4000 Born-generated points, `t_nucl = t` per event,
+`mx2_cut = v + m²_π0` on MM²(e'p)) gives η(no cut) = **1.239 ± 0.011**. The remaining +3.7 % is the size
+of the `itarg` asymmetry (rad 1, Born 0), but that is not proven. An `itarg = 0` rad re-run of a few
+chunks would settle it.
+
+η(v_cut), Born-weighted, by observed W:
+
+| W | share of σ | 0.06 | 0.2 | 0.5 | 1 | 2 | 4 | no cut |
+|---|---|---|---|---|---|---|---|---|
+| 1.8–2.0 | 33 % | 0.820 | 0.907 | 0.986 | 1.025 | 1.025 | 1.025 | 1.025 |
+| 2.0–2.2 | 24 % | 0.827 | 0.918 | 1.008 | 1.081 | 1.100 | 1.100 | 1.100 |
+| 2.2–2.5 | 20 % | 0.834 | 0.928 | 1.028 | 1.124 | 1.196 | 1.198 | 1.198 |
+| 2.5–3.0 | 15 % | 0.846 | 0.946 | 1.071 | 1.204 | 1.374 | 1.458 | 1.458 |
+| 3.0–4.2 | 8 % | 0.869 | 0.968 | 1.101 | 1.295 | 1.629 | 2.055 | 2.189 |
+| all | | 0.833 | 0.925 | 1.022 | 1.107 | 1.179 | 1.228 | 1.239 |
+
+- The excess is the hard tail (v > 0.5 GeV²) at **high** observed W, where the maximum photon energy v_max
+  is large. It is not feed-in at the W = 1.8 floor: that bin has the smallest η.
+- J/ψ and φ come out below 1 because near threshold their v_max is small.
+- **The model is extrapolated.** True hadronic W' = M(p'γγ) from the generated block of the amp2614 rad
+  arm (200k events): 20.5 % of the rad sample is at W' < 1.8, outside the model's fitted range, and
+  6.7 % is at W' < 1.4. At observed W 3–4 the fractions are 40 % and 19 %.
+  - amp2614 is a smooth amplitude model with no Δ, so this is a smooth function continued toward
+    threshold, not a resonance.
+  - The Born arm has none, as it should.
+
+**Those events are harmless only if the cuts reject them.** This depends on the cut chain, so the
+surviving fraction is quoted per chain. Accepted rad events, September amp2609 sample, both polarities:
+
+| selection | N | W' < 1.8 | W' < 1.4 | v > 0.2 | v > 0.5 |
+|---|---|---|---|---|---|
+| generated, no reconstruction | 1995000 | 0.1834 | 0.0562 | 0.2617 | 0.1884 |
+| reconstructed topology | 117238 | 0.0547 | 0.0026 | 0.1688 | 0.0996 |
+| + DIS | 78266 | 0.0421 | 0.0023 | 0.1893 | 0.1127 |
+| + DIS + \|ME\| < 0.2 | 31121 | 0.0001 | 0.0000 | 0.0098 | 0.0013 |
+| + DIS + \|MM²tot\| < 0.004 | 35394 | 0.0054 | 0.0002 | 0.0254 | 0.0090 |
+| full note chain (Sec. 3.5, literal) | 23461 | 0 | 0 | 0.0009 | 0 |
+
+- With the note's full chain, no accepted rad event has W' < 1.8 (< 1.3·10⁻⁴ at 95 % CL).
+- With DIS cuts only, 4.2 % of them do.
+- Missing energy alone removes almost all of them. Anyone quoting the 0.83–0.97 range must state the
+  exclusivity cuts that go with it.
