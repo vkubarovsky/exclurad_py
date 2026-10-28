@@ -67,6 +67,9 @@ HER = dict(
           ((0.0100, 0.0548), (4.4214, 4.5000))],
     eff4=[((0.0286, 0.0711), (4.2019, 4.2560)), ((0.0182, 0.0467), (4.3203, 4.3867)),
           ((0.0162, 0.0433), (4.4258, 4.4874))],
+    # |t| tertiles of the selected rad events (both topologies, both polarities)
+    # inside W 4.15-4.48, Q2 0.02-0.11: 1.141 and 1.749, rounded
+    mt3=[0.3, 1.15, 1.75, 5.0],
 )
 MODEL = {"3trk": "jpsi.diffrad_vm", "4trk": "jpsi.diffrad_vm_pdet"}
 MU2 = {"3trk": R.MP ** 2, "4trk": R.MJ ** 2}
@@ -196,6 +199,11 @@ def cell_specs():
         for i in range(len(w) - 1):
             out.append(("her_WQ2", {"Q2": (hq[j], hq[j + 1]), "W": (w[i], w[i + 1])},
                         [(ci["Q2"], hq[j], hq[j + 1]), (ci["W"], w[i], w[i + 1]), full["mt"]]))
+            # ... and split in |t| tertiles: the W x Q2 x |t| grid
+            ht = HER["mt3"]
+            for k in range(len(ht) - 1):
+                out.append(("her_WQ2t", {"Q2": (hq[j], hq[j + 1]), "W": (w[i], w[i + 1]), "mt": (ht[k], ht[k + 1])},
+                            [(ci["Q2"], hq[j], hq[j + 1]), (ci["W"], w[i], w[i + 1]), (ci["mt"], ht[k], ht[k + 1])]))
     return out
 
 

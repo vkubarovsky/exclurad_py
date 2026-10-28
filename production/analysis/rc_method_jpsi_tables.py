@@ -86,7 +86,7 @@ with open(os.path.join(D, "tab_mariana.tex"), "w") as f:
 with open(os.path.join(D, "tab_chi2.tex"), "w") as f:
     f.write("\\begin{tabular}{llrrrr}\\toprule\n")
     f.write("topology & binning & $\\chi^2$/cells inb & mean dev.\\ inb & $\\chi^2$/cells outb & mean dev.\\ outb \\\\\\midrule\n")
-    lab = {"W": "W", "Q2": "$Q^2$", "mt": "$|t|$", "maps": "$(W,|t|)$ at 3 $Q^2$", "mariana": "her 3 W bins"}
+    lab = {"W": "W", "Q2": "$Q^2$", "mt": "$|t|$", "maps": "$(W,|t|)$ at 3 $Q^2$", "mariana": "M.~Tenorio's 3 W bins"}
     for t in ("3trk", "4trk"):
         for b in ("W", "Q2", "mt", "maps", "mariana"):
             a = s["chi2_eff"][f"{t}_inb_{b}"]; o = s["chi2_eff"][f"{t}_outb_{b}"]
@@ -110,7 +110,7 @@ with open(os.path.join(D, "tab_cutvars.tex"), "w") as f:
 # ---- generator-level chain ----------------------------------------------------
 with open(os.path.join(D, "tab_gencuts.tex"), "w") as f:
     f.write("\\begin{tabular}{llcccc}\\toprule\n")
-    f.write("topology & step & her window & W 4.15--4.29 & W 4.29--4.40 & W 4.40--4.48 \\\\\\midrule\n")
+    f.write("topology & step & full window & W 4.15--4.29 & W 4.29--4.40 & W 4.40--4.48 \\\\\\midrule\n")
     for t in ("3trk", "4trk"):
         ch = s["gencuts"]["chains"][t]
         for step in ch["her window"]:
@@ -213,6 +213,9 @@ table("tab_crad_eff.tex", [("3trk", "her_eff3", ["$Q^2$ (GeV$^2$)", "W (GeV)"], 
                            ("4trk", "her_eff4", ["$Q^2$ (GeV$^2$)", "W (GeV)"], lambda r: [rng(r, "Q2", 4), rng(r, "W", 4)])])
 table("tab_crad_Q2.tex", [(t, "her_Q2", ["$Q^2$ (GeV$^2$)"], lambda r: [rng(r, "Q2", 2)]) for t in both])
 table("tab_crad_WQ2.tex", [(t, "her_WQ2", ["$Q^2$ (GeV$^2$)", "W (GeV)"], lambda r: [rng(r, "Q2", 2), rng(r, "W", 2)]) for t in both])
+for t in both:
+    table(f"tab_crad_WQ2t_{t}.tex", [(t, "her_WQ2t", ["$Q^2$ (GeV$^2$)", "W (GeV)", "$|t|$ (GeV$^2$)"],
+                                      lambda r: [rng(r, "Q2", 2), rng(r, "W", 2), rng(r, "mt", 2)])])
 for t in both:
     table(f"tab_crad_maps_{t}.tex",
           [(t, f"map_Q2_{a}_{b}", ["$Q^2$ (GeV$^2$)", "W (GeV)", "$|t|$ (GeV$^2$)"],

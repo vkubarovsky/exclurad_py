@@ -43,11 +43,12 @@ Inbending = outbending (chi2 51/67, 32/50).
 
 ## Tables for the cross section
 
-Section 6 of the report and `crad_tables.csv` (178 rows) give method-1 C_rad for each topology, in these binnings:
-- her hard W bins;
-- her effective windows;
-- her Q2 bins;
+Section 6 of the report and `crad_tables.csv` (232 rows) give method-1 C_rad for each topology, in these binnings:
+- M. Tenorio's hard W bins;
+- the effective windows of the analysis note;
+- M. Tenorio's Q2 bins;
 - the W x Q2 grid;
+- the W x Q2 x |t| grid (binning `her_WQ2t`, |t| tertiles 0.3/1.15/1.75/5.0);
 - the (W,|t|) maps and 1-D.
 
 Each bin has inb, outb and F18 combined (her charge x Born acceptance); `F18_one_polarity` = 1 when only one arm passes.
