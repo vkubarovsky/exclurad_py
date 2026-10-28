@@ -62,7 +62,8 @@ MARIANA = dict(Q2=(0.02, 0.12), W=[4.15, 4.29, 4.40, 4.48],
 # over the EFFECTIVE windows, which differ by topology; the Q2 dependence uses
 # three hard Q2 bins in the combined W range (3 tracks).
 HER = dict(
-    Q2=[0.020, 0.040, 0.060, 0.110], Wall=(4.15, 4.48),
+    # the Q2 dependence uses ONE W bin, 4.20-4.35 (note Sec. 10, Fig. 38), not 4.15-4.48
+    Q2=[0.020, 0.040, 0.060, 0.110], Wall=(4.20, 4.35),
     eff3=[((0.0253, 0.0811), (4.1813, 4.2700)), ((0.0126, 0.0620), (4.3205, 4.3911)),
           ((0.0100, 0.0548), (4.4214, 4.5000))],
     eff4=[((0.0286, 0.0711), (4.2019, 4.2560)), ((0.0182, 0.0467), (4.3203, 4.3867)),
