@@ -6,6 +6,7 @@ Registry keys
     jpsi.diffrad      DIFFRAD's internal two-gluon model (port of difflt)
     jpsi.roberts2026  sigma_tot(W) fit from 2026_Jpsi_total_cross_section
     jpsi.diffrad_vm   the tuned model of diffrad_vm.f90 (v2 defaults)
+    jpsi.vmd2026      roberts2026 sigma(W) x VMD (1+Q2/m^2)^-2 x dipole t
     rho.demo          illustrative rho0 parameterization
     phi.demo          illustrative phi parameterization
 
@@ -211,6 +212,63 @@ class Jpsi_DiffradVM(StructureFunctions):
         sT = (cT / Q2 ** (self.nuT / 2.0)
               * 3.0 * (self.mg2 + tmin_k) ** 3 / (self.mg2 - t) ** 4)
         sT = np.where(ok, sT, 0.0)
+        sL = self.cR * Q2 / m2 * sT
+        z = np.zeros_like(sT)
+        return {"sT": sT, "sL": sL, "sTT": z, "sLT": z, "sLTp": z}
+
+
+@register
+class Jpsi_VMD2026(StructureFunctions):
+    """sigma_T = sigma_gamma(W) (1 + Q2/m^2)^-k  x  dipole t-shape normalised to 1.
+
+    Replaces jpsi.diffrad_vm for quasi-real (FT) kinematics.  That model put
+    Q2^(-nuT/2) with nuT = 3.114 into sigma_T, but 3.114 is M. Tenorio's fit
+    exponent of dsigma_ep/dQ2dW, which already contains the flux Gamma ~ 1/Q2;
+    sigma_gamma* therefore fell as Q^-3.1 instead of being flat, and its alf1
+    was anchored to a superseded version of her cross section.
+    """
+
+    name = "jpsi.vmd2026"
+    channel = "jpsi"
+    version = "2026"
+    topology = _JPSI_TOPO
+    validity = dict(W2=(16.4, 400.0), Q2=(0.0, 30.0), mt=(0.0, 12.0))
+    provenance = (
+        "sigma_gamma(W) = the existing total-cross-section fit of "
+        "jpsi.roberts2026 (A, alpha, B taken from that class, not refitted). "
+        "Q2: pure VMD (m^2/(m^2+Q2))^k, k=2, Lambda2=m_J/psi^2. t: the "
+        "diffrad_vm dipole 3(mg2+|t|min)^3/(mg2-t)^4, mg2=2.637 (Tenorio "
+        "dsigma/dt fit), normalised to unit integral over the kinematic t "
+        "range, so the t-integrated sigma_T equals sigma_gamma(W) x VMD. "
+        "sigma_L = cR Q2/m^2 sigma_T, cR=0.4 (as diffrad_vm).")
+    reference = "this file; VPK 29.10.2026"
+
+    A, ALPH, B = Jpsi_Roberts2026.A, Jpsi_Roberts2026.ALPH, Jpsi_Roberts2026.B
+    LAM2 = M_JPSI ** 2
+    k = 2.0
+    mg2, cR = 2.637, 0.400
+
+    def _sfs(self, W2, Q2, t):
+        amp2 = _MP * _MP
+        m2 = M_JPSI ** 2
+        Wth = _MP + M_JPSI
+        ok = (W2 > Wth ** 2) & (Q2 >= 0)
+        W2s = np.where(ok, W2, Wth ** 2 * 1.001)
+        W = np.sqrt(W2s)
+        ecm_i = (W2s + Q2 + amp2) / (2 * W)
+        pcm_i = np.sqrt(np.maximum(ecm_i ** 2 - amp2, 0))
+        ecm_f = (W2s + m2 - amp2) / (2 * W)
+        pcm_f = np.sqrt(np.maximum(ecm_f ** 2 - m2, 0))
+        tmin_k = (pcm_i - pcm_f) ** 2 - ((Q2 + m2) / (2 * W)) ** 2
+        tmax_k = (pcm_i + pcm_f) ** 2 - ((Q2 + m2) / (2 * W)) ** 2
+        ok = ok & (-t >= tmin_k) & (-t <= tmax_k)
+        x = np.maximum(W - Wth, 0.0)
+        sig = self.A * x ** self.ALPH * np.exp(-self.B * x)
+        vmd = (1.0 + Q2 / self.LAM2) ** (-self.k)
+        a = self.mg2 + tmin_k
+        norm = 1.0 - (a / (self.mg2 + tmax_k)) ** 3
+        shape = 3.0 * a ** 3 / (self.mg2 - t) ** 4 / np.maximum(norm, 1e-300)
+        sT = np.where(ok, sig * vmd * shape, 0.0)
         sL = self.cR * Q2 / m2 * sT
         z = np.zeros_like(sT)
         return {"sT": sT, "sL": sL, "sTT": z, "sLT": z, "sLTp": z}
@@ -427,3 +485,9 @@ class Phi_DiffradVM_Pdet(_PdetVector, Phi_DiffradVM):
 class Rho_DiffradVM_Pdet(_PdetVector, Rho_DiffradVM):
     name = "rho.diffrad_vm_pdet"
     topology = baryon_detected(M_RHO, meson="rho0")
+
+
+@register
+class Jpsi_VMD2026_Pdet(_PdetVector, Jpsi_VMD2026):
+    name = "jpsi.vmd2026_pdet"
+    topology = baryon_detected(M_JPSI, meson="J/psi")
