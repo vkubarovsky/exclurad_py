@@ -237,8 +237,10 @@ class Jpsi_VMD2026(StructureFunctions):
         "sigma_gamma(W) = the existing total-cross-section fit of "
         "jpsi.roberts2026 (A, alpha, B taken from that class, not refitted). "
         "Q2: pure VMD (m^2/(m^2+Q2))^k, k=2, Lambda2=m_J/psi^2. t: the "
-        "diffrad_vm dipole 3(mg2+|t|min)^3/(mg2-t)^4, mg2=2.637 (Tenorio "
-        "dsigma/dt fit), normalised to unit integral over the kinematic t "
+        "diffrad_vm dipole 3(mg2+|t|min)^3/(mg2-t)^4 with mg2 = 1.78 GeV^2, "
+        "the weighted mean of the published m_s^2 of (1-t/m_s^2)^-4 fits "
+        "(GlueX PRC 108 025201 Tab. II, CLAS12 2026 Tab. II; 6 Eg bins, "
+        "m_s = 1.336 +- 0.032 GeV), normalised to unit integral over the kinematic t "
         "range, so the t-integrated sigma_T equals sigma_gamma(W) x VMD. "
         "sigma_L = cR Q2/m^2 sigma_T, cR=0.4 (as diffrad_vm).")
     reference = "this file; VPK 29.10.2026"
@@ -246,7 +248,7 @@ class Jpsi_VMD2026(StructureFunctions):
     A, ALPH, B = Jpsi_Roberts2026.A, Jpsi_Roberts2026.ALPH, Jpsi_Roberts2026.B
     LAM2 = M_JPSI ** 2
     k = 2.0
-    mg2, cR = 2.637, 0.400
+    mg2, cR = 1.78, 0.400
 
     def _sfs(self, W2, Q2, t):
         amp2 = _MP * _MP
