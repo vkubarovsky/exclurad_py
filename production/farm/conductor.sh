@@ -17,6 +17,13 @@
 # it can be killed and restarted at any point and picks up correctly.
 #
 # It never starts a new CHANNEL.  One conductor runs one campaign and stops.
+#
+# SEVERAL CONDUCTORS MAY RUN AT ONCE, one per campaign, so the farm does not
+# drain between channels.  That needs the channel in the slurm job name: until
+# 2026-10-23 the name was fill_rad_inb_45nA, identical for every campaign, and
+# `queued` counts by exact name -- so a pi0 conductor would have seen phi's
+# jobs, concluded its own were already submitted, and quietly submitted
+# nothing for as long as the other campaign ran.
 set -u
 R=${PROD_DIR:?set PROD_DIR to the production directory}
 EX=${EXRU:-$HOME/exclurad_py}
@@ -136,7 +143,7 @@ while :; do
   for m in rad born; do for p in inb outb; do
     bg=$([ "$p" = inb ] && echo "$BGIN" || echo "$BGOUT")
     tag=${bg%%_*}
-    jn="fill_${m}_${p}_${tag}"
+    jn="fill_${CHAN}_${m}_${p}_${tag}"
     [ "$(queued "$jn")" -gt 0 ] && continue
     miss=$(missing "$m" "$p" "$tag")
     [ -n "$miss" ] && submit "$m" "$p" "$bg" "$jn" 14:00:00 "$miss"
@@ -166,7 +173,7 @@ while :; do
     :   # with-background still running; no-background waits its turn
   elif [ "$(have rad inb none)" -ge 1 ]; then
     for m in rad born; do for p in inb outb; do
-      jn="nobg_${m}_${p}"
+      jn="nobg_${CHAN}_${m}_${p}"
       [ "$(queued "$jn")" -gt 0 ] && continue
       miss=$(missing "$m" "$p" none)
       # 14 h, NOT 10.  The J/psi no-background jobs fitted in 10 h (GEMC
