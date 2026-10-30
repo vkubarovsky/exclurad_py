@@ -171,7 +171,20 @@ def _preset_factor(rep, path, nopreset, unknown):
 
     iacc = none leaves cut_acceptance at 0 and this returns exactly 1.0 --
     measured on the phi and pi0 campaigns, whose cards declare none.
+
+    AND SO DOES A SIDECAR THAT ALREADY CARRIES THE CORRECTION.  Since
+    2026-10-30 sigma_total() normalises with the number of events that reached
+    the LUND file (events.py), so sigma_nb in a new sidecar IS the written
+    sample's cross section and correcting it here would apply the factor TWICE.
+    That error would NOT cancel in a rad/Born ratio: the factor differs between
+    the arms -- 0.578 rad against 0.588 born on the J/psi preset -- so it is a
+    ~1.7 % error in C_rad, not a common normalisation.  The report's `written`
+    key is the marker of the new convention; a sidecar without it predates the
+    change and still needs correcting here.  validation/jpsi_eta_table.py makes
+    the same test for the same reason.
     """
+    if rep.get("written") is not None:
+        return 1.0
     a2 = rep.get("accept2", 0) or 0
     a1 = rep.get("accepted", 0) or 0
     counted = a2 if a2 > 0 else a1          # exactly what sigma_total() divides by
