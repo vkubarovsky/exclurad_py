@@ -71,7 +71,7 @@ ME = 0.000511
 CHANNELS = {
     "jpsi": dict(layout="vector", hplus=ME, hminus=ME, meson=3.096900, baryon=MP,
                  names=("e^+", "e^-"), meson_name=r"J/\psi", baryon_name="p'", ordered=True,
-                 kinds=("charged",) * 4),
+                 kinds=("charged",) * 4, escat_ft=True),
     "phi":  dict(layout="vector", hplus=0.493677, hminus=0.493677, meson=1.019461, baryon=MP,
                  names=("K^+", "K^-"), meson_name=r"\phi", baryon_name="p'", ordered=True,
                  kinds=("charged",) * 4),
@@ -388,7 +388,7 @@ def load(pattern, channel, ebeam=10.6, rec=False, require=(0, 1, 2, 3),
         # like a plotting artefact rather than a selection error.  So a slot
         # counts as reconstructed only when it is found AND carries momentum.
         keep = np.ones(len(a), dtype=bool)
-        nzero, nmis = {}, {}
+        nzero, nmis, nnoft = {}, {}, {}
         for k in require:
             if k >= len(SLOTS):
                 continue
@@ -403,21 +403,61 @@ def load(pattern, channel, ebeam=10.6, rec=False, require=(0, 1, 2, 3),
                     rel = np.abs(pk - pg) / np.where(pg > 0, pg, 1.0)
                 nmis[SLOTS[k]] = int((ok & ~(rel < thr)).sum())
                 ok &= rel < thr
+            # THE SCATTERED ELECTRON MUST BE AN IDENTIFIED FT ELECTRON.
+            # Near the J/psi threshold the electron is quasi-real and lands in
+            # the Forward Tagger, 2.5-4.5 deg; nothing else is possible for
+            # this channel, and an event without one is not the event we are
+            # measuring.  MC::GenMatch does not know that and will match the
+            # generated electron to any REC::Particle row.  Measured on 200
+            # born chunks of prod_jpsi_f18in_20261009, over the rows it
+            # returned for slot 0:
+            #   |status| 1000-1999  FT  88705  theta_rec  3.41 vs theta_gen 3.36
+            #   |status| 2000-3999  FD   6755  theta_rec 16.86 vs theta_gen 2.63
+            #   |status| 4000+      CD  24992  theta_rec 64.33 vs theta_gen 2.35
+            # The FD and CD rows are a DIFFERENT PARTICLE.  They survive the
+            # dp cut above because that cut tests |p| and says nothing about
+            # direction: a soft track anywhere in the detector can carry the
+            # right momentum magnitude.  Used as the scattered electron they
+            # produced a Q2 tail out to 8.7 GeV^2 from a box whose ceiling is
+            # 0.25 -- 1.5 % of the selected sample, with the matched track a
+            # median 52 deg away from the generated one.
+            # Inside the FT band 28.8 % of rows carry pid 22, not 11: a
+            # calorimeter cluster the hodoscope and tracker did not confirm.
+            # That is not an identified electron, so it goes too.
+            if k == 0 and ch.get("escat_ft"):
+                st = np.abs(a[:, REC0 + 8 * k + 3])
+                is_ft = (st >= 1000) & (st < 2000) & (a[:, REC0 + 8 * k + 1] == 11)
+                nnoft[SLOTS[k]] = int((ok & ~is_ft).sum())
+                ok &= is_ft
             keep &= ok
         a = a[keep]
 
     m = ch
     MB = ch["baryon"]
+    # The selection mask itself, over the n_read events in file order, so a
+    # caller can line a reconstructed event up with its GENERATED one: load()
+    # with rec=False reads the same files in the same sorted order, so
+    # gen[...][keep] is the generated partner of rec[...].  Without it the two
+    # calls return arrays of different length and nothing says which is which,
+    # and a study that needs bin migration cannot be written at all.
     out = dict(n_files=len(files), n_read=n_read, n_kept=len(a), weight=a[:, 0],
+               keep=(keep if rec and require else np.ones(n_read, dtype=bool)),
                channel=channel, layout=ch["layout"],
                has_vz=has_vz,
                n_zero_momentum=(nzero if rec and require else {}),
                n_dp_rejected=(nmis if rec and require else {}),
+               n_not_ft=(nnoft if rec and require else {}),
                dp_cut=bool(dp_cut) and bool(rec and require))
     for k, name in enumerate(SLOTS):
         p = _p3(a, k, rec, REC0)
         out[name + "_p"], out[name + "_theta"], out[name + "_phi"] = _pmag_theta_phi(p)
         out[name + "_p3"] = p
+        # The REC row's pid and status, so an analysis can apply its own PID
+        # cut (pid +-11 on the decay leptons, 2212 on the proton) instead of
+        # trusting that MC::GenMatch paired like with like.
+        if rec:
+            out[name + "_pid"] = np.rint(a[:, REC0 + 8 * k + 1]).astype(int)
+            out[name + "_status"] = np.rint(a[:, REC0 + 8 * k + 3]).astype(int)
     for miss in ("gdec", "gprod"):                 # absent in the pseudoscalar record
         if miss + "_p" not in out:
             z = np.zeros(len(a))
