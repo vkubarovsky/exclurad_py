@@ -25,33 +25,45 @@ RESULT, 2026-10-08.  Two things, and the second is the important one.
    2.0 and at vcut = 0 (no cut).  The Fortran produces 2 non-finite points of
    20, at vcut = 0 only.  So the NaN question is clean on our side.
 
-2. THE ETA VALIDATION IS CURRENTLY BROKEN, AND REPORT.md SECTION 3.2 IS STALE.
-   At the matched vcut = 0.08 this comparison gave +0.199 % when the CSV was
-   committed (d88f0ea, 2026-08-12).  It now gives -7.992 %, verdict
-   DISCREPANT.  The Fortran column is BYTE-IDENTICAL to the committed CSV, so
-   the whole move is ours: every exclurad_py point is lower by 0.066-0.085.
+2. THE DRIVER CONVERTED t TWICE.  FOUND AND FIXED 2026-10-08.
+   `excl_to_mesonrc` predates t_kind and converts t_N to the meson side;
+   72f8dc6 made baryon_detected select t_kind='target', which takes t_N
+   directly.  The driver kept converting, so for eight weeks this read
+   -7.992 % instead of +0.198 %.  Crossing both t inputs with all three
+   conventions: consistent pairings give +0.198/+0.199 %, inconsistent ones
+   -7.99 %.  Not a convention question -- 'target' is correct, and 3.2/3.2b
+   kept passing because their drivers were always consistent.
 
-   CAUSE: `eta.tableB1` violates positivity at low W2~ and drives sigma_F
-   NEGATIVE.  Scanned down in W2~ at Q2 = 1.15, t_nucl = -0.12 -- the path the
-   radiative integral takes -- sigma_TT and sigma_LT are exactly -0 between
-   W2~ = 2.5 and 4.0, then jump to large negative values below 2.0:
+   The 8 % is delta_inf alone, via S' = 2 k1.Lam moving 0.425 -> 7.630 while
+   X' and v_m hold (core/virtual.py:77); Lam is the Born recoil built from
+   whichever t it is handed.  Fixed, the sweep is monotone and sub-percent:
+   -0.00 % at vcut 0.02 rising to +0.51 % at 0.50, target and cm_angle
+   identical throughout.
+
+2b. A SEPARATE DEFECT OF THE REFERENCE MODEL: tableB1 violates positivity.
+   Independent of the convention question and much smaller here.  Scanned down
+   in W2~ at Q2 = 1.15, t_nucl = -0.12, sigma_TT and sigma_LT are exactly -0
+   between W2~ 2.5 and 4.0 and large negative below 2.0:
 
        W2~     sT      sL      sTT      sLT     |sTT|/sT
        4.00   56.4   440.7      -0       -0
-       2.50   83.5   651.9      -0       -0
        2.00  109.8   857.7  -177.9   -50.41       1.62
        1.50  181.2  1415.0  -305.4   -83.16       1.69
        1.30     --      --      --       --       1.72   (worst)
 
-   |sigma_TT| > sigma_T makes sigma_T + eps*sigma_TT*cos(2phi) negative at some
-   phi, so the Born cross section goes negative inside the photon phase space
-   and sigma_F comes out negative: -4.5e-06 against a Born of 2.1e-03.  eta is
-   then just the virtual-plus-soft factor exp(d_inf)(1+d_VR+d_vac) = 0.848,
-   which is the whole 8 %.  The model's declared validity is
-   W2 (1.15, 20.0), so the pathological region is INSIDE the window it claims.
+   |sigma_TT| > sigma_T makes sigma_T + eps*sigma_TT*cos(2phi) negative at
+   some phi, so the Born cross section goes negative inside the photon phase
+   space and sigma_F comes out NEGATIVE.  Its declared validity is
+   W2 (1.15, 20.0), so it is pathological inside the window it claims.
 
-   NO PRODUCTION MODEL IS AFFECTED, and this is the reason not to panic.
-   Worst |sigma_TT|/sigma_T on the same scan, with sigma_F's sign:
+   BUT sigma_F is negative on BOTH paths, 20/20 points each (-4.53e-06 on
+   'target', -4.77e-06 on 'photon'), i.e. also on the path that AGREES with
+   the Fortran.  It is -0.2 % of Born, not 8 %.  An earlier version of this
+   docstring claimed sigma_F's sign was the cause of the 8 %; it is not, and
+   the two findings are independent rather than composed.
+
+   NO PRODUCTION MODEL IS AFFECTED.  Worst |sigma_TT|/sigma_T with sigma_F's
+   sign at a production point:
 
        eta.tableB1     1.718   sigma_F -4.3e-05   <-- the only violator
        eta.amp2609     0.007   sigma_F +6.6e-04
@@ -60,16 +72,10 @@ RESULT, 2026-10-08.  Two things, and the second is the important one.
        pi0.amp2609     0.401   sigma_F +9.1e-03
        pi0.amp2614     0.409   sigma_F +1.3e-02
 
-   `eta.tableB1` is the frozen Table-B.1 reference used ONLY by this
-   validation; it is not a production model and no campaign uses it.  So the
-   defect is in the reference, not in the RC engine.
-
-   STILL OPEN: it passed on 2026-08-12 and fails now, with the Fortran
-   unchanged, so either the table interpolation moved or the v integration
-   bounds did and the integral now reaches W2~ it did not before.  25
-   core/model commits sit in between; `67f74f0` ("lo was shadowing the log-v
-   bound") and `8d28335` (quadrature 20,12,16,12) are the candidates to bisect
-   first.  Do not edit either code to make them agree -- quantify and report.
+   tableB1 is the frozen Table-B.1 reference this validation uses and nothing
+   else.  Taken with the convention result: it is a poor reference for a
+   t-binned radiative correction, because it is unphysical at the W2~ the
+   integral reaches on ANY path.
 
 3. WHERE THE TWO DEFINITIONS PART COMPANY, which is what the sweep was for.
    exclurad_py's eta stops moving above vcut ~ 0.15 because v_max(t) binds,
@@ -83,9 +89,9 @@ RESULT, 2026-10-08.  Two things, and the second is the important one.
        2.00      1.0855   0.8807   -18.85 %
        0 (none)  1.0942   0.8807   -19.61 %
 
-   Below 0.15 the residual is flat at -8.0 %, which is the sigma_F defect
-   alone; above it the growth is the bin definition on top.  That flatness is
-   what says the two effects are separable.
+   Below 0.15 the residual is flat at -8.0 %, which is the convention alone;
+   above it the growth is the v-range mismatch on top.  That flatness is what
+   says the two effects are separable.
 
 NOTE a second, smaller inconsistency found on the way: `rc_over_points` in
 validation/legacy.py computes its reported v_max_kin WITHOUT passing t_kind,
@@ -141,8 +147,10 @@ def main():
             continue
         Q2, xb, tabs, phid, dF = a[:, 0], a[:, 1], a[:, 2], a[:, 3], a[:, 5]
         tN, phi = -tabs, np.radians(phid)
-        from exclurad_py.validation.legacy import excl_to_mesonrc
-        W2, tk, phik = excl_to_mesonrc(Q2, xb, tN, phi, M_ETA)
+        # raw t_N: t_kind='target' takes the NUCLEON transfer directly.
+        # excl_to_mesonrc would convert it a second time -- see run_matched.py.
+        W2 = Q2 * (1.0 / xb - 1.0) + 0.93827208816 ** 2
+        tk, phik = tN, phi
         etas, vmaxes = [], []
         for i in range(len(Q2)):
             sf = models.get("eta.tableB1", t_nucl=float(tN[i]))

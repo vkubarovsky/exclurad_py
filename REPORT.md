@@ -353,10 +353,68 @@ does matter and was the actual bug.  `"cm_angle"` is retained only as a
 verification of EXCLURAD's convention.
 
 An intermediate matched-window comparison against EXCLURAD (both codes
-forced to v < 0.08, where the conventions nearly coincide) gave mean
-+0.199 %, rms 0.047 %, and remains valid as a check of the RC machinery
-alone; it lives in `validation/eta_matched/`.  It is superseded by the
-direct comparison above.
+forced to v < 0.08) gave mean +0.199 %, rms 0.047 %; it lives in
+`validation/eta_matched/`.
+
+> **Broke 2026-08-12, found and fixed 2026-10-08. The driver converted t
+> twice; the physics was never wrong.**
+>
+> `excl_to_mesonrc` predates `t_kind`: it converts the published `t_N` to the
+> meson side, which was correct while `baryon_detected` took a meson-side t.
+> `72f8dc6` made `baryon_detected` select `t_kind='target'`, which takes `t_N`
+> DIRECTLY — and the driver was not updated. For eight weeks this comparison
+> read **-7.992 %, DISCREPANT**, and nobody ran it. Crossing both t inputs
+> against all three conventions, 20 points, against the Fortran:
+>
+> | t input | `photon` | `target` | `cm_angle` |
+> |---|---:|---:|---:|
+> | `excl_to_mesonrc` (converted) | **+0.199 %** | -7.992 % | -7.991 % |
+> | raw `t_N` | -7.991 % | **+0.198 %** | **+0.198 %** |
+>
+> CONSISTENT pairings agree; inconsistent ones are 8 % off. It was never a
+> question of which convention is right — `72f8dc6`'s `'target'` is right, and
+> `run_direct.py` (§3.2) and the full-grid drivers (§3.2b) were always
+> consistent, which is why they kept passing while this one did not.
+>
+> The 8 % is `delta_inf` alone: `d_VR` agrees to 4e-4, `d_vac` is identical,
+> `sigma_F/born` is identical and negligible. `delta_VR_inf`
+> (`core/virtual.py:77`) has `d_inf = (alpha/pi)(L_m-1) ln(v_m^2/(S'X'))` with
+> `S' = 2 k1.Lam`; `Lam` is the Born recoil built from whichever t it is
+> handed, so `S'` moves 0.425 -> 7.630 while `X'` and `v_m` hold, giving the
+> measured `d_inf` ratio 1.6568 to five digits.
+>
+> **With the driver fixed the comparison passes at every vcut**, Fortran rerun
+> at each point:
+>
+> | vcut | EXCLURAD | `target` | `cm_angle` |
+> |---:|---:|---:|---:|
+> | 0.02 | 0.8308 | -0.00 % | -0.00 % |
+> | 0.05 | 0.8820 | +0.16 % | +0.16 % |
+> | 0.08 | 0.9092 | +0.20 % | +0.20 % |
+> | 0.12 | 0.9330 | +0.24 % | +0.24 % |
+> | 0.17 | 0.9535 | +0.28 % | +0.28 % |
+> | 0.20 | 0.9632 | +0.30 % | +0.30 % |
+> | 0.30 | 0.9870 | +0.39 % | +0.39 % |
+> | 0.50 | 1.0169 | +0.51 % | +0.51 % |
+>
+> Monotone and sub-percent throughout, with no saturation. Driver fixed in
+> `run_matched.py`; sweep in `validation/eta_matched/scan_vcut.py`.
+>
+> **Two independent defects were surfaced by chasing this and are NOT part of
+> it.** (1) `eta.tableB1` violates `|sigma_TT| <= sigma_T` (1.72x below
+> W2~ = 2.0) and drives `sigma_F` negative on every convention — -0.2 % here,
+> but unphysical, and no production model does it (`eta.amp2614` 0.035,
+> `pi0.amp2609` 0.401, all positive). (2) The Fortran itself returns 2
+> non-finite points of 20 at `vcut = 0` and none at any binding cut, which is
+> the `sffun` `sqrt(<0)` failure the J/psi session found independently; the
+> Fortran cannot be the large-v reference for pi0/eta until that is guarded.
+>
+> **The process lesson is the expensive one.** Five mechanisms were proposed
+> and refuted before the cause was found, by two sessions writing each other's
+> explanations into this file as fact between tests. The driver is a
+> standalone script, so no suite run would have caught the original breakage —
+> a short `run_matched.py` in `validation/selftest` would have gone red on
+> 12 August.
 
 ### 3.2b Full-grid validation, both channels — **PASSED**
 
