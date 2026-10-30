@@ -57,6 +57,37 @@ def lund = reader.getBank("MC::Lund"), mcp = reader.getBank("MC::Particle"), mce
 def gm = reader.getBank("MC::GenMatch"), rec = reader.getBank("REC::Particle")
 def os = new BufferedOutputStream(new FileOutputStream(oname), 1<<20)
 def bb = ByteBuffer.allocate(NFLD*4).order(ByteOrder.LITTLE_ENDIAN)
+// THE SELF-DESCRIBING HEADER, 64 bytes, in front of the records.
+// Written since 2026-10-23 because a bare float32 stream cannot say which
+// vintage it is: 1600 superseded ntuples, named exactly like the current ones
+// but 73 floats where the current record is 80, were read as current by a
+// library pinned to the old length and a whole analysis came out of them with
+// no error raised.  Layout and the reasoning are in
+// production/analysis/f32_format.py, which reads it; keep the two in step.
+//   0  'EXF3'   4  version=1   8  nfields   12  nrecords(0=unknown)
+//  16  header_bytes=64         20  channel[16]      36  commit[16]
+//  52  reserved[12]
+// nrecords is written as 0 here: the count is not known until the loop ends
+// and this is a streaming writer.  f32_format derives it from the file size
+// and only cross-checks when the field is non-zero.
+def writeHeader = { out, nfld, chanName, gitSha ->
+  def h = ByteBuffer.allocate(64).order(ByteOrder.LITTLE_ENDIAN)
+  h.put("EXF3".getBytes("US-ASCII"))
+  h.putInt(1); h.putInt(nfld); h.putInt(0); h.putInt(64)
+  byte[] c = new byte[16]; byte[] cb = chanName.getBytes("US-ASCII")
+  System.arraycopy(cb, 0, c, 0, Math.min(cb.length, 16)); h.position(20); h.put(c)
+  byte[] g = new byte[16]; byte[] gb = (gitSha ?: "").getBytes("US-ASCII")
+  System.arraycopy(gb, 0, g, 0, Math.min(gb.length, 16)); h.position(36); h.put(g)
+  out.write(h.array())
+}
+def gitCommit = {
+  try {
+    def p = "git -C ${System.getenv('EXRU') ?: System.getProperty('user.home') + '/exclurad_py'} rev-parse --short HEAD".execute()
+    p.waitFor(); return p.exitValue() == 0 ? p.text.trim() : ""
+  } catch (Throwable t) { return "" }
+}()
+
+writeHeader(os, NFLD, chan, gitCommit)
 float[] r = new float[NFLD]
 
 int n = 0, nw = 0, nbad = 0, nskip = 0

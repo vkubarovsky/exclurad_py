@@ -32,6 +32,9 @@ from concurrent.futures import ThreadPoolExecutor
 from collections import Counter, defaultdict
 from datetime import datetime
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import f32_format                                                   # noqa: E402
+
 # (short, long) record lengths per channel family, longest first
 LAYOUT = {"jpsi": (80, 73), "phi": (80, 73), "rho": (80, 73),
           "pi0": (55, 50), "pi0n": (55, 50), "eta": (55, 50), "etan": (55, 50)}
@@ -50,8 +53,19 @@ def card_fields(path):
     return out
 
 
-def nfields(sz, channel):
-    """Record length of a .f32 from its size, trying only this channel's two."""
+def nfields(path, channel):
+    """Record length of a .f32 -- from its HEADER when it has one.
+
+    Size inference is the fallback for legacy files only.  A file that states
+    its length is not guessed at; see f32_format.
+    """
+    try:
+        hd = f32_format.read(path)
+    except Exception as exc:                       # a broken header is a fact
+        return ("BROKEN: %s" % exc)
+    if hd is not None:
+        return hd["nfields"]
+    sz = os.path.getsize(path)
     for n in LAYOUT.get(channel, (80, 73, 55, 50)):
         if sz % (n * 4) == 0:
             return n
@@ -119,15 +133,35 @@ def arm_report(root, arm, channel):
     for od in sorted(glob.glob(os.path.join(d, "out_*"))):
         fs = glob.glob(os.path.join(od, "*.f32"))
         if not fs:
-            r["outs"][os.path.basename(od)] = (0, None, None)
+            r["outs"][os.path.basename(od)] = (0, None, None, None, 0, 0)
             continue
-        sizes = Counter(os.path.getsize(f) for f in fs)
-        sz, _ = sizes.most_common(1)[0]
-        nf = nfields(sz, channel)
-        recs = sz // (nf * 4) if nf else None
-        r["outs"][os.path.basename(od)] = (len(fs), nf, recs)
-        if len(sizes) > 1:
-            r["outs"][os.path.basename(od)] = (len(fs), nf, recs, dict(sizes))
+        # GROUPED BY (fields, records), NOT BY FILE SIZE.  A headered file is
+        # 64 bytes longer than a bare one with the same records, so during the
+        # transition one directory legitimately holds two sizes -- and raw
+        # sizes would have reported that as MIXED and told the reader to
+        # refuse a set campaign_lib reads perfectly well.  What actually must
+        # not be mixed is the record LENGTH.
+        shapes, n_hdr, broken = Counter(), 0, 0
+        for f in fs:
+            try:
+                hd = f32_format.read(f)
+            except Exception:
+                broken += 1
+                continue
+            hbytes = hd["header_bytes"] if hd else 0
+            n_hdr += hd is not None
+            nfl = hd["nfields"] if hd else nfields(f, channel)
+            if not isinstance(nfl, int):
+                broken += 1
+                continue
+            body = os.path.getsize(f) - hbytes
+            shapes[(nfl, body // (nfl * 4) if body % (nfl * 4) == 0 else None)] += 1
+        lengths = {k[0] for k in shapes}
+        nf = sorted(lengths)[-1] if lengths else None
+        recs = sorted({k[1] for k in shapes if k[0] == nf and k[1]})[-1:] or [None]
+        r["outs"][os.path.basename(od)] = (
+            len(fs), nf, recs[0],
+            dict(shapes) if len(lengths) > 1 or broken else None, n_hdr, broken)
 
     # scandir, not glob: it does one directory read instead of building and
     # filtering a full path list for every one of several hundred entries.
@@ -230,13 +264,21 @@ def main():
             L.append("      Normalise with the range you actually analysed, not with all of it.")
         L.append("  ntuples:")
         for od, v in r["outs"].items():
-            if v[0] == 0:
+            n, nf, recs, mixed, n_hdr, broken = v
+            if n == 0:
                 L.append("      %-10s none" % od)
-            elif len(v) == 4:
-                L.append("      %-10s %4d files  MIXED RECORD LENGTHS %s -- refuse to read as one set"
-                         % (od, v[0], v[3]))
+                continue
+            tag = ("all headered" if n_hdr == n else
+                   "all legacy, no header" if n_hdr == 0 else
+                   "%d headered, %d legacy" % (n_hdr, n - n_hdr))
+            if mixed:
+                L.append("      %-10s %4d files  MIXED RECORD LENGTHS %s -- refuse to read as"
+                         " one set (%s%s)"
+                         % (od, n, {("%s fields" % k[0]): c for k, c in mixed.items()},
+                            tag, ", %d unreadable" % broken if broken else ""))
             else:
-                L.append("      %-10s %4d files  %s floats x %s records each" % (od, v[0], v[1], v[2]))
+                L.append("      %-10s %4d files  %s floats x %s records each  (%s)"
+                         % (od, n, nf, recs, tag))
         L.append("")
 
     notes = os.path.join(root, "NOTES.txt")
