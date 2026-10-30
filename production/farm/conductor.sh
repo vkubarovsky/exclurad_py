@@ -201,6 +201,27 @@ while :; do
   done; done
   if [ "$tot" -ge $((8 * N)) ]; then
     say "ALL $((8*N)) $CHAN DSTs present.  Campaign complete; stopping.  A new channel is a new conductor and a new decision."
+    # REGENERATE THE MANIFEST ON THE WAY OUT.
+    #
+    # make_manifest.py derives everything from the directory, which is why it
+    # cannot drift from its contents -- but only at the moment it is run.  The
+    # phi and pi0 manifests were written on 2026-10-23, before their GEMC, and
+    # then said "DST files 0, ntuples: none" for three days while the
+    # directories filled with 1600 and 3200 of each.  Anyone reading them
+    # concluded the campaign had never run.  A derived document that is not
+    # re-derived is exactly as stale as a typed one, which is the thing the
+    # generator was written to prevent.
+    #
+    # The completion of a campaign is the one moment when the directory is
+    # final, so that is where it belongs.  Failure here must not change the
+    # exit: the campaign IS complete and the conductor must still say so.
+    if [ -x "$(command -v python3)" ] && [ -f "$EX/production/analysis/make_manifest.py" ]; then
+      if python3 "$EX/production/analysis/make_manifest.py" "$R" --write >/dev/null 2>&1; then
+        say "MANIFEST.txt regenerated"
+      else
+        say "WARNING: could not regenerate MANIFEST.txt -- it still describes the directory as it was BEFORE this campaign ran"
+      fi
+    fi
     status; exit 0
   fi
 
