@@ -6,10 +6,18 @@ eta(bin) = [n_rad(bin)/N_rad * sigma_rad] / [n_born(bin)/N_born * sigma_born],
 with Q2, W, t reconstructed from the scattered electron and the J/psi of the
 LUND record (the generator's observed kinematics), t' = |t| - |t|_min(W, Q2).
 
-sigma of the WRITTEN sample: sigma_nb in config_*.json is counted before the
-hadron/lepton acceptance cut, so each part's sigma_nb is scaled by
-written/accepted (accept2 with EXACT_ACCEPT, else accepted), then averaged
-over parts.  The optional theta window (degrees) on the scattered electron is
+sigma of the WRITTEN sample: scaled by n_read/N, then averaged over parts.  N
+is the report's `written` where the sidecar has it, and that is the whole of
+the correction -- since 2026-10-30 sigma_nb IS the written sample's cross
+section (events.py, sigma_total), so n_read/written is 1.0 on a full read and
+only accounts for a partial one.  Without that key the sidecar predates the
+change: sigma_nb is then counted BEFORE the hadron/lepton cut and the old
+scale n_read/accepted (accept2 with EXACT_ACCEPT, else accepted) both
+corrects it and handles the partial read.  Using the old scale on a new
+sidecar would apply the correction TWICE -- and it would not cancel in eta,
+because the factor differs between the arms (0.588 rad against 0.597 born on
+the J/psi preset), so it would be a ~1.3 % error, not a common normalisation.
+The optional theta window (degrees) on the scattered electron is
 applied to both samples offline -- e.g. 2.5 4.5 for the Forward Tagger.
 Both samples should use the same idecay, so the decay radiation cancels.
 """
@@ -47,8 +55,14 @@ def load(d):
             W2 = MP * MP + 2 * MP * q[0] - Q2
             t = (q - v) @ (G * (q - v))
             rows.append((Q2, W2, t, th))
-        acc = r["accept2"] if r.get("accept2", 0) > 0 else r["accepted"]
-        sig.append(r["sigma_nb"] * n / acc)
+        # `written` is the marker of the 2026-10-30 convention: present means
+        # sigma_nb is already the written sample's cross section, so the only
+        # scale left is for a partial read.  Absent means an older sidecar that
+        # still needs correcting from counted to written.
+        norm = r.get("written")
+        if norm is None:
+            norm = r["accept2"] if r.get("accept2", 0) > 0 else r["accepted"]
+        sig.append(r["sigma_nb"] * n / norm)
     Q2, W2, t, th = np.array(rows).T
     W = np.sqrt(W2)
     pi = np.sqrt(((W2 + Q2 + MP ** 2) / (2 * W)) ** 2 - MP ** 2)

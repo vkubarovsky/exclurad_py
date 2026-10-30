@@ -36,7 +36,12 @@ def main():
 
     # and the fallback must refuse rather than guess
     warm.maj.pop("Mtot")
-    warm.n_accept2, warm.n_trials = 1, 10
+    # n_written too, since 2026-10-30: sigma_total normalises with the number of
+    # events that reached the LUND file, and returns nan for an empty sample
+    # before it gets as far as the Mtot question.  This is a synthetic state, so
+    # it has to satisfy that precondition for the Mtot guard to be what is under
+    # test.  The assertion below is unchanged.
+    warm.n_accept2, warm.n_trials, warm.n_written = 1, 10, 1
     try:
         warm.sigma_total()
     except RuntimeError as e:

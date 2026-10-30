@@ -378,6 +378,9 @@ class Generator:
 
         self.n_trials = 0
         self.n_accept = 0
+        # Events that reached the LUND file.  THIS, not n_accept/n_accept2, is
+        # what sigma_total() normalises with -- see the note there.
+        self.n_written = 0
         self.n_unphys = 0
         self.n_hard = 0
         self.n_soft = 0
@@ -1361,7 +1364,7 @@ Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
         s["Mtot"] = (s["M"] * self._b_full(shape)
                      if (self.exact_accept and not self.born_only) else s["M"])
         s["cdf"] = _cell_cdf(s["Mtot"], s["edges"])
-        self.n_trials = self.n_accept = 0
+        self.n_trials = self.n_accept = self.n_written = 0
         self.n_unphys = 0
         self.n_overweight = 0
         self.max_overweight = 1.0
@@ -1646,6 +1649,7 @@ Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
                     self.n_cut_acc += 1
                     continue
             out.append(ev)
+            self.n_written += 1
             if progress and len(out) % progress == 0:
                 print(f"  {len(out)}/{n_events}")
         return out
@@ -1654,11 +1658,45 @@ Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
     def sigma_total(self):
         """Absolute cross section of THIS run, nb (accept-reject estimator).
 
-        sigma = (n_accept / n_trials) * integral of the majorant over the box.
+        sigma = (n_written / n_trials) * integral of the majorant over the box.
         The generator was printing none of this, so a delta = sigma_obs/sigma_born
         test had no normalisation and could only check the SHAPE (2026-08-17).
+
+        THE NUMERATOR IS n_written, NOT n_accept/n_accept2 (changed 2026-10-30).
+        It used to be the accept-reject counters, which are incremented INSIDE
+        the sampling loop.  The iacc daughter preset is applied further down the
+        same loop, where a failing event increments n_cut_acc and is dropped --
+        so it was absent from the LUND file and present in sigma.  The sample is
+        UNWEIGHTED (every LUND weight is exactly 1.0), so the only per-event
+        weight a consumer can form is sigma/N, and that division is meaningless
+        unless sigma is the cross section of the population the file contains.
+        On the J/psi preset the old numerator was 1.70x too large; nothing in
+        the file said so, and the correction lived only in campaign_lib on an
+        unmerged branch, so anyone normalising straight from the sidecar got it
+        wrong.  VPK asked for it right in the generator, 2026-10-30.
+
+        A trial reaches the file with probability so/(M*B) x P(cut passes), so
+        (n_written/n_trials) x integral(M*B) is the cross section WITHIN the
+        declared acceptance.  Unbiased for the same reason the old form was.
+
+        NOT A CHANGE where no daughter preset is declared.  With iacc = none,
+        n_cut_acc stays 0 and n_written equals the old numerator exactly --
+        verified on the pi0 campaign, where accept2 == nev == 5000 in every
+        sidecar of both arms.  pi0, eta, phi and rho are untouched bit for bit;
+        only J/psi moves, and only because it was wrong.
+
+        Confirmed independently before the change, 2026-10-30, 2 x 50000 Born
+        events at one seed differing only in iacc:
+            iacc=jpsi, sigma x n_written/counted = 216.38 fb
+            iacc=none, sigma x f(in_acceptance)  = 217.73 fb
+        ratio 0.99379 against a combined 0.73 % error, i.e. 0.85 sigma.  The
+        second path never enters this loop's cut block at all -- the cuts were
+        applied in python to the written LUND file.
         """
-        if self.maj is None or self.n_trials == 0:
+        if self.maj is None or self.n_trials == 0 or self.n_written == 0:
+            # n_written == 0 means nothing has been generated yet (or the whole
+            # sample was cut).  The cross section of an empty sample is not 0,
+            # it is unmeasured, and quoting 0 would propagate silently.
             return float("nan")
         e = self.maj["edges"]
         dQ2 = np.diff(e["Q2"])[:, None, None, None]
@@ -1684,15 +1722,16 @@ Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
                     "density and the normalisation would come from different "
                     "arrays (low by <B>).  Every path that builds or loads a "
                     "majorant sets it; a hand-built maj dict must too.")
-            return float((self.n_accept2 / self.n_trials)
+            return float((self.n_written / self.n_trials)
                          * float((self.maj["Mtot"] * vol).sum()))
-        return float((self.n_accept / self.n_trials)
+        return float((self.n_written / self.n_trials)
                      * float((self.maj["M"] * vol).sum()))
 
     def report(self):
         eff = self.n_accept / self.n_trials if self.n_trials else float("nan")
         n = self.n_hard + self.n_soft
         return dict(trials=self.n_trials, accepted=self.n_accept,
+                    written=self.n_written,   # the numerator of sigma_nb
                     unphysical=self.n_unphys,
                     sigma_nb=self.sigma_total(),
                     efficiency=eff, hard=self.n_hard, soft=self.n_soft,
