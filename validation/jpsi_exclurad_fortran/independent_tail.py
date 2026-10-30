@@ -97,10 +97,29 @@ def boost_to(p4, beta):
 class Point:
     """Observed kinematics in the gamma* p CM, q along +z, beam in the x-z plane."""
 
-    def __init__(self, Q2, W2, tN, phi_deg, mode="cm_angle"):
-        from exclurad_py.models.vector import Jpsi_DiffradVM
+    def __init__(self, Q2, W2, tN, phi_deg, mode="cm_angle", model_name=None):
+        """model_name=None keeps the J/psi behaviour exactly.
+
+        A pi0/eta model name (e.g. "pi0.amp2614") switches to the
+        baryon_detected topology: the PROTON is detected, the meson is
+        missing, and the five structure functions sT, sL, sTT, sLT, sLTp all
+        enter through exclurad_py's own tensor convention (see _LH).
+        """
+        self.model_name = model_name
+        if model_name is None:
+            from exclurad_py.models.vector import Jpsi_DiffradVM
+            self.model = Jpsi_DiffradVM()
+            self.mmeson = MJ
+        else:
+            from exclurad_py.models import get
+            self.model = get(model_name, t_nucl=tN)
+            self.mmeson = float(self.model.mU)      # UNDETECTED meson
+            # kf frozen at the OBSERVED point, as ProtonDetectedModel does in
+            # generation: rc_factor sets this once per event and the model
+            # keeps it while W2~, Q2~ shift inside the radiative integral.
+            if hasattr(self.model, "kf_W2Q2"):
+                self.model.kf_W2Q2 = (float(W2), float(Q2))
         self.mode = mode
-        self.model = Jpsi_DiffradVM()
         self.Q2, self.W2, self.tN = Q2, W2, tN
         nu = (W2 - MP ** 2 + Q2) / (2 * MP)
         Ep = EBEAM - nu
@@ -135,24 +154,19 @@ class Point:
             self.LH_B = self._LH(self._LB(), self.q[None, :], np.array([True]),
                                  t_sf=np.array([tN]))[0]
             return
-        self.mdet, self.mmis = MP, MJ
+        self.mdet, self.mmis = MP, self.mmeson
         if mode == "target":
-            # PHYSICAL bin: t_N = (p - p')^2 held FIXED, so the detected
-            # proton's DIRECTION moves with v while cm_angle freezes it.
-            # Phase-space factor 1, derived rather than asserted: at fixed
-            # E', t_N = 2M^2 - 2(Ep E' + |q| p' cos th) gives
-            # dt_N = -2 |q| p' dcos, so
-            #   d3p'/(2E') = p'^2 dp' dcos dphi/(2E') = (p'/2) dE' dcos dphi
-            #              = dE' dt_N dphi / (4 |q|)
-            # and p' cancels.  cm_angle freezes dcos instead, which leaves
-            # (p'/2) dE' and hence the p'(v)/p'(0) that 79a053f restored.
-            self.ph0 = np.sqrt(((self.W2 + MP ** 2 - MJ ** 2) / (2 * self.W)) ** 2
-                               - MP ** 2)
-            self.nh = self._dir_target(0.0)
-            if self.nh is None:
-                raise ValueError("Born point unphysical in the target bin")
+            # THE pi0/eta PRODUCTION BIN.  t_kind="target": t_N = (p - p')^2
+            # is held fixed, so the detected proton's DIRECTION is not frozen
+            # -- it follows v through E_det(v).  Same formula as
+            # kinematics.py T_TARGET:
+            #     cos = (M^2 + m_det^2 - t - 2 E_p E_det(v)) / (2 |q| p_det(v))
+            # At fixed t the Jacobian factor is 1: d3p/2E = (p/2) dE dcos dphi
+            # and dcos = dt/(2|q|p), so p cancels (as in meson_t).
+            self.nh = None                       # recomputed per v
             self.vmax = self._vmax_target()
-            self.LH_B = self._LH(self._LB(), self.q[None, :], np.array([True]))[0]
+            self.LH_B = self._LH(self._LB(), self.q[None, :], np.array([True]),
+                                 pdet=self._pdet_target(0.0))[0]
             return
         # detected proton: direction frozen at its v = 0 value (t_N), azimuth
         # phi + pi (the meson goes to phi, Trento), energy follows v
@@ -169,31 +183,6 @@ class Point:
         # Born leptonic . hadronic at the observed point
         self.LH_B = self._LH(self._LB(), self.q[None, :], np.array([True]))[0]
 
-    def _dir_target(self, v):
-        """Detected-proton direction at this v with t_N fixed (None if unphysical)."""
-        Eh = (self.W2 + MP ** 2 - MJ ** 2 - v) / (2 * self.W)
-        if Eh <= MP:
-            return None
-        ph = np.sqrt(Eh ** 2 - MP ** 2)
-        c = (2 * MP ** 2 - self.tN - 2 * self.p[0] * Eh) / (2 * self.qv * ph)
-        if abs(c) > 1:
-            return None
-        s_ = np.sqrt(1 - c * c)
-        az = self.phi + np.pi            # the meson goes to phi (Trento)
-        return np.array([s_ * np.cos(az), s_ * np.sin(az), c])
-
-    def _vmax_target(self):
-        lo, hi = 0.0, (self.W - MP) ** 2 - MJ ** 2
-        if self._dir_target(hi * (1 - 1e-12)) is not None:
-            return hi
-        for _ in range(200):
-            mid = 0.5 * (lo + hi)
-            if self._dir_target(mid) is None:
-                hi = mid
-            else:
-                lo = mid
-        return lo
-
     def _dir_meson_t(self, v):
         """J/psi direction at this v with t = (q - p_V)^2 held fixed (None if unphysical)."""
         W = self.W
@@ -207,6 +196,35 @@ class Point:
             return None
         s_ = np.sqrt(1 - c * c)
         return np.array([s_ * np.cos(self.phi), s_ * np.sin(self.phi), c])
+
+    def _pdet_target(self, v):
+        """Detected-proton 4-vector at this v with t_N fixed (None if unphysical)."""
+        W, W2 = self.W, self.W2
+        Eh = (W2 + MP ** 2 - self.mmeson ** 2 - v) / (2 * W)
+        if Eh <= MP:
+            return None
+        ph = np.sqrt(Eh ** 2 - MP ** 2)
+        c = (MP ** 2 + MP ** 2 - self.tN - 2 * self.p[0] * Eh) / (2 * self.qv * ph)
+        if abs(c) > 1:
+            return None
+        s_ = np.sqrt(1 - c * c)
+        # azimuth phi + pi: the Trento phi belongs to the MESON, the detected
+        # proton is opposite it (kinematics.py phi_offset, undone by lt_sign)
+        ph_az = self.phi + np.pi
+        n = np.array([s_ * np.cos(ph_az), s_ * np.sin(ph_az), c])
+        return np.concatenate([[Eh], ph * n])
+
+    def _vmax_target(self):
+        lo, hi = 0.0, (self.W - MP) ** 2 - self.mmeson ** 2
+        if self._pdet_target(hi * (1 - 1e-12)) is not None:
+            return hi
+        for _ in range(200):
+            mid = 0.5 * (lo + hi)
+            if self._pdet_target(mid) is None:
+                hi = mid
+            else:
+                lo = mid
+        return lo
 
     def _vmax_meson_t(self):
         lo, hi = 0.0, (self.W - MJ) ** 2 - MP ** 2
@@ -250,11 +268,33 @@ class Point:
         return L
 
     # -- hadronic contraction ------------------------------------------------
-    def _LH(self, L, qt, ok, t_sf=None):
-        """L_{mu nu} H^{mu nu}(qt) with sigma at (W~2, Q~2, t_N); (N,)."""
+    def _LH(self, L, qt, ok, t_sf=None, pdet=None):
+        """L_{mu nu} H^{mu nu}(qt) with sigma at (W~2, Q~2, t_N); (N,).
+
+        For a pi0/eta model the hadronic tensor carries all FIVE structure
+        functions and is built by exclurad_py's own `hadronic_tensor`, i.e.
+        the tensor CONVENTION is shared, exactly as the T/L normalisation
+        already is for J/psi.  Everything independent about this calculation
+        -- the leptonic side from Dirac spinors and the phase space -- is
+        untouched.  sigma_TT, sigma_LT and sigma_LTp are azimuthal
+        structures, so the tensor needs the detected hadron's momentum to fix
+        the X, Y basis; `pdet` supplies it (shape (4,) or (N,4)).
+        """
         p = self.p
         Q2t = -dot(qt, qt)
         W2t = dot(p[None] + qt, p[None] + qt)
+        if self.model_name is not None:
+            from exclurad_py.core.hadronic import hadronic_tensor
+            from exclurad_py.core.born import _sf_to_gev
+            n = len(qt)
+            pv = np.broadcast_to(np.asarray(pdet, float).reshape(-1, 4), (n, 4))
+            sf = _sf_to_gev(self.model(W2t, np.maximum(Q2t, 1e-9),
+                                       np.full_like(W2t, self.tN)))
+            H = hadronic_tensor(qt, np.broadcast_to(p, (n, 4)), pv, W2t, sf,
+                                M=MP, lam=0.0)
+            Ll = np.einsum("mi,nij,jk->nmk", G, L, G)
+            out = np.einsum("nmk,nmk->n", Ll, H).real
+            return np.where(ok, out, 0.0)
         pq = dot(p[None], qt)
         P = p[None] - (pq / dot(qt, qt))[:, None] * qt
         Lv = P / np.sqrt(dot(P, P))[:, None]
@@ -272,11 +312,144 @@ class Point:
         out = N * (sT * HT + sL * lLl)
         return np.where(ok, out, 0.0)
 
+
+    # -- the model's kinematic edge, and splitting the quadrature on it ------
+    def _model_on(self, tt, psi, beta, ex, ey, ez, Lam, v):
+        """Is the model non-zero at these (tt, psi) photon directions?
+
+        pi0/eta reject t' > 0 and t < t_max (_amplitude_fit2_vec: the
+        `tp < 0.0` and `t >= tmax` terms of `ok`), i.e. the forward and
+        backward kinematic edges, so sigma is EXACTLY ZERO on part of the
+        photon-angle domain -- a genuine step, not a cutoff to be smoothed.
+        The scan must out-resolve the THINNEST sliver, not the typical one:
+        measured 0.55 % of the tt range at v = 0.5 against a 96-node scan
+        spacing of 1.04 %, so slivers were being stepped over entirely and the
+        split silently did nothing there.  1024 nodes gives 0.10 %.
+
+        Gauss-Legendre straddling it gives O(1/N) error with scatter: at
+        v = 1.5 the result moved at the 1e-3 level with no trend as nps went
+        24 -> 768 and nt 80 -> 360.  So the panel boundaries are put ON the
+        step instead.
+        """
+        c = (1 - np.exp(tt)) / beta
+        sn = np.sqrt(np.clip(1 - c * c, 0, None))
+        n = (sn[..., None] * (np.cos(psi)[..., None] * ex
+                              + np.sin(psi)[..., None] * ey)
+             + c[..., None] * ez)
+        sh = n.shape[:-1]
+        n = n.reshape(-1, 3)
+        D = Lam[0] - n @ Lam[1:]
+        om = v / (2 * D)
+        k = np.concatenate([om[:, None], om[:, None] * n], axis=1)
+        qt = self.q[None] - k
+        Q2t = -dot(qt, qt)
+        W2t = dot(self.p[None] + qt, self.p[None] + qt)
+        sf = self.model(W2t, np.maximum(Q2t, 1e-9), np.full_like(W2t, self.tN))
+        return (np.ravel(sf["sT"]) != 0.0).reshape(sh)
+
+    def _edge_nodes(self, psi, beta, ex, ey, ez, Lam, v, nt, lo, hi, ncoarse=1024):
+        """Gauss-Legendre nodes in tt, per psi, with panels split on the edge.
+
+        Returns (nps, nt) node and weight arrays.  Where the model is on
+        throughout, this is the ordinary single-panel rule.
+        """
+        P = len(psi)
+        tc = np.linspace(lo, hi, ncoarse)
+        on = self._model_on(np.broadcast_to(tc, (P, ncoarse)),
+                            np.repeat(psi[:, None], ncoarse, axis=1),
+                            beta, ex, ey, ez, Lam, v)
+        bnds = []
+        for j in range(P):
+            o = on[j]
+            idx = np.where(o[1:] != o[:-1])[0]
+            b = []
+            for i in idx:                      # bisect each crossing
+                a_, c_ = tc[i], tc[i + 1]
+                for _ in range(60):
+                    mid = 0.5 * (a_ + c_)
+                    om_ = self._model_on(np.array([[mid]]), np.array([[psi[j]]]),
+                                         beta, ex, ey, ez, Lam, v)[0, 0]
+                    if om_ == o[i]:
+                        a_ = mid
+                    else:
+                        c_ = mid
+                b.append(0.5 * (a_ + c_))
+            bnds.append(b)
+        xg, wg = np.polynomial.legendre.leggauss(nt)
+        TT = np.empty((P, nt)); WT = np.empty((P, nt))
+        for j in range(P):
+            edges = [lo] + sorted(bnds[j]) + [hi]
+            npan = len(edges) - 1
+            per = max(nt // npan, 4)
+            tt_j, wt_j = [], []
+            for a_, b_ in zip(edges[:-1], edges[1:]):
+                x2, w2 = (xg, wg) if per == nt else \
+                    np.polynomial.legendre.leggauss(per)
+                tt_j.append(0.5 * (b_ - a_) * x2 + 0.5 * (b_ + a_))
+                wt_j.append(0.5 * (b_ - a_) * w2)
+            tt_j = np.concatenate(tt_j); wt_j = np.concatenate(wt_j)
+            if len(tt_j) < nt:                 # pad with zero-weight nodes
+                k = nt - len(tt_j)
+                tt_j = np.concatenate([tt_j, np.full(k, tt_j[-1])])
+                wt_j = np.concatenate([wt_j, np.zeros(k)])
+            TT[j], WT[j] = tt_j[:nt], wt_j[:nt]
+        return TT, WT
+
+
+    def _psi_panels(self, beta, ex, ey, ez, Lam, v, nps, lo, hi, ncoarse=256):
+        """Gauss-Legendre psi nodes with panels split on the off-patch edges.
+
+        The kinematically forbidden region is a LENS in (tt, psi), not a slab:
+        at v = 1.5 it spans psi 0.789-1.867 and covers at most 11.7 % of tt at
+        any one psi.  Splitting tt alone leaves the psi rule straddling the
+        two edges where the patch appears and disappears, which is why the
+        first attempt did not converge.  Both directions have to be split.
+        """
+        pc = np.linspace(0.0, 2 * np.pi, ncoarse)
+        tc = np.linspace(lo, hi, 512)
+        on = self._model_on(np.broadcast_to(tc, (ncoarse, 512)),
+                            np.repeat(pc[:, None], 512, axis=1),
+                            beta, ex, ey, ez, Lam, v)
+        has_off = ~on.all(axis=1)
+        if not has_off.any():
+            return None                      # no edge: caller keeps its rule
+        def _has_off(ps):
+            o = self._model_on(np.broadcast_to(tc, (1, 512)),
+                               np.full((1, 512), ps), beta, ex, ey, ez, Lam, v)
+            return not o.all()
+        cuts = []
+        idx = np.where(has_off[1:] != has_off[:-1])[0]
+        for i in idx:
+            a_, b_ = pc[i], pc[i + 1]
+            fa = has_off[i]
+            for _ in range(50):
+                mid = 0.5 * (a_ + b_)
+                if _has_off(mid) == fa:
+                    a_ = mid
+                else:
+                    b_ = mid
+            cuts.append(0.5 * (a_ + b_))
+        edges = [0.0] + sorted(cuts) + [2 * np.pi]
+        per = max(nps // (len(edges) - 1), 6)
+        xg, wg = np.polynomial.legendre.leggauss(per)
+        PSI, WPS = [], []
+        for a_, b_ in zip(edges[:-1], edges[1:]):
+            PSI.append(0.5 * (b_ - a_) * xg + 0.5 * (b_ + a_))
+            WPS.append(0.5 * (b_ - a_) * wg)
+        return np.concatenate(PSI), np.concatenate(WPS)
+
     # -- the tail at fixed v, integrated over the photon direction -----------
-    def dtail_dv(self, v, nt=160, nps=48):
+    def dtail_dv(self, v, nt=160, nps=48, split_edge=True):
         """d(eta)/dv, first order, at this v (photon angles integrated)."""
         W = self.W
-        if self.mode == "meson_t":
+        if self.mode == "target":
+            pdet4 = self._pdet_target(v)
+            if pdet4 is None:
+                return 0.0
+            Eh, pvec = pdet4[0], pdet4[1:]
+            jacv = 1.0                 # p cancels at fixed t, as in meson_t
+            pdet = pdet4
+        elif self.mode == "meson_t":
             nd = self._dir_meson_t(v)
             if nd is None:
                 return 0.0
@@ -287,15 +460,6 @@ class Point:
             # p cancels, the detected-particle factor is 1 (not p(v)/p(0))
             jacv = 1.0
             pdet = np.concatenate([[Eh], pvec])
-        elif self.mode == "target":
-            nd = self._dir_target(v)
-            if nd is None:
-                return 0.0
-            Eh = (self.W2 + MP ** 2 - MJ ** 2 - v) / (2 * W)
-            phv = np.sqrt(Eh ** 2 - MP ** 2)
-            pvec = phv * nd
-            jacv = 1.0            # see _dir_target: p' cancels at fixed t_N
-            pdet = None
         else:
             Eh = (self.W2 + MP ** 2 - MJ ** 2 - v) / (2 * W)
             if Eh <= MP:
@@ -315,13 +479,30 @@ class Point:
             ex = np.cross(ez, tmp); ex /= np.linalg.norm(ex)
             ey = np.cross(ez, ex)
             lo, hi = np.log(1 - beta), np.log(1 + beta)
-            # nodes: tt = ln(1 - beta c) on [lo, hi]
-            tt = 0.5 * (hi - lo) * xg + 0.5 * (hi + lo)
-            wt = 0.5 * (hi - lo) * wg
-            c = (1 - np.exp(tt)) / beta
-            jac = np.exp(tt) / beta                         # |dc/dtt|
-            C, PS = np.meshgrid(c, psi, indexing="ij")
-            Wc = np.outer(wt * jac, np.full(nps, 2 * np.pi / nps))
+            # nodes: tt = ln(1 - beta c) on [lo, hi].  For pi0/eta the model
+            # has a genuine kinematic step inside this range, so the panels
+            # are split ON it (per psi); elsewhere this is the plain rule.
+            if self.model_name is not None and split_edge:
+                pp = self._psi_panels(beta, ex, ey, ez, Lam, v, nps, lo, hi)
+                if pp is None:
+                    psi_n = psi
+                    wpsi = np.full(len(psi), 2 * np.pi / nps)
+                else:
+                    psi_n, wpsi = pp
+                TT, WT = self._edge_nodes(psi_n, beta, ex, ey, ez, Lam, v, nt,
+                                          lo, hi)
+                C = (1 - np.exp(TT)) / beta                  # (P, nt)
+                jacTT = np.exp(TT) / beta
+                PS = np.repeat(psi_n[:, None], TT.shape[1], axis=1)
+                Wc = WT * jacTT * wpsi[:, None]
+                C, PS, Wc = C.T, PS.T, Wc.T                  # -> (nt, P)
+            else:
+                tt = 0.5 * (hi - lo) * xg + 0.5 * (hi + lo)
+                wt = 0.5 * (hi - lo) * wg
+                c = (1 - np.exp(tt)) / beta
+                jac = np.exp(tt) / beta                     # |dc/dtt|
+                C, PS = np.meshgrid(c, psi, indexing="ij")
+                Wc = np.outer(wt * jac, np.full(nps, 2 * np.pi / nps))
             S = np.sqrt(np.clip(1 - C * C, 0, None))
             n = (S[..., None] * (np.cos(PS)[..., None] * ex + np.sin(PS)[..., None] * ey)
                  + C[..., None] * ez).reshape(-1, 3)
@@ -335,8 +516,12 @@ class Point:
             share = a / (a + b)
             qt = self.q[None] - k
             W2t = dot(self.p[None] + qt, self.p[None] + qt)
-            ok = W2t > (MP + MJ) ** 2
-            if self.mode == "meson_t":
+            ok = W2t > (MP + self.mmeson) ** 2
+            if self.mode == "target":
+                # t_N is fixed by construction, so the SF t never shifts; the
+                # tensor basis follows the detected proton at THIS v.
+                LH = self._LH(self._LR(k), qt, ok, pdet=pdet)
+            elif self.mode == "meson_t":
                 # the model's kinematic t at the shifted point: (q~ - p_V)^2
                 d_ = qt - pdet[None]
                 LH = self._LH(self._LR(k), qt, ok, t_sf=dot(d_, d_))
@@ -353,11 +538,12 @@ class Point:
     def soft_check(self, v=1e-7):
         if self.mode == "meson_t":
             return float("nan")
+        _pd = self._pdet_target(0.0) if self.mode == "target" else None
         """|M_R|^2/|M_B|^2 against the eikonal factor at a soft photon."""
         n = np.array([[0.3, 0.4, np.sqrt(1 - 0.25)]])
         om = 1e-6
         k = np.concatenate([[[om]], om * n], axis=1)
-        LH = self._LH(self._LR(k), self.q[None] - k, np.array([True]))
+        LH = self._LH(self._LR(k), self.q[None] - k, np.array([True]), pdet=_pd)
         r = E2 * LH / self.LH_B * (self.Q2 / -dot(self.q[None] - k, self.q[None] - k)) ** 2
         eik = E2 * (2 * dot(self.k1, self.k2) / (dot(self.k1[None], k) * dot(self.k2[None], k))
                     - ME ** 2 / dot(self.k1[None], k) ** 2 - ME ** 2 / dot(self.k2[None], k) ** 2)
@@ -366,7 +552,8 @@ class Point:
 
 def tail_between(args):
     Q2, W2, tN, phi, va, vb, nv, nt, nps = args[:9]
-    pt = Point(Q2, W2, tN, phi, mode=args[9] if len(args) > 9 else "cm_angle")
+    pt = Point(Q2, W2, tN, phi, mode=args[9] if len(args) > 9 else "cm_angle",
+               model_name=args[10] if len(args) > 10 else None)
     vb = min(vb, pt.vmax * (1 - 1e-9))
     if vb <= va:
         return 0.0
