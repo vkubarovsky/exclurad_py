@@ -20,6 +20,9 @@ import os
 import sys
 
 import numpy as np
+
+MP = 0.9382720813      # proton mass, GeV
+MV = 3.0969            # J/psi mass, GeV
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -480,14 +483,15 @@ def page_ratio(pdf, sets, title, subtitle):
 
 
 # ---------------------------------------------------------------- Mariana ---
-def load_mariana(d, topology, period, ebeam=10.6):
+def load_mariana(d, topology, period, ebeam=10.6, fiducial=(8.0, 15.75)):
     """Mariana Tenorio's CLAS12 J/psi ntuples, with her event selection.
 
     Three traps, all of them measured and all of them silent:
       - angles here are in RADIANS, unlike the upstream toroot_v2 ntuple;
       - the FT fiducial is NOT the branch called radius_FT (that is a cluster
-        shape, 0..3.8); it is sqrt(x_FT^2 + y_FT^2) <= 16.065 cm.  A cut on
-        radius_FT > 8 returns zero events and reads as an empty sample;
+        shape, 0..3.8); it is sqrt(x_FT^2 + y_FT^2), and the thesis cuts
+        8 < r < 15.75 cm.  A cut on radius_FT > 8 returns zero events and
+        reads as an empty sample;
       - t_prime reaches -3.6e8 because t_min ~ 1/E_photon^2 and E_photon
         passes through zero, so E_photon >= 8.1 has to come FIRST.
     These files carry no run_number and beamCharge is a cumulative scaler, so
@@ -505,13 +509,83 @@ def load_mariana(d, topology, period, ebeam=10.6):
     v = {k: np.asarray(a, dtype=float) for k, a in df.AsNumpy(br).items()}
     n = len(v["E_photon"])
     r = np.hypot(v["x_FT"], v["y_FT"])
-    sel = (v["E_photon"] >= 8.1) & (np.abs(v["time_ee"]) <= 2.5) & (r <= 16.065)
+    # THE FT FIDUCIAL, with where each number comes from.
+    #
+    # The thesis (p. 73) uses 8 < r < 15.75 cm: the nominal 7.25 .. 16.5
+    # trimmed by half a crystal width at each edge.  This code had r <= 16.065
+    # with NO lower bound, and I do not know the provenance of 16.065 -- it is
+    # not the thesis number and nothing here records where it came from.  The
+    # thesis values are therefore the default, because the point of this
+    # loader is to reproduce HER selection; `fiducial` overrides it for anyone
+    # who wants the older behaviour and wants to say so.
+    #
+    # The two differ by 5.4 % of the baseline sample, measured on ee+e-p
+    # F18in: 6452 events under r <= 16.065, 6102 under 8 < r < 15.75.
+    rlo, rhi = fiducial
+    sel = (v["E_photon"] >= 8.1) & (np.abs(v["time_ee"]) <= 2.5) & (r > rlo) & (r < rhi)
     out = dict(n_read=n, n_kept=int(sel.sum()), path=path)
     out["nu"] = v["E_photon"][sel]
     out["Q2"] = v["Q2"][sel]
     out["W"] = v["W"][sel]
     out["m_pair"] = v["invariantMass"][sel]
-    out["mt"] = -v["t_prime"][sel]
+    # HER t_prime IS OUR mtprime, AND IT IS POSITIVE.
+    #
+    # This line was  out["mt"] = -v["t_prime"]  and "mt" is the panel labelled
+    # -t, which campaign_lib fills with |t| > 0.  Her t_prime is already
+    # |t| - |t_min| >= 0 by the thesis definition (Eq. 43, t' = -(t - t_min)
+    # with t and t_min both negative and |t| > |t_min|), so negating it put a
+    # negative number on an axis the MC fills with a positive one.  Measured
+    # on ee+e-p F18in against born inbending 45 nA: data median -1.765 over
+    # -7.43 .. +0.83 against MC +1.435 over +0.51 .. +5.12.  The two never
+    # overlapped, so that panel has never compared anything.  Two faults at
+    # once: the sign, and the variable.  Found by the analysis session,
+    # 2026-10-23.
+    #
+    # |t| CANNOT BE FORMED FROM THESE FILES.  They carry t_prime and no t_min,
+    # so there is no |t| to put on an -t axis; the comparable quantity is t'
+    # on both sides.  page_data therefore plots mtprime when data is present.
+    #
+    # AND THE TWO t' ARE NOT BUILT WITH THE SAME t_min.  Hers comes from her
+    # code, ours from campaign_lib, and the thesis Eq. 44 prints a t_min that
+    # is dimensionless rather than a GeV^2 -- so a disagreement on this panel
+    # may be a convention and not physics.  Measured in 2.9 < M < 3.3: data t'
+    # median +1.202 over 55 events, MC +0.671 over 1170, a factor 1.8, with
+    # our |t_min| median 0.679 at the same kinematics.  Do not read that as a
+    # physics result until both sides use one t_min.
+    # |t| IS RECOVERABLE FROM HER OWN PROTON, AND NEEDS NO t_min.
+    # For t taken at the target vertex, t = (p - p')^2 = 2 m_p^2 - 2 m_p E_p',
+    # so |t| = 2 m_p (sqrt(p_p^2 + m_p^2) - m_p) -- the recoil momentum and
+    # nothing else.  That is the quantity to compare, because it removes both
+    # t_min conventions from the comparison instead of reconciling them.
+    #
+    # DO NOT USE HER PUBLISHED t_prime.  On the baseline it EXCEEDS the |t|
+    # rebuilt from her own proton -- medians 1.762 against 1.028 -- which
+    # requires a negative |t_min| and so cannot be |t| - |t_min| there at all.
+    # In the J/psi window it is 1.202 against |t| 1.220, implying |t_min|
+    # = 0.018 where ours at her own nu and Q2 is 0.559.  Measured against our
+    # Born MC in 2.9 < M < 3.3, data/MC is
+    #     1.79  with her t_prime as published
+    #     1.02  with t' built from OUR t_min on both sides
+    #     0.87  with |t|, no t_min anywhere
+    # so the factor was a convention and not physics, and it vanishes the
+    # moment one definition is used.  Found by the analysis session and
+    # reproduced here, 2026-10-23.
+    #
+    # mtprime is still provided, from OUR t_min on her kinematics, for anyone
+    # who wants t'; it is not what the data page plots.
+    pp = v["proton_p"][sel]
+    out["mt"] = 2 * MP * (np.sqrt(pp ** 2 + MP ** 2) - MP)
+    out["t_prime_published"] = v["t_prime"][sel]
+    _nu, _Q2 = out["nu"], out["Q2"]
+    _W2 = MP ** 2 + 2 * MP * _nu - _Q2
+    with np.errstate(invalid="ignore", divide="ignore"):
+        _W = np.where(_W2 > 0, np.sqrt(np.abs(_W2)), np.nan)
+        _Eg = (_W2 - _Q2 - MP ** 2) / (2 * _W)
+        _pg = np.sqrt(np.maximum(_Eg ** 2 + _Q2, 0))
+        _EV = (_W2 + MV ** 2 - MP ** 2) / (2 * _W)
+        _pV = np.sqrt(np.maximum(_EV ** 2 - MV ** 2, 0))
+        _t0 = np.abs(-_Q2 + MV ** 2 - 2 * (_Eg * _EV - _pg * _pV))
+    out["mtprime"] = out["mt"] - _t0
     for a, b in (("escat", "scattered"), ("prot", "proton"),
                  ("hplus", "positron"), ("hminus", "electron")):
         out[a + "_theta"] = np.degrees(v[b + "_theta"][sel])
@@ -534,10 +608,38 @@ def page_data(pdf, sets, data_all, data_sig, title, subtitle):
             ("escat_theta", r"$\theta_{e'}$  [deg]", (2.0, 5.0), 18),
             ("prot_theta", r"$\theta_{p'}$  [deg]", (0.0, 50.0), 20),
             ("hplus_theta", r"$\theta_{e^+}$  [deg]", (0.0, 40.0), 20),
-            ("hplus_p", r"$|p_{e^+}|$  [GeV]", (0.0, 9.0), 20)]
-    has_proton = data_sig["prot_theta"].size > 0 and np.isfinite(data_sig["prot_theta"]).any()
+            ("hplus_p", r"$|p_{e^+}|$  [GeV]", (0.0, 9.0), 20),
+            ("mt", r"$-t$  [GeV$^2$]  (from the recoil proton)", (0.0, 4.0), 20)]
+    # HAS A PROTON MEANS MOST EVENTS HAVE ONE, not that the array is finite.
+    # This test was `size > 0 and isfinite(...).any()`, and a zero is finite:
+    # on the ee+e- data, 21385 of 27701 entries -- 77.2 % -- are exactly 0
+    # because those events have no detected proton, and the panel was drawn
+    # with a spike at zero made of absences.  That is the same artefact as the
+    # unmatched-proton slot on the MC no-baryon page, fixed this morning, and
+    # the data page had it too.  The proton and t panels are defined only
+    # where there is a proton, so they are dropped unless most events have
+    # one, and the fraction is said rather than left to be noticed.
+    _pt = np.asarray(data_sig.get("prot_theta", np.array([])), dtype=float)
+    _have = float(np.count_nonzero(np.isfinite(_pt) & (_pt != 0.0))) / max(_pt.size, 1)
+    has_proton = _pt.size > 0 and _have > 0.5
     if not has_proton:
         keys = [k for k in keys if not k[0].startswith("prot")]
+        if _pt.size and _have > 0:
+            subtitle = subtitle + ("\n" if "\n" not in subtitle else "  ") + \
+                ("a recoil proton is reconstructed in only %.0f %% of these events, "
+                 "so the proton and t panels are not drawn" % (100.0 * _have))
+    # t WAS NOT ON THIS PAGE AT ALL until 2026-10-23, which is a worse gap
+    # than the loader bug that led me here: t is the variable the analysis
+    # bins in, and the only data-against-MC comparison in the book did not
+    # contain it.  It is plotted as |t| - |t_min| and labelled so, rather than
+    # as t' -- her thesis calls that quantity t' and campaign_lib calls it
+    # -t', the same number under two names, and writing either would have one
+    # reader in two reading a sign that is not there.
+    #
+
+    if not has_proton or "mt" not in data_sig or not np.isfinite(
+            np.asarray(data_sig.get("mt", np.array([])))).any():
+        keys = [k for k in keys if k[0] != "mt"]
 
     fig, axes = plt.subplots(3, 3, figsize=(11.0, 9.8))
     ax = axes.ravel()[0]
