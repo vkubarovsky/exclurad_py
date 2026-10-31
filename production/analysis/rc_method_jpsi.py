@@ -155,6 +155,9 @@ def sigma(arm, pol):
     for i in chunk_ids(arm, pol):
         with open(f"{DATA}/prov/{arm}/{arm}_{i:03d}.config.json") as fh:
             r = json.load(fh)["report"]
+        if "written" in r:          # production c10d09e: sigma_nb is already post-preset
+            post.append(r["sigma_nb"])
+            continue
         acc = r["accept2"] if r.get("accept2") else r["accepted"]
         post.append(r["sigma_nb"] * (acc - r["cut_acceptance"]) / acc)
     post = np.array(post)
