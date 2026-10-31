@@ -24,6 +24,10 @@ import os
 import sys
 
 import numpy as np
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__))), "analysis"))
+import f32_format  # noqa: E402
+
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -63,7 +67,12 @@ def main():
     f, tag, out = sys.argv[1], sys.argv[2], sys.argv[3]
     logy = "--log" in sys.argv
     os.makedirs(out, exist_ok=True)
-    a = np.fromfile(f, dtype=np.float32).reshape(-1, 50).astype(np.float64)
+    # The record width went 50 -> 55 on 2026-10-22 when the vertices were
+    # appended to the END, so every offset below is unchanged -- but a legacy
+    # file does not say which width it is, and read at the wrong one it returns
+    # numbers instead of an error.  f32_format takes the width from the file.
+    a, _ = f32_format.load(f, (50, 55))
+    a = a.astype(np.float64)
     n = len(a)
 
     gen = [a[:, 1 + 3 * k:4 + 3 * k] for k in range(4)]

@@ -35,7 +35,7 @@ sig = C.sigma_nb(f"{R.DATA}/prov_rad", "rad")["mean"]
 for pol in ("inb", "outb"):
     S = R.load("rad", pol, rng); k = S["rec"]; ok = S["ok"]
     cal = R.calibrate(R.load("born", pol, rng)["rec"])
-    a = np.fromfile(f"{R.DATA}/ntuple/rad_{pol}.f32", "<f4").reshape(-1, R.NF).astype(np.float64)[ok]
+    a = R.load_f32(f"{R.DATA}/ntuple/rad_{pol}.f32")[ok]
     pe, pp, g1, g2 = (a[:, 1 + 3 * j:4 + 3 * j] for j in range(4))
     # the radiated photon, generated: beam + target - e' - p - g1 - g2 (beam energy nominal)
     E = lambda p, m: np.sqrt((p ** 2).sum(1) + m * m)

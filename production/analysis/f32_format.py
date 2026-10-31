@@ -66,6 +66,8 @@ data silently.
 import os
 import struct
 
+import numpy as np
+
 MAGIC = b"EXF3"
 VERSION = 1
 HEADER_BYTES = 64
@@ -122,6 +124,46 @@ def read(path):
                 header_bytes=hbytes,
                 channel=head[20:36].rstrip(b"\0").decode("ascii", "replace"),
                 commit=head[36:52].rstrip(b"\0").decode("ascii", "replace"))
+
+
+def load(path, lengths, dtype="<f4"):
+    """The records of `path` as an (nrecords, nfields) array, plus nfields.
+
+    A headered file STATES its record length and is read with it.  A legacy
+    bare stream does not, and the length is then inferred -- but checked, not
+    assumed.  Field 0 is the event weight and is exactly 1.0 in every record
+    every writer here produces, so a candidate length that does not put 1.0 in
+    every field 0 is not this file's length.  Exactly one candidate may
+    survive: none means the file is neither layout, and two means the file is
+    genuinely ambiguous, and in both cases a default would be a guess.  That
+    is the whole point -- the record width went 50 -> 55 for pi0/eta and
+    73 -> 80 for the vector channels on 2026-10-22, nothing in a legacy file
+    says which, and a file read at the wrong width returns numbers rather than
+    an error.
+
+    `lengths` is the candidate set for the CHANNEL being read, smallest file
+    first being irrelevant -- order does not matter, since ambiguity raises.
+    """
+    hd = read(path)
+    if hd is not None:
+        if hd["nfields"] not in lengths:
+            raise ValueError(
+                f"{path}: its header says {hd['nfields']} fields, which is not one "
+                f"of {tuple(lengths)} -- reading another channel's ntuple is what "
+                f"the header exists to stop")
+        a = np.fromfile(path, dtype=dtype, offset=hd["header_bytes"])
+        return a.reshape(-1, hd["nfields"]), hd["nfields"]
+
+    raw = np.fromfile(path, dtype=dtype)
+    fits = [n for n in lengths
+            if raw.size % n == 0 and bool(np.all(raw.reshape(-1, n)[:, 0] == 1.0))]
+    if len(fits) != 1:
+        raise ValueError(
+            f"{path}: {raw.size} floats, no header, and the weight-field test "
+            f"leaves {len(fits)} of {tuple(lengths)} possible ({fits}).  The width "
+            f"cannot be inferred, so it has to be stated -- regenerate with a "
+            f"header, or pass the layout explicitly.")
+    return raw.reshape(-1, fits[0]), fits[0]
 
 
 def describe(path):

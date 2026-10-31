@@ -28,8 +28,8 @@ def chunk(rows):
     return out
 
 def gen(arm, nfiles=40):
-    a = np.concatenate([np.fromfile(f, "<f4").reshape(-1, 55) for f in
-                        sorted(glob.glob(f"{C}/{arm}/out_inb/*bgnone*.f32"))[:nfiles]]).astype(float)
+    a = np.concatenate([R.load_f32(f) for f in
+                        sorted(glob.glob(f"{C}/{arm}/out_inb/*bgnone*.f32"))[:nfiles]])
     p = [a[:, 1+3*k:4+3*k] for k in range(4)]
     g = R.kinematics(*p)
     E = lambda v, m: np.sqrt((v**2).sum(1) + m**2)

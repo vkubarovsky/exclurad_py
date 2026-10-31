@@ -23,7 +23,7 @@ def main():
         S = {a: R.load(a, pol, rng) for a in ("rad", "born")}
         cal = R.calibrate(S["born"]["rec"])
         S = S["rad"]
-        a = np.fromfile(f"{R.DATA}/ntuple/rad_{pol}.f32", "<f4").reshape(-1, R.NF).astype(np.float64)
+        a = R.load_f32(f"{R.DATA}/ntuple/rad_{pol}.f32")
         Wt = wtrue(a)
         v = S["gen"]["mm2ep"] - R.MPI ** 2
         k = S["rec"]

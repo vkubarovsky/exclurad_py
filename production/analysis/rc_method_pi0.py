@@ -26,11 +26,23 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import campaign_lib as C  # noqa: E402
+import f32_format  # noqa: E402
 
 DATA = "/Volumes/wd_14tb/rc_method_pi0"
 EB = 10.6
 MP, ME_, MPI = 0.938272, 0.000511, 0.1349768
-NF, REC0 = 50, 13
+# The record width is NOT a constant: it went 50 -> 55 on 2026-10-22 when the
+# vertices were appended, and a legacy file does not say which it is.  The
+# vertices went on the END, so REC0 and every gen/rec offset below are the same
+# in both.  f32_format.load takes the width from the file -- its header when it
+# has one, the weight field when it does not -- and raises rather than guessing.
+PSEUDO_NF, REC0 = (50, 55), 13
+
+
+def load_f32(path):
+    """One ntuple, at whatever width the file actually is."""
+    a, _ = f32_format.load(path, PSEUDO_NF)
+    return a.astype(np.float64)
 
 # the bin: merged from the note's Tables 11-13 in the dense region
 BIN = dict(Q2=(1.5, 2.5), xB=(0.15, 0.30), mt=(0.20, 0.60))
@@ -111,7 +123,7 @@ def kinematics(pe, pp, g1, g2):
 
 
 def load(arm, pol, rng):
-    a = np.fromfile(f"{DATA}/ntuple/{arm}_{pol}.f32", "<f4").reshape(-1, NF).astype(np.float64)
+    a = load_f32(f"{DATA}/ntuple/{arm}_{pol}.f32")
     n_gen = len(a)
     gen = kinematics(*(a[:, 1 + 3 * k:4 + 3 * k] for k in range(4)))
 
