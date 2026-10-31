@@ -121,7 +121,8 @@ SIG = {m: cl.sigma_nb(os.path.join(ROOT_DIR, m, "prov"), m, chunks=CHUNKS[m])
 NGEN = {m: len(CHUNKS[m]) * NEV1[m] for m in ("rad", "born")}
 for m in ("rad", "born"):
     c = CHUNKS[m]
-    print("  %-5s %d chunks (%d-%d) x %d events = %d generated, sigma over %d sidecars"
+    print("  %-5s %d chunks (%d-%d) x %d events = %d generated over ALL "
+          "polarities and backgrounds, sigma over %d sidecars"
           % (m, len(c), min(c), max(c), NEV1[m], NGEN[m], SIG[m]["n"]))
 log = []
 
@@ -143,7 +144,17 @@ def sets_for(pol, bg, rec, require):
     out = {}
     for m in ("rad", "born"):
         d = cl.load(pat(m, pol, bg), CH, rec=rec, require=require)
-        out[m] = dict(d=d, sigma=SIG[m]["mean"], n_gen=NGEN[m])
+        # n_gen COMES FROM THE FILES THIS PAGE LOADED, not from NGEN.  NGEN is
+        # the union over out_* -- every polarity and every background setting
+        # of the arm -- while pat() above selects ONE of each, so the two are
+        # the same number only on a campaign that has one polarity.  On the
+        # 2026-10-09 J/psi campaign the inbending rad page took its numerator
+        # from 367 files, 1 835 000 events, against a denominator of 382
+        # chunks, 1 910 000: a reconstructed fraction printed as 3.088 % where
+        # it is 3.214 %.  Found by the analysis-framework session 2026-10-31.
+        # load() already counts what it read, so the denominator and the
+        # numerator now have one source and cannot drift apart again.
+        out[m] = dict(d=d, sigma=SIG[m]["mean"], n_gen=d["n_read"])
     return out
 
 
@@ -231,21 +242,23 @@ with PdfPages(OUT) as pdf:
     for pol, bg, lab in PRESENT:
         s = sets_for(pol, bg, rec=True, require=cl.TOPOLOGY["full"])
         n = {m: s[m]["d"]["n_kept"] for m in s}
-        yields.append((lab, n["rad"], n["born"]))
+        yields.append((lab, n["rad"], n["born"],
+                       s["rad"]["n_gen"], s["born"]["n_gen"]))
         zr = s["rad"]["d"].get("n_dp_rejected", {})
         log.append(f"rec {FS_FULL_TXT} {lab}: rad {n['rad']}, born {n['born']}"
                    + (f"   [rad dropped on the momentum match: "
                       + ", ".join(f"{k} {v}" for k, v in zr.items() if v) + "]" if any(zr.values()) else ""))
-        # NOT "of 1 000 000".  The generated total is NGEN, derived from the
-        # chunks present; it was a literal here as well as in NGEN itself and
-        # would have printed half the true percentage on the second million.
+        # NOT "of 1 000 000", and no longer "of NGEN" either.  It was a
+        # literal here once; then NGEN, derived from the chunks present, which
+        # fixed the second-million case and left the polarity one; now the
+        # count load() made from the files this page actually read.
         cp.page(pdf, s, f"Reconstructed   {FS_FULL}   -   {lab}",
                 f"matched, carrying momentum, and agreeing with the generated momentum "
                 f"to {int(100 * cl.DP_MAX['charged'])} % (charged) / "
                 f"{int(100 * cl.DP_MAX['photon'])} % (photons)   |   "
-                f"rad {n['rad']} of {NGEN['rad']}"
-                f" ({100.0 * n['rad'] / NGEN['rad']:.3f} %),  Born {n['born']}"
-                f" ({100.0 * n['born'] / NGEN['born']:.3f} %)",
+                f"rad {n['rad']} of {s['rad']['n_gen']}"
+                f" ({100.0 * n['rad'] / s['rad']['n_gen']:.3f} %),  Born {n['born']}"
+                f" ({100.0 * n['born'] / s['born']['n_gen']:.3f} %)",
                 require=cl.TOPOLOGY["full"])
         if bg == "none":
             # THE SUBTITLE USED TO CLAIM "acceptance divides out of this ratio;
@@ -273,8 +286,8 @@ with PdfPages(OUT) as pdf:
             #
             # So the page now states the measured ratio instead of asserting
             # it away.
-            accr = (len(s["rad"]["d"]["Q2"]) / NGEN["rad"]) / \
-                   max(len(s["born"]["d"]["Q2"]) / NGEN["born"], 1e-300)
+            accr = (len(s["rad"]["d"]["Q2"]) / s["rad"]["n_gen"]) / \
+                   max(len(s["born"]["d"]["Q2"]) / s["born"]["n_gen"], 1e-300)
             cp.page_ratio(pdf, s, f"Reconstructed - radiative / Born - {lab}",
                           "acceptance does NOT divide out: A(rad)/A(Born) = "
                           f"{accr:.3f} for this selection, so this ratio is "
@@ -327,12 +340,16 @@ with PdfPages(OUT) as pdf:
     fig = plt.figure(figsize=(11.0, 8.0))
     fig.text(0.5, 0.92, "Yields", ha="center", fontsize=16, fontweight="semibold")
     rows = ["%-34s %12s %12s %10s" % ("configuration", "radiative", "Born", "rad/Born"), ""]
-    for lab, nr, nb in yields:
+    for lab, nr, nb, _, _ in yields:
         rows.append("%-34s %12d %12d %10.4f" % (lab, nr, nb, nr / nb if nb else float("nan")))
-    rows += ["", "%-34s %12s %12s" % ("", "of %d generated" % NGEN["rad"], "")]
-    for lab, nr, nb in yields:
-        rows.append("%-34s %11.3f %% %11.3f %%"
-                    % (lab, 100.0 * nr / NGEN["rad"], 100.0 * nb / NGEN["born"]))
+    # EACH ROW HAS ITS OWN DENOMINATOR.  A row is one polarity and one
+    # background setting, so the generated total it is a fraction of is the one
+    # that page loaded -- printing them all against a single NGEN was the same
+    # mistake as above, in a place where a reader cannot see it.
+    rows += ["", "%-34s %12s %12s %10s" % ("", "of generated", "", "")]
+    for lab, nr, nb, gr, gb in yields:
+        rows.append("%-34s %11.3f %% %11.3f %%   (%d / %d)"
+                    % (lab, 100.0 * nr / gr, 100.0 * nb / gb, gr, gb))
     fig.text(0.07, 0.80, "\n".join(rows), fontsize=10, va="top", family="monospace",
              linespacing=1.6)
     fig.text(0.07, 0.22, "\n".join(log), fontsize=8, va="top", family="monospace",
