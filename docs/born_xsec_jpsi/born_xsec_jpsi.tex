@@ -220,6 +220,40 @@ term. Both are linear in $\sigma_{\rm Born}$, so
 Three terms, every one linear and homogeneous of degree~1 in $\sigma_{\rm Born}$. That is the whole
 structural answer: homogeneity makes $\eta$ scale-free, the middle term makes $\eta$ shape-dependent.
 
+\paragraph{Degree-1 homogeneous} means
+\begin{equation}
+F[c\,\sigma_{\rm Born}]=c\,F[\sigma_{\rm Born}]\qquad\text{for every constant }c,
+\end{equation}
+i.e.\ multiply the whole Born cross section by $c$ and the answer comes out multiplied by exactly
+$c$: no $c^2$, no $c^0$, no additive piece left over. It holds here because none of the kernels
+---$e^{\delta_{\rm inf}}$, $(1+\delta_{VR}+\delta_{\rm vac})$, $K$, $C$--- contains
+$\sigma_{\rm Born}$; they are pure QED and kinematics. So $\sigma_{\rm obs}$ scales by $c$ and the
+$c$ cancels in $\eta=\sigma_{\rm obs}/\sigma_{\rm Born}$.
+
+It is \emph{weaker} than proportionality, and the standard counter-example is exactly $\sigma_F$:
+take $F[\sigma](x)=\sigma(x+a)$. Scaling $\sigma$ by $c$ scales $F$ by $c$, so $F$ is degree-1
+homogeneous, yet
+\begin{equation}
+\frac{F[\sigma](x)}{\sigma(x)}=\frac{\sigma(x+a)}{\sigma(x)}
+\end{equation}
+depends on the \emph{shape} of $\sigma$, not on its size --- which is $\sigma_F$ in one line, since it
+reads $\sigma_{\rm Born}$ at $\tilde W^2=W^2-v$ rather than at $W^2$.
+
+Geometrically: discretise the kinematics, so that $\sigma_{\rm Born}$ is a vector and the radiative
+correction a matrix $M$ independent of it,
+\begin{equation}
+\vec\sigma_{\rm obs}=M\,\vec\sigma_{\rm Born},
+\qquad
+\eta_i=\frac{(M\vec\sigma)_i}{\sigma_i},
+\end{equation}
+and $\eta$ depends on the \emph{direction} of $\sigma_{\rm Born}$ in function space, never on its
+\emph{length}. Normalisation is the length; shape is the direction.
+
+What would break it: an additive term carrying its own absolute normalisation, $F=M\sigma+b$ with $b$
+fixed in nb, is not degree-1 homogeneous, and then $\eta$ would depend on the model's normalisation.
+Eq.~(\ref{eq:eq55}) has no such term --- every piece is proportional to the structure functions. A
+$\sigma^2$ term would be degree~2 and would make $\eta$ scale linearly with the normalisation.
+
 \paragraph{Which $\sigma_{\rm Born}$ values enter.} At $Q^2=0.03$, $W^2=19.5$, $t=-1.5$ the limit is
 $v_{\max}=2.065$, so $\tilde W^2$ spans $[17.435,19.500]$; threshold ($16.283$) is not reached.
 Cumulating $\sigma_F$ from $v=0$ up to $v_m$:

@@ -181,6 +181,37 @@ Three terms, every one linear and homogeneous of degree 1 in sigma_Born.
 That is the whole structural answer: homogeneity makes eta scale-free, the
 middle term makes eta shape-dependent.
 
+DEGREE-1 HOMOGENEOUS means F[c*sigma_Born] = c*F[sigma_Born] for every
+constant c: multiply the whole Born cross section by c and the answer comes
+out multiplied by exactly c -- no c^2, no c^0, no additive piece left over.
+Here it holds because none of the three kernels (exp(d_inf), (1+d_VR+d_vac),
+K, C) contains sigma_Born: they are pure QED and kinematics.  So sigma_obs
+scales by c and the c cancels in eta = sigma_obs/sigma_Born.
+
+It is WEAKER than proportionality, and the standard counter-example is
+exactly sigma_F.  Take F[sigma](x) = sigma(x+a).  Scaling sigma by c scales F
+by c, so F is degree-1 homogeneous; but
+
+    F[sigma](x) / sigma(x) = sigma(x+a) / sigma(x)
+
+depends on the SHAPE of sigma, not on its size.  That is sigma_F in one line:
+it reads sigma_Born at W~2 = W2 - v instead of at W2.
+
+Geometrically: discretise the kinematics, so sigma_Born is a vector and the
+RC a matrix M independent of it,
+
+    sigma_obs = M sigma_Born ,   eta_i = (M sigma)_i / sigma_i
+
+and eta depends on the DIRECTION of sigma_Born in function space, never on
+its LENGTH.  Normalisation is the length; shape is the direction.
+
+What would break it: an additive term carrying its own absolute
+normalisation, F = M sigma + b with b fixed in nb, is not degree-1
+homogeneous, and then eta would depend on the model's normalisation.  Formula
+55 has no such term -- every piece is proportional to the structure
+functions.  A sigma^2 term would be degree 2 and would make eta scale
+linearly with the normalisation.
+
 WHICH sigma_Born VALUES ENTER.  At Q2 = 0.03, W2 = 19.5, t = -1.5 the limit
 is v_max = 2.065, so W~2 spans [17.435, 19.500]; threshold is 16.283 and is
 not reached.  Cumulating sigma_F from v = 0 up to v_m:
