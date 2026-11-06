@@ -160,6 +160,61 @@ integral samples the model BELOW the bin's Q2, under the box floor and under
 the model's fit range 0.015-0.1 GeV^2.  That is a second, independent reason
 the Q2 floor is the weak edge.
 
+### sigma_rad is NOT proportional to sigma_Born -- and how much that costs
+
+The claim is NOT sigma_rad ~ sigma_Born.  It is that sigma_rad is a LINEAR,
+DEGREE-1 HOMOGENEOUS FUNCTIONAL of sigma_Born.  Homogeneous means a rescaling
+of the model leaves eta untouched; linear-but-non-local means eta still
+depends on the model's SHAPE.  Both halves are needed and they are different
+statements.
+
+Proof that it is not proportionality.  In each row sigma_Born AT THE POINT is
+identical -- the perturbation equals 1 there -- and only the shape away from
+the point changes:
+
+                                sigma_born     sigma_F       eta
+    reference                  8.3655e-05   -3.8327e-06   0.979770
+    SF x exp(-0.6*(W2-W2_0))   8.3655e-05   +4.3160e-06   1.077180
+    SF x exp(+0.6*(W2-W2_0))   8.3655e-05   -7.5031e-06   0.935894
+    SF x exp(-1.0*(t-t_0))     8.3655e-05   -6.3523e-06   0.949651
+    SF x exp(+1.0*(t-t_0))     8.3655e-05   -7.3283e-10   1.025577
+    SF x (Q2/Q2_0)^(+1)        8.3655e-05   -1.3809e-06   1.009079
+
+sigma_Born frozen to all digits, eta moving.  At the steepest W slope sigma_F
+even changes sign and eta exceeds 1, because radiation then feeds events INTO
+the point from higher W2.  Were sigma_rad proportional to sigma_Born, every
+row would read 0.979770.
+
+THE SIZE, HONESTLY.  Those perturbations are not all realistic: the W slope
+used above is +-0.6 per GeV^2 while the model's own slope is only +0.090,
+seven times smaller.  The model's logarithmic slopes at
+(Q2, W2, t) = (0.03, 19.5, -1.5) are
+
+    d ln sigma_Born / d W2    = +0.090   per GeV^2
+    d ln sigma_Born / d t     = +1.221   per GeV^2
+    d ln sigma_Born / d ln Q2 = -1.008
+
+and a 30 % error in each of them moves eta by
+
+    point (Q2, W2, t)     eta_0     d(eta):  W-slope   t-slope   Q2-slope
+     0.03  17.50  -1.50   0.92671            0.0011    0.0046    0.0014
+     0.03  19.50  -1.50   0.97977            0.0028    0.0145    0.0062
+     0.03  20.50  -0.80   0.99025            0.0022    0.0129    0.0134
+     1.00  19.00  -1.50   0.96673            0.0029    0.0081    0.0044
+
+So the shape sensitivity of C_rad is about 1 %, and the hierarchy is
+t > Q2 > W -- NOT W-dominated, which the exaggerated test above would wrongly
+suggest.  The t slope leads because the photon-angle integral inside sigma_F
+moves t by of order v.
+
+    model normalisation wrong by 4-6x      effect on C_rad: exactly zero
+    model slopes wrong by 30 %             effect on C_rad: ~1 %, worst in t
+
+That ~1 % is the number to carry in the systematics table for "model shape
+inside the bin", and step 7 reduces it further.  The method is robust, but
+not because sigma_rad is proportional to sigma_Born: it is robust because eta
+is scale-free and only mildly shape-sensitive.
+
 ### Why the two forms are the same, exactly
 
 The two are algebraically the same once the bin-averaging is done
