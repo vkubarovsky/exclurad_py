@@ -54,7 +54,7 @@ cp "$DOCS/$MD" "$DEST/"
   echo
   echo "Verified against campaign prod_jpsi_f18in_20261009 on 2026-11-06:"
   echo "  * BR(J/psi->e+e-) is NOT applied in the generator -- factor 16.7 if missed"
-  echo "  * the rad and born cards differ in iborn AND itarg, not iborn alone"
+  echo "  * the rad/born cards differ in THREE fields: iborn, idecay, itarg"
   echo "  * sigma_nb counts pre-preset events, so C_rad cannot come from it"
   echo "  * the Born outbending arm is 28 % short of the rad arm"
   echo

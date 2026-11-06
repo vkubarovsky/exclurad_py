@@ -26,7 +26,7 @@ inside the bin survives, and it is iterated away. Six inputs beyond the three sa
 and are listed explicitly; the branching ratio $\BR(J/\psi\to e^+e^-)$ is one of them and is
 \emph{not} applied anywhere in the generator, a factor 16.7 if missed. Five properties of the
 existing campaign were verified while writing this note and are reported in Sec.~5, including the
-fact that the radiative and Born cards differ in two fields rather than one, that the Born
+fact that the radiative and Born cards differ in three physics fields rather than one, that the Born
 outbending arm is 28\,\% short of the radiative arm, and that the generator's \texttt{sigma\_nb}
 cannot be used to form the radiative correction.
 \end{abstract}
@@ -130,8 +130,11 @@ about a factor 5. Subtract background from sidebands or a fitted continuum, and 
 subtraction error into $N_i^{\rm data}$.
 
 \paragraph{Step 3 --- the same window on the MC.}
-The identical $M(ee)$ window applied to the reconstructed radiative MC gives $n_i^{\rm rad}$. Both
-arms run \texttt{idecay = 2}, so the decay final-state radiation is in the simulation.
+The identical $M(ee)$ window applied to the reconstructed radiative MC gives $n_i^{\rm rad}$. The
+radiative arm runs \texttt{idecay = 2}, so the decay final-state radiation is simulated and the
+lineshape is never assumed; that is what makes the window efficiency cancel between the data and
+$n_i^{\rm rad}$. The Born arm runs \texttt{idecay = 1}, no decay radiation at all, which is why
+$\crad$ built from these twins also carries the decay-lepton correction (Sec.~5.2).
 
 \paragraph{Step 4 --- normalise.}
 $Y_i^{\rm rad}=\Lum\,\BR\,w^{\rm rad}\,n_i^{\rm rad}$. Average \texttt{sigma\_nb} over jobs; all
@@ -187,24 +190,33 @@ grep -rniE "branching|0.0597|5.97" --include=*.py exclurad_py/   ->   nothing
 decayed to $e^+e^-$ with probability one (\texttt{idecay = 2}). The data yield is an $e^+e^-$ yield.
 Therefore $\BR$ multiplies the Monte Carlo, once. Omitting it makes the answer wrong by 16.7.
 
-\subsection{The twins differ in two card fields, not one}
+\subsection{The twins differ in three physics fields, not one}
 
 From \texttt{prod\_jpsi\_f18in\_20261009/\{born,rad\}/prov/*\_043.card.txt}:
 \begin{center}
-\begin{tabular}{llcc}
+\begin{tabular}{llccl}
 \toprule
-field & meaning & born & rad \\
+field & meaning & born & rad & switches \\
 \midrule
-4 & \texttt{iborn} & 1 & 0 \\
-18 & \texttt{itarg} & 0 & 1 \\
+4 & \texttt{iborn} & 1 & 0 & vertex radiation \\
+12 & \texttt{idecay} & 1 & 2 & decay-lepton radiation \\
+18 & \texttt{itarg} & 0 & 1 & pre-vertex radiator \\
 \bottomrule
 \end{tabular}
 \end{center}
-This is \emph{correct}: Born means no radiation of any kind, internal or external, so $\crad$ built
-from these twins contains target straggling \emph{and} vertex radiation, which is what corrects data
-to Born. However the card header claims ``IDENTICAL except iborn (field 4)'', which is false; anyone
-diffing the two cards on that promise will conclude the sample is broken. The header should be
-fixed.
+plus the seed (field 11) and \texttt{outroot} (field 13), which differ as they must.
+
+All three are \emph{correct}: Born means no radiation of any kind, so $\crad$ built from these twins
+is the \emph{whole} correction --- electron-line radiation, straggling in the target before the
+vertex, and radiation of the decay leptons. This is also what
+\texttt{docs/rc\_method\_jpsi/rc\_method\_jpsi\_report.tex} states in its abstract; the first
+revision of the present note said ``two fields'' and had missed \texttt{idecay}.
+
+The card header, however, claims ``IDENTICAL except iborn (field 4)'' and offers a \texttt{diff}
+command to prove it. That command in fact prints five differences. The danger is not the confusion
+but the repair: a reader who trusts the comment may ``fix'' field~12 or field~18 to make the diff
+clean, and a Born arm with \texttt{itarg = 1} or \texttt{idecay = 2} silently reduces $\crad$ to the
+vertex term alone. It is the comment that is wrong, not the cards.
 
 The \texttt{itarg = 0} point-vertex bug is \textbf{not} present in this sample: the fix
 \texttt{bbe6628} (2026-10-22 11:25) is an ancestor of the sample's recorded commit \texttt{8ac2fc0}

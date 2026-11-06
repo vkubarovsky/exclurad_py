@@ -101,8 +101,11 @@ that model bias by about a factor 5.  Subtract background from sidebands or
 a fitted continuum and propagate the subtraction error into `N_data(i)`.
 
 **Step 3 -- the same window on the MC.**  Identical M(ee) window on the
-reconstructed rad MC gives `n_rad(i)`.  Both arms run `idecay = 2`, so the
-decay FSR is in the simulation.
+reconstructed rad MC gives `n_rad(i)`.  The rad arm runs `idecay = 2`, so the
+decay FSR is simulated and the lineshape is never assumed -- that is what makes
+the window efficiency cancel between data and `n_rad(i)`.  The Born arm runs
+`idecay = 1`, no decay radiation at all, which is why `C_rad` built from these
+twins also carries the decay-lepton correction (Sec. 5.2).
 
 **Step 4 -- normalise.**  `Y_rad(i) = L * BR * w_rad * n_rad(i)`.  Average
 `sigma_nb` over jobs; all production jobs share the card, so `w_rad` is
@@ -157,19 +160,30 @@ event is decayed to e+e- with probability 1 (`idecay = 2`).  The data yield
 is an e+e- yield.  So BR multiplies the MC, once.  Forget it and the answer
 is wrong by 16.7.
 
-### The twins differ in two fields, not one
+### The twins differ in three physics fields, not one
 
 From `prod_jpsi_f18in_20261009/{born,rad}/prov/*_043.card.txt`:
 
-    field  4  iborn:   born 1    rad 0
-    field 18  itarg:   born 0    rad 1
+    field  4  iborn:   born 1    rad 0     vertex radiation off / on
+    field 12  idecay:  born 1    rad 2     decay-lepton radiation off / on
+    field 18  itarg:   born 0    rad 1     pre-vertex radiator off / on
 
-This is **correct**: Born means no radiation of any kind, internal or
-external, so `C_rad` from these twins includes target straggling *and*
-vertex radiation, which is what corrects data to Born.  But the card header
-claims "IDENTICAL except iborn (field 4)", which is false, and anyone
-diffing the two cards on that promise will think the sample is broken.
-The header comment should be fixed.
+plus the seed (field 11) and `outroot` (field 13), which differ as they must.
+
+All three are **correct**: Born means no radiation of any kind, so `C_rad`
+built from these twins is the WHOLE correction -- electron-line radiation,
+target straggling before the vertex, and radiation of the decay leptons.
+That is also what `docs/rc_method_jpsi/rc_method_jpsi_report.tex` states in
+its abstract, and this note said "two fields" in its first revision, which
+was wrong: `idecay` was missed.
+
+But the card header claims "IDENTICAL except iborn (field 4)" and offers a
+`diff` command to prove it.  That command actually prints five differences.
+The danger is not the confusion, it is the repair: somebody who trusts the
+comment may "fix" field 12 or field 18 to make the diff clean, and a Born arm
+with `itarg = 1` or `idecay = 2` silently reduces `C_rad` to the vertex term
+alone.  The header comment should be corrected, and it is the comment that is
+wrong, not the cards.
 
 The `itarg = 0` point-vertex bug is **not** in this sample: the fix
 `bbe6628` (2026-10-22 11:25) is an ancestor of the sample's recorded commit
