@@ -27,10 +27,13 @@ and are listed explicitly; the branching ratio $\BR(J/\psi\to e^+e^-)$ is one of
 \emph{not} applied anywhere in the generator, a factor 16.7 if missed. Moreover the PDG branching
 ratio is the \emph{radiation-inclusive} leptonic width, so radiation of the decay leptons belongs to
 the final state that $\BR$ already counts and must not be allowed into $\crad$: the Born arm has to be
-the \texttt{borndecay} one, with Born production and decay radiation on (Sec.~5.2). Several
-properties of the existing campaigns were verified while writing this note and are reported in
-Sec.~5, including the card fields of all three arms and the fact that the generator's
-\texttt{sigma\_nb} cannot be used to form the radiative correction.
+the \texttt{borndecay} one, with Born production and decay radiation on (Sec.~5.2). That premise is
+checked against the PDG listing, which quotes the radiative submode separately for
+$E_\gamma>100$~MeV: the generator's decay model gives $14.38\pm0.06\,\%$ against the PDG's
+$14.74\pm2.35\,\%$, agreeing to $0.15\sigma$ (Sec.~5.3). Several properties of the existing campaigns
+were verified while writing this note and are reported in Sec.~5, including the card fields of all
+three arms and the fact that the generator's \texttt{sigma\_nb} cannot be used to form the radiative
+correction.
 \end{abstract}
 
 \section{The inputs}
@@ -157,9 +160,13 @@ something upstream is wrong. The published $0.80/0.76/0.62$ by $W$ bin was measu
 \texttt{born} arm in the denominator, so it carries the decay-lepton factor as well; the
 extraction's $\crad=\mathrm{rad}/\mathrm{borndecay}$ will sit closer to unity.
 
-The third arm is not wasted. With all three available, $\mathrm{borndecay}/\mathrm{born}$ is the
-decay-lepton radiation factor by itself, worth having as a cross-check against the analytic $F(K)$
-of \texttt{docs/rc\_method\_jpsi/}.
+The third arm is \emph{not} a free check on $F(K)$, as an earlier revision of this note claimed.
+Measured over 300 jobs per arm, $\mathrm{borndecay}/\mathrm{born}=0.98879\pm0.01296$. Since
+$\int MB$ is identical for the two arms and \texttt{written} $=5000$ in both, that ratio is purely
+the effect of decay FSR on the \emph{generation} daughter window ($|p|\in[1,9]$~GeV,
+$\theta\in[5,40]^\circ$). The analysis cut $|p|>1.95$~GeV is tighter, so it is $F(K)$ for a window
+the analysis does not use, and at $1.1\pm1.3\,\%$ it is consistent with nothing happening. The
+decay-radiation model is tested against the PDG instead, Sec.~5.3.
 
 \paragraph{Step 7 --- iterate.}
 Reweight the Monte Carlo event by event by $\sigma^{\rm extracted}/\sigma^{\rm model}$ as a function
@@ -252,6 +259,57 @@ The model differs between the two campaigns: \texttt{osg\_mariana\_lund} uses
 \texttt{jpsi.vmd2026\_pdet} while \texttt{prod\_jpsi\_f18in\_20261009} uses
 \texttt{jpsi.diffrad\_vm\_pdet}. Form~A is invariant under the model normalisation, so that costs
 nothing there; only the shape inside the bin matters, and step~7 iterates it away.
+
+\subsection{The decay-radiation model agrees with the PDG radiative branching fraction}
+
+The premise of Sec.~5.2 --- that $\BR$ is radiation-inclusive --- is in the PDG listing itself, and
+the listing also supplies a number the generator can be tested against. PDG 2025, $J/\psi(1S)$, with
+$e^+e^-\gamma$ \emph{indented} under $e^+e^-$, which in PDG notation marks a submode, i.e.\ a subset
+of the line above:
+
+\begin{center}
+\begin{tabular}{llr@{}c@{}ll}
+\toprule
+& mode & \multicolumn{4}{c}{branching fraction} \\
+\midrule
+$\Gamma_5$ & $e^+e^-$ & $(5.971$&$\,\pm\,$&$0.032)$ & \% \\
+$\Gamma_6$ & \quad $e^+e^-\gamma$ \quad [a] & $(8.8$&$\,\pm\,$&$1.4)$ & $\times10^{-3}$ \\
+$\Gamma_7$ & $\mu^+\mu^-$ & $(5.961$&$\,\pm\,$&$0.033)$ & \% \\
+\bottomrule
+\end{tabular}
+\end{center}
+\noindent\textbf{[a] For $E_\gamma>100$~MeV.}
+
+So $\BR(e^+e^-)$ is the full width and the radiative part is quoted as a fraction of it:
+\begin{equation}
+\frac{\Gamma_6}{\Gamma_5}=\frac{8.8\times10^{-3}}{5.971\times10^{-2}}=14.74\pm2.35\,\%
+\qquad\text{for }E_\gamma>100~\mathrm{MeV}.
+\end{equation}
+Since $M_{ee}^2=M^2-2Mk^*$, that threshold is $M(ee)<2.99523$~GeV. Calling our own decay model
+directly, with no production and no acceptance cut:
+
+\begin{center}
+\begin{tabular}{lr}
+\toprule
+\texttt{DecayFSR} ($\texttt{idecay}=2$, exact ME), 300\,000 decays & fraction \\
+\midrule
+$E_\gamma>20$~MeV & 23.95\,\% \\
+$E_\gamma>50$~MeV & 18.63\,\% \\
+$\mathbf{E_\gamma>100}$~\textbf{MeV} & $\mathbf{14.38\pm0.06\,\%}$ \\
+$E_\gamma>200$~MeV & 10.12\,\% \\
+$E_\gamma>400$~MeV & 6.06\,\% \\
+$E_\gamma>800$~MeV & 2.56\,\% \\
+\midrule
+\textbf{PDG}, same threshold & $\mathbf{14.74\pm2.35\,\%}$ \\
+difference & $-0.36\,\%=0.15\sigma$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Mean $E_\gamma=72.0$~MeV, maximum 1548~MeV. This is the first independent check on
+\texttt{generator/decay\_rad.py}. It also explains the card's own remark that ``$\sim$15\,\% of
+decays end below $M(ee)=3.0$~GeV'': 3.0~GeV corresponds to $k^*=95.4$~MeV, essentially the PDG
+threshold, which is why the two numbers coincide.
 
 \subsection{The card header of \texttt{prod\_jpsi\_f18in\_20261009} is false}
 

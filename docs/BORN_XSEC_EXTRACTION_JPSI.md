@@ -127,12 +127,19 @@ wrong upstream.  Note that the published 0.80 / 0.76 / 0.62 by W bin was
 measured with the `born` arm as denominator, so it carries the decay-lepton
 factor as well; the extraction's C_rad = rad/borndecay will sit closer to 1.
 
-The third arm is not wasted.  With all three available,
+The third arm is not a free check on F(K), and this note said so in an
+earlier revision.  Measured over 300 jobs per arm,
 
-    borndecay / born  =  the decay-lepton radiation factor, by itself
+    born       <sigma_nb> 1.948358e-04 +- 1.8e-06   preset kills 0.4182
+    borndecay  <sigma_nb> 1.926512e-04 +- 1.8e-06   preset kills 0.4243
+    borndecay / born = 0.98879 +- 0.01296   (-1.1 %, 0.9 sigma from 1)
 
-which is worth having as a cross-check against the analytic F(K) used in
-`docs/rc_method_jpsi/`.
+Since int(MB) is identical for the two arms and `written` = 5000 in both, that
+ratio is purely the effect of decay FSR on the GENERATION daughter window
+(|p| 1-9 GeV, theta 5-40 deg).  The analysis cut |p| > 1.95 GeV is tighter, so
+it is F(K) for a window the analysis does not use -- and at 1.1 +- 1.3 % it is
+consistent with nothing happening.  The decay-radiation model is checked
+against the PDG instead, Sec. 5.3.
 
 **Step 7 -- iterate.**  Reweight the MC event by event by
 `sigma_extracted / sigma_model` as a function of (W, Q2, t); recompute
@@ -219,6 +226,46 @@ Note the model differs between campaigns: `osg_mariana_lund` uses
 `jpsi.vmd2026_pdet`, `prod_jpsi_f18in_20261009` uses `jpsi.diffrad_vm_pdet`.
 Form A is invariant under the model normalisation, so that costs nothing
 there; only the shape inside the bin matters, and step 7 iterates it away.
+
+### The decay-radiation model agrees with the PDG radiative branching fraction
+
+The premise of Sec. 5.2 -- that BR is radiation-inclusive -- is in the PDG
+listing itself, and it also gives a number the generator can be tested on.
+PDG 2025, J/psi(1S), with `e+ e- gamma` INDENTED under `e+ e-`, which in PDG
+notation marks a submode, i.e. a subset of the line above:
+
+    Gamma_5   e+ e-            ( 5.971 +- 0.032 ) %
+    Gamma_6     e+ e- gamma    [a]  ( 8.8 +- 1.4 ) x 10^-3
+    Gamma_7   mu+ mu-          ( 5.961 +- 0.033 ) %
+
+    [a] For E_gamma > 100 MeV.
+
+So BR(e+e-) is the full width and the radiative part is quoted as a fraction
+of it:
+
+    Gamma_6 / Gamma_5 = 8.8e-3 / 5.971e-2 = 14.74 +- 2.35 %   for E_gamma > 100 MeV
+
+Since M_ee^2 = M^2 - 2 M k*, that threshold is M(ee) < 2.99523 GeV.  Our own
+decay model, called directly with no production and no acceptance cut:
+
+    exclurad_py DecayFSR (idecay = 2, exact matrix element), 300 000 decays
+
+      E_gamma > 100 MeV :  14.38 +- 0.06 %
+      PDG               :  14.74 +- 2.35 %
+      difference -0.36 %  =  0.15 sigma
+
+      E_gamma >  20 MeV : 23.95 %     E_gamma > 200 MeV : 10.12 %
+      E_gamma >  50 MeV : 18.63 %     E_gamma > 400 MeV :  6.06 %
+      E_gamma > 100 MeV : 14.38 %     E_gamma > 800 MeV :  2.56 %
+      mean E_gamma 72.0 MeV, max 1548 MeV
+
+This is the first independent check on `generator/decay_rad.py`.  It also
+explains the card's own "~15 % of decays end below M(ee) = 3.0 GeV": 3.0 GeV
+corresponds to k* = 95.4 MeV, essentially the PDG threshold, which is why the
+two numbers coincide.
+
+Reproduce with `python3 -c` on `DecayFSR(3.0969)` and `decay_meson("jpsi", ...)`;
+PDG source: rpp2025-list-J-psi-1S.pdf.
 
 ### The card header of prod_jpsi_f18in_20261009 is false
 
