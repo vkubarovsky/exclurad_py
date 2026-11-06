@@ -37,6 +37,14 @@ export SOURCE_DATE_EPOCH=1762400000   # 2026-11-06, the note's date
   || { echo "pdflatex failed, see $SRC/$NAME.log" >&2; exit 1; }
 rm -f "$SRC"/$NAME.{aux,log,out,toc}
 
+# Page count from the built PDF, so the README cannot go stale (it said "5 pages"
+# at 13 and then 15).  Falls back to "?" if pdfinfo is absent.
+PAGES=$(pdfinfo "$SRC/$NAME.pdf" 2>/dev/null | awk '/^Pages:/{print $2}')
+PAGES=${PAGES:-?}
+
+# RUN THIS AFTER COMMITTING, not before: git describe below records the
+# provenance, and publishing first stamped the PREVIOUS commit plus "-dirty"
+# into the README while the files themselves were already the new ones.
 cp "$SRC/$NAME.tex" "$SRC/$NAME.pdf" "$DEST/"
 cp "$DOCS/$MD" "$DEST/"
 
@@ -48,7 +56,7 @@ cp "$DOCS/$MD" "$DEST/"
   echo "Branch:    $(cd "$SRC" && git rev-parse --abbrev-ref HEAD 2>/dev/null || echo '?')"
   echo "Source:    github.com/vkubarovsky/exclurad_py, docs/born_xsec_jpsi/ (do not edit here)"
   echo
-  echo "- $NAME.pdf  -- the note, 5 pages: master formula, 9 steps, traps, systematics"
+  echo "- $NAME.pdf  -- the note, $PAGES pages: master formula, 9 steps, traps, systematics"
   echo "- $NAME.tex  -- its source"
   echo "- $MD        -- the same content in Markdown"
   echo
