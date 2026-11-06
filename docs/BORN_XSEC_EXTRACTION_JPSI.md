@@ -59,6 +59,38 @@ that multiplies it.
 
     R_i = N_data(i) / ( L * BR * w_rad * n_rad(i) )
 
+### Reading Form A factor by factor
+
+The denominator is not an abstraction: it is the number of events we expect
+to see.  Read it right to left.
+
+    factor        what it is                                        units
+    ------------------------------------------------------------------------
+    w_rad         cross section per generated event, from
+                  report.sigma_nb / N_gen                           nb/event
+    n_rad(i)      RECONSTRUCTED rad-arm events in bin i after
+                  all cuts                                          events
+    w_rad n_rad   cross section of the part of phase space that
+                  reconstructs into bin i, with all radiation       nb
+    BR            BR(J/psi -> e+e-) = 5.971 %                       --
+    L             integrated luminosity of the data                 nb^-1
+
+So L * BR * w_rad * n_rad(i) is the EXPECTED NUMBER OF EVENTS in bin i if the
+model were right.  Dimension check: nb^-1 x nb = events, so R_i is
+events/events, dimensionless, and sigma_Born inherits its units from
+sigma_Born_model -- nb.  BR enters here, exactly once, because the generator
+decays EVERY event with probability 1 (Sec. 5.1): sigma_nb is the full
+production cross section while the data yield is an e+e- yield.
+
+R_i alone says only "the data are N times the model" -- a deviation, not a
+cross section.  Multiplying by the model's Born cross section in the same bin
+turns the deviation into an absolute number.  THE MODEL IS A CARRIER OF UNITS
+AND SHAPE, NOT A PREDICTION OF THE MAGNITUDE.
+
+And the denominator is the RADIATIVE expectation because the data are
+radiative: like is compared with like.  The borndecay arm is needed only for
+C_rad as a diagnostic and for Form B.
+
 ### Form B -- explicit factors.  This is the one to tabulate systematics on.
 
     sigma_Born_binavg(i) = N_data(i)
@@ -475,6 +507,52 @@ event is decayed to e+e- with probability 1 (`idecay = 2`).  The data yield
 is an e+e- yield.  So BR multiplies the MC, once.  Forget it and the answer
 is wrong by 16.7.
 
+### Which radiative processes are corrected, and which are not
+
+The Born card of prod_jpsi_f18in_20261009 states the rule in its own words
+(2026-10-21):
+
+    THE BORN ARM MUST NOT RADIATE ... The rule is that whatever is present in
+    BOTH arms cancels in N_rad/N_born and is therefore NOT corrected for;
+    only what differs between them is removed.  The published number is
+    sigma_Born at a definite beam energy, so the external radiator belongs in
+    the radiative arm and must be absent here.  Left on in both arms -- as it
+    was until 2026-10-21 -- the ratio returns a Born cross section smeared
+    over the beam-energy distribution in the target, which nothing can be
+    compared against.
+
+Read as a question -- is this process already counted in something we
+normalise by? -- it settles all three fields at once:
+
+    process                   field    already counted?   corrected?  rad  Born
+    ---------------------------------------------------------------------------
+    vertex radiation          iborn    no                 yes          0    1
+    pre-vertex straggling     itarg    no                 yes          1    0
+    decay-lepton radiation    idecay   YES, in BR         NO           2    2
+
+Decay radiation is inside the PDG branching ratio (Sec. 5.3), so it must
+CANCEL and therefore sit in both arms.  Straggling is inside nothing, and the
+published sigma is at a definite beam energy of 10.6 GeV, so it must be
+REMOVED and therefore sit in the rad arm only.  The two questions have
+opposite answers and are not in conflict.
+
+Sizes.  The itarg term was measured with a dedicated itarg = 1 Born run:
+sigma falls by 1.24 % (0.345396 against 0.349740); see
+docs/rc_method_jpsi/.  The straggling itself, two populations that must not be
+confused:
+
+    per TRIAL (card, at generation)   mean loss 0.34 %;  2.54 % of trials lose
+                                      more than 0.1 %, 1.70 % more than 1 %
+    per WRITTEN event (measured on a  mean loss 0.0264 %, max 6.1 %
+    2000-event pdet sample)
+
+The acceptance suppresses the mean by about 14x, because y in [0.76, 0.99]
+and the threshold at W2 = 16.283 kill the events that lost beam energy.
+Quote the right one.
+
+And iborn = 1 with itarg = 0 and idecay = 2 is exactly the `borndecay` arm,
+which is the subject of the next subsection.
+
 ### The Born arm must be `borndecay`, because BR is the full width
 
 **This is the crux of the whole procedure.**  VPK, 2026-11-06.
@@ -611,6 +689,43 @@ imprecise.  Measured in a 2000-event sample, the live edges are the proton
 theta floor (min 3.013 deg, zero events below) and the daughter theta
 ceiling (max 39.96 deg).  The proton |p| window never bites: the kinematic
 minimum is 0.7156 GeV/c against a 0.2 GeV/c floor.
+
+### One sigma_nb convention across two build commits -- a false alarm, closed
+
+In osg_mariana_lund the arms were not all built from the same commit:
+
+    born, rad    8377340   (2026-10-29)
+    borndecay    3648a81   (2026-10-30)
+
+and the ONLY change to the generator between those two commits is the
+sigma_nb normalisation fix c10d09e, "sigma_nb normalises with the events that
+reached the LUND file".  Before it the numerator was the stage-1 accept
+counter, which includes events the iacc daughter preset then drops; on the
+J/psi preset that numerator was about 1.70x too large.  If rad carried the
+bug and borndecay did not, C_rad = rad/borndecay would be wrong by that
+factor.  IT IS NOT.
+
+The test: sigma_nb = (numerator/trials) x integral(M*B), and integral(M*B) is
+a deterministic table integral over the box, so it must come out CONSTANT
+across jobs of one arm.  Backing it out both ways, 60 jobs per arm:
+
+    arm        commit    jobs   mean int(MB)   rel.spread   numerator
+    rad        8377340     60   3.821439e-03     3.4e-16    written      CONSTANT
+                                2.224601e-03     4.3e-02    pre-preset   varies
+    born       8377340     60   2.855625e-03     3.0e-16    written      CONSTANT
+    borndecay  3648a81     60   2.855625e-03     3.0e-16    written      CONSTANT
+
+All three use the post-preset numerator.  The decisive line is the last two:
+born and borndecay back out the IDENTICAL integral(M*B) = 2.855625e-03 to
+machine precision, which they must, since the Born majorant cannot depend on
+idecay.  The 8377340 sidecars were corrected by the conductor's campaign_lib
+at write time (a6240da), borndecay carries the correction natively (c10d09e),
+and bce9e23 stops campaign_lib double-correcting a sidecar that already has
+it.
+
+Nothing to correct, nothing to regenerate.  Recorded because the alarm was
+mine and the check is cheap: if a campaign ever mixes commits again, back out
+integral(M*B) per arm and demand that it be constant.
 
 ### t from the proton, and decide t or t'
 
