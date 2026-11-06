@@ -22,8 +22,8 @@ VPK's list stopped at three.  The full set:
 | # | Input | Where it comes from |
 |---|---|---|
 | 1 | Data yield in (W, Q2, t) bins | analysis ntuple |
-| 2 | Radiative MC through GEMC | `prod_jpsi_f18in_20261009/rad` |
-| 3 | Born MC through GEMC | `prod_jpsi_f18in_20261009/born` |
+| 2 | Radiative MC through GEMC | `osg_mariana_lund` arm `rad` |
+| 3 | **borndecay** MC through GEMC | `osg_mariana_lund` arm `borndecay`, Sec. 5.2 |
 | 4 | Integrated luminosity L | for exactly the run/trigger selection that made the yield |
 | 5 | Signal extraction prescription | M(ee) window + background shape |
 | 6 | BR(J/psi -> e+e-) = (5.971 +- 0.032) % | PDG.  **Not in the generator** -- see Sec. 5 |
@@ -59,9 +59,13 @@ no cuts at all.
                            -------------------------------------------------
                            L * BR * dOmega(i) * eps_Born(i) * C_rad(i)
 
-    eps_Born(i) = n_born(i) / m_born(i)
+    eps_Born(i) = n_bdec(i) / m_bdec(i)
 
-    C_rad(i)    = ( w_rad  * n_rad(i)  ) / ( w_born * n_born(i) )
+    C_rad(i)    = ( w_rad * n_rad(i) ) / ( w_bdec * n_bdec(i) )
+
+where `bdec` is the **borndecay** arm -- Born production, decay radiation ON.
+Not the `born` arm.  Sec. 5.2 is the reason, and it is the one thing in this
+note that cannot be got wrong without spoiling the answer.
 
 The two are algebraically the same once the bin-averaging is done
 consistently.  **Compute A.**  Three reasons:
@@ -101,11 +105,11 @@ that model bias by about a factor 5.  Subtract background from sidebands or
 a fitted continuum and propagate the subtraction error into `N_data(i)`.
 
 **Step 3 -- the same window on the MC.**  Identical M(ee) window on the
-reconstructed rad MC gives `n_rad(i)`.  The rad arm runs `idecay = 2`, so the
-decay FSR is simulated and the lineshape is never assumed -- that is what makes
-the window efficiency cancel between data and `n_rad(i)`.  The Born arm runs
-`idecay = 1`, no decay radiation at all, which is why `C_rad` built from these
-twins also carries the decay-lepton correction (Sec. 5.2).
+reconstructed rad MC gives `n_rad(i)`.  Both arms used here run `idecay = 2`,
+so the decay FSR is simulated and the lineshape is never assumed -- that is
+what makes the window efficiency cancel between data and `n_rad(i)`, and what
+keeps the decay radiation OUT of `C_rad`, where it would be double-counted
+against BR (Sec. 5.2).
 
 **Step 4 -- normalise.**  `Y_rad(i) = L * BR * w_rad * n_rad(i)`.  Average
 `sigma_nb` over jobs; all production jobs share the card, so `w_rad` is
@@ -117,10 +121,18 @@ the bin centroid with a bin-centring correction.  State which.  They differ
 wherever the t-slope is steep, which near threshold is everywhere.
 
 **Step 6 -- compute C_rad(i) anyway.**  Form A does not need it, but it must
-be reported, and its bin-to-bin behaviour is the diagnostic that says
-whether the correction is sane.  On this MC we measured 0.80 / 0.76 / 0.62
-by W bin -- falling as W rises.  A C_rad flat in W, or above 1, means
-something is wrong upstream.
+be reported, and its bin-to-bin behaviour is the diagnostic that says whether
+the correction is sane.  A C_rad flat in W, or above 1, means something is
+wrong upstream.  Note that the published 0.80 / 0.76 / 0.62 by W bin was
+measured with the `born` arm as denominator, so it carries the decay-lepton
+factor as well; the extraction's C_rad = rad/borndecay will sit closer to 1.
+
+The third arm is not wasted.  With all three available,
+
+    borndecay / born  =  the decay-lepton radiation factor, by itself
+
+which is worth having as a cross-check against the analytic F(K) used in
+`docs/rc_method_jpsi/`.
 
 **Step 7 -- iterate.**  Reweight the MC event by event by
 `sigma_extracted / sigma_model` as a function of (W, Q2, t); recompute
@@ -160,30 +172,63 @@ event is decayed to e+e- with probability 1 (`idecay = 2`).  The data yield
 is an e+e- yield.  So BR multiplies the MC, once.  Forget it and the answer
 is wrong by 16.7.
 
-### The twins differ in three physics fields, not one
+### The Born arm must be `borndecay`, because BR is the full width
 
-From `prod_jpsi_f18in_20261009/{born,rad}/prov/*_043.card.txt`:
+**This is the crux of the whole procedure.**  VPK, 2026-11-06.
 
-    field  4  iborn:   born 1    rad 0     vertex radiation off / on
-    field 12  idecay:  born 1    rad 2     decay-lepton radiation off / on
-    field 18  itarg:   born 0    rad 1     pre-vertex radiator off / on
+The normalisation uses BR(J/psi -> e+e-) = (5.971 +- 0.032) % from the PDG.
+That number is the **radiation-inclusive leptonic width**: Gamma(J/psi ->
+e+e-) is measured inclusively, so J/psi -> e+e-gamma is already counted
+inside it.
 
-plus the seed (field 11) and `outroot` (field 13), which differ as they must.
+Radiation of the decay leptons is therefore **not** a correction to be
+removed.  It is part of the physical final state that BR counts.  Its only
+effect on the measurement is on the ACCEPTANCE -- through the M(ee) window and
+through the lepton momenta -- so it must be simulated in every arm that is
+used, so that it cancels in `C_rad` and is folded correctly into `eps`.  Put
+it into `C_rad` instead and it is counted twice: once in BR, once in the
+correction.
 
-All three are **correct**: Born means no radiation of any kind, so `C_rad`
-built from these twins is the WHOLE correction -- electron-line radiation,
-target straggling before the vertex, and radiation of the decay leptons.
-That is also what `docs/rc_method_jpsi/rc_method_jpsi_report.tex` states in
-its abstract, and this note said "two fields" in its first revision, which
-was wrong: `idecay` was missed.
+So the Born arm for an extraction is the one with Born PRODUCTION and decay
+radiation ON.  The `osg_mariana_lund` campaign has exactly that, as a third
+arm.  Card fields verified on ifarm, 2026-11-06:
 
-But the card header claims "IDENTICAL except iborn (field 4)" and offers a
-`diff` command to prove it.  That command actually prints five differences.
-The danger is not the confusion, it is the repair: somebody who trusts the
-comment may "fix" field 12 or field 18 to make the diff clean, and a Born arm
-with `itarg = 1` or `idecay = 2` silently reduces `C_rad` to the vertex term
-alone.  The header comment should be corrected, and it is the comment that is
-wrong, not the cards.
+    field        meaning                     rad   born   borndecay
+    -----------------------------------------------------------------
+     1  model                          jpsi.vmd2026_pdet  (all three)
+     4  iborn    vertex radiation            0      1        1
+     8  vcut                                0.0    0.0      0.0
+    12  idecay   decay-lepton radiation      2      1        2
+    18  itarg    pre-vertex radiator         1      0        0
+
+    use:  C_rad = rad / borndecay   -> production radiation only
+                                       (vertex + pre-vertex straggling);
+                                       decay radiation cancels
+
+Statistics: 2000 LUND files x 5000 events per arm per period
+(fa18 / sp18 / sp19), and all three arms are linked into each of the nine OSG
+dataset directories, so born, borndecay and rad are all submitted.
+
+The `born` arm (`idecay = 1`) is NOT wrong.  It was built for the RC-method
+comparison in `docs/rc_method_jpsi/`, where method 2 multiplies the analytic
+decay-lepton factor F(K) explicitly, so having the decay radiation inside
+`C_rad` was deliberate and consistent there.  It is the wrong denominator for
+a cross-section extraction, which is a different question.
+
+Note the model differs between campaigns: `osg_mariana_lund` uses
+`jpsi.vmd2026_pdet`, `prod_jpsi_f18in_20261009` uses `jpsi.diffrad_vm_pdet`.
+Form A is invariant under the model normalisation, so that costs nothing
+there; only the shape inside the bin matters, and step 7 iterates it away.
+
+### The card header of prod_jpsi_f18in_20261009 is false
+
+That campaign's rad card says "Born twin: IDENTICAL except iborn (field 4)"
+and offers a `diff` command to prove it.  The command prints five
+differences: fields 4, 11 (seed), 12 (`idecay`), 13 (`outroot`) and 18
+(`itarg`).  The danger is not the confusion but the repair: somebody who
+trusts the comment may "fix" field 12 or 18 to make the diff clean, and a
+Born arm whose `itarg` or `idecay` has been flipped silently changes what
+`C_rad` means.  It is the comment that is wrong, not the cards.
 
 The `itarg = 0` point-vertex bug is **not** in this sample: the fix
 `bbe6628` (2026-10-22 11:25) is an ancestor of the sample's recorded commit
@@ -200,7 +245,7 @@ ratio built from it is about 1.33 % high -- and in any case it is a box
 average, not a bin correction.  `C_rad(i)` must come from reconstructed
 yields inside the bin.
 
-### The arms are not yet at equal statistics
+### The prod_jpsi_f18in_20261009 arms are not at equal statistics
 
     born out_inb   1120 f32        rad out_inb   1167 f32
     born out_outb   852 f32        rad out_outb  1180 f32

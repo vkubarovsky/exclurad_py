@@ -24,11 +24,13 @@ Monte Carlo, times the model: in that form a wrong model \emph{normalisation} ca
 matters here because \texttt{jpsi.diffrad\_vm} sits a factor 4--6 below the data. Only the shape
 inside the bin survives, and it is iterated away. Six inputs beyond the three samples are required
 and are listed explicitly; the branching ratio $\BR(J/\psi\to e^+e^-)$ is one of them and is
-\emph{not} applied anywhere in the generator, a factor 16.7 if missed. Five properties of the
-existing campaign were verified while writing this note and are reported in Sec.~5, including the
-fact that the radiative and Born cards differ in three physics fields rather than one, that the Born
-outbending arm is 28\,\% short of the radiative arm, and that the generator's \texttt{sigma\_nb}
-cannot be used to form the radiative correction.
+\emph{not} applied anywhere in the generator, a factor 16.7 if missed. Moreover the PDG branching
+ratio is the \emph{radiation-inclusive} leptonic width, so radiation of the decay leptons belongs to
+the final state that $\BR$ already counts and must not be allowed into $\crad$: the Born arm has to be
+the \texttt{borndecay} one, with Born production and decay radiation on (Sec.~5.2). Several
+properties of the existing campaigns were verified while writing this note and are reported in
+Sec.~5, including the card fields of all three arms and the fact that the generator's
+\texttt{sigma\_nb} cannot be used to form the radiative correction.
 \end{abstract}
 
 \section{The inputs}
@@ -43,8 +45,8 @@ refinements: each is a factor, or a bias of the order of the effect being measur
 \# & Input & Source \\
 \midrule
 1 & data yield in $(W,Q^2,t)$ bins & analysis ntuple \\
-2 & radiative MC through GEMC & \texttt{prod\_jpsi\_f18in\_20261009/rad} \\
-3 & Born MC through GEMC & \texttt{prod\_jpsi\_f18in\_20261009/born} \\
+2 & radiative MC through GEMC & \texttt{osg\_mariana\_lund}, arm \texttt{rad} \\
+3 & \textbf{borndecay} MC through GEMC & \texttt{osg\_mariana\_lund}, arm \texttt{borndecay}; Sec.~5.2 \\
 4 & integrated luminosity $\Lum$ & for exactly the run/trigger selection that made the yield \\
 5 & signal extraction prescription & $M(ee)$ window and background shape \\
 6 & $\BR(J/\psi\to e^+e^-)=(5.971\pm0.032)\,\%$ & PDG. \textbf{Not in the generator}, Sec.~5.1 \\
@@ -83,11 +85,14 @@ R_i=\frac{N_i^{\rm data}}{\Lum\,\BR\,w^{\rm rad}\,n_i^{\rm rad}}\;}
 \bar\sigma_i^{\rm Born}
 =\frac{N_i^{\rm data}}{\Lum\,\BR\,\Delta\Omega_i\,\varepsilon_i^{\rm Born}\,\crad_i},
 \qquad
-\varepsilon_i^{\rm Born}=\frac{n_i^{\rm born}}{m_i^{\rm born}},
+\varepsilon_i^{\rm Born}=\frac{n_i^{\rm bdec}}{m_i^{\rm bdec}},
 \qquad
-\crad_i=\frac{w^{\rm rad}\,n_i^{\rm rad}}{w^{\rm born}\,n_i^{\rm born}}.
+\crad_i=\frac{w^{\rm rad}\,n_i^{\rm rad}}{w^{\rm bdec}\,n_i^{\rm bdec}}.
 \label{eq:formB}
 \end{equation}
+Here \texttt{bdec} is the \textbf{borndecay} arm: Born production with decay radiation \emph{on}.
+It is not the \texttt{born} arm. Section~5.2 gives the reason, and it is the one choice in this note
+that cannot be got wrong without spoiling the answer.
 
 Equations~(\ref{eq:formA}) and~(\ref{eq:formB}) are the same once the bin-averaging is done
 consistently. Form~A is what should be computed, for three reasons.
@@ -130,11 +135,11 @@ about a factor 5. Subtract background from sidebands or a fitted continuum, and 
 subtraction error into $N_i^{\rm data}$.
 
 \paragraph{Step 3 --- the same window on the MC.}
-The identical $M(ee)$ window applied to the reconstructed radiative MC gives $n_i^{\rm rad}$. The
-radiative arm runs \texttt{idecay = 2}, so the decay final-state radiation is simulated and the
-lineshape is never assumed; that is what makes the window efficiency cancel between the data and
-$n_i^{\rm rad}$. The Born arm runs \texttt{idecay = 1}, no decay radiation at all, which is why
-$\crad$ built from these twins also carries the decay-lepton correction (Sec.~5.2).
+The identical $M(ee)$ window applied to the reconstructed radiative MC gives $n_i^{\rm rad}$. Both
+arms used here run \texttt{idecay = 2}, so the decay final-state radiation is simulated and the
+lineshape is never assumed. That is what makes the window efficiency cancel between the data and
+$n_i^{\rm rad}$, and what keeps the decay radiation \emph{out} of $\crad$, where it would be
+double-counted against $\BR$ (Sec.~5.2).
 
 \paragraph{Step 4 --- normalise.}
 $Y_i^{\rm rad}=\Lum\,\BR\,w^{\rm rad}\,n_i^{\rm rad}$. Average \texttt{sigma\_nb} over jobs; all
@@ -147,9 +152,14 @@ $t$-slope is steep, which near threshold is everywhere.
 
 \paragraph{Step 6 --- compute $\crad_i$ in any case.}
 Form~A does not need it, but it must be reported, and its bin-to-bin behaviour is the diagnostic
-that says whether the correction is sane. On this Monte Carlo we measure $0.80/0.76/0.62$ by $W$
-bin, falling as $W$ rises. A $\crad$ that is flat in $W$, or above unity, means something upstream
-is wrong.
+that says whether the correction is sane. A $\crad$ that is flat in $W$, or above unity, means
+something upstream is wrong. The published $0.80/0.76/0.62$ by $W$ bin was measured with the
+\texttt{born} arm in the denominator, so it carries the decay-lepton factor as well; the
+extraction's $\crad=\mathrm{rad}/\mathrm{borndecay}$ will sit closer to unity.
+
+The third arm is not wasted. With all three available, $\mathrm{borndecay}/\mathrm{born}$ is the
+decay-lepton radiation factor by itself, worth having as a cross-check against the analytic $F(K)$
+of \texttt{docs/rc\_method\_jpsi/}.
 
 \paragraph{Step 7 --- iterate.}
 Reweight the Monte Carlo event by event by $\sigma^{\rm extracted}/\sigma^{\rm model}$ as a function
@@ -175,9 +185,9 @@ From Form~A, with the three counts independent,
 =\frac{1}{N_i^{\rm data}}+\frac{1}{n_i^{\rm rad}}
 +\left(\text{background subtraction term}\right).
 \end{equation}
-The Born arm enters the statistical error \emph{only} through $\crad$ and
+The \texttt{borndecay} arm enters the statistical error \emph{only} through $\crad$ and
 $\varepsilon^{\rm Born}$, that is only in Form~B and in the reported diagnostics. That is not a
-reason to generate less Born: see Sec.~5.4.
+reason to generate less of it.
 
 \section{Facts checked in the actual samples, 6 November 2026}
 
@@ -190,37 +200,73 @@ grep -rniE "branching|0.0597|5.97" --include=*.py exclurad_py/   ->   nothing
 decayed to $e^+e^-$ with probability one (\texttt{idecay = 2}). The data yield is an $e^+e^-$ yield.
 Therefore $\BR$ multiplies the Monte Carlo, once. Omitting it makes the answer wrong by 16.7.
 
-\subsection{The twins differ in three physics fields, not one}
+\subsection{The Born arm must be \texttt{borndecay}, because \texorpdfstring{$\BR$}{BR} is the full width}
 
-From \texttt{prod\_jpsi\_f18in\_20261009/\{born,rad\}/prov/*\_043.card.txt}:
+\textbf{This is the crux of the whole procedure} (VPK, 6 November 2026).
+
+The normalisation uses $\BR(J/\psi\to e^+e^-)=(5.971\pm0.032)\,\%$ from the PDG. That number is the
+\emph{radiation-inclusive} leptonic width: $\Gamma(J/\psi\to e^+e^-)$ is measured inclusively, so
+$J/\psi\to e^+e^-\gamma$ is already counted inside it.
+
+Radiation of the decay leptons is therefore \emph{not} a correction to be removed. It is part of the
+physical final state that $\BR$ counts. Its only effect on the measurement is on the
+\emph{acceptance} --- through the $M(ee)$ window and through the lepton momenta --- so it must be
+simulated in every arm that is used, so that it cancels in $\crad$ and is folded correctly into
+$\varepsilon$. Put it into $\crad$ instead and it is counted twice: once in $\BR$, once in the
+correction.
+
+The Born arm for an extraction is therefore the one with Born \emph{production} and decay radiation
+\emph{on}. The \texttt{osg\_mariana\_lund} campaign carries exactly that, as a third arm. Card
+fields verified on ifarm, 6 November 2026:
+
 \begin{center}
-\begin{tabular}{llccl}
+\begin{tabular}{llccc}
 \toprule
-field & meaning & born & rad & switches \\
+field & switches & \texttt{rad} & \texttt{born} & \texttt{borndecay} \\
 \midrule
-4 & \texttt{iborn} & 1 & 0 & vertex radiation \\
-12 & \texttt{idecay} & 1 & 2 & decay-lepton radiation \\
-18 & \texttt{itarg} & 0 & 1 & pre-vertex radiator \\
+1 & model & \multicolumn{3}{c}{\texttt{jpsi.vmd2026\_pdet}} \\
+4 & \texttt{iborn} --- vertex radiation & 0 & 1 & 1 \\
+8 & \texttt{vcut} & 0.0 & 0.0 & 0.0 \\
+12 & \texttt{idecay} --- decay-lepton radiation & 2 & 1 & 2 \\
+18 & \texttt{itarg} --- pre-vertex radiator & 1 & 0 & 0 \\
 \bottomrule
 \end{tabular}
 \end{center}
-plus the seed (field 11) and \texttt{outroot} (field 13), which differ as they must.
 
-All three are \emph{correct}: Born means no radiation of any kind, so $\crad$ built from these twins
-is the \emph{whole} correction --- electron-line radiation, straggling in the target before the
-vertex, and radiation of the decay leptons. This is also what
-\texttt{docs/rc\_method\_jpsi/rc\_method\_jpsi\_report.tex} states in its abstract; the first
-revision of the present note said ``two fields'' and had missed \texttt{idecay}.
+\begin{equation}
+\crad=\frac{\mathrm{rad}}{\mathrm{borndecay}}:
+\quad\text{production radiation only (vertex $+$ pre-vertex straggling), decay radiation cancels.}
+\end{equation}
 
-The card header, however, claims ``IDENTICAL except iborn (field 4)'' and offers a \texttt{diff}
-command to prove it. That command in fact prints five differences. The danger is not the confusion
+Statistics: 2000 LUND files of 5000 events per arm per period (fa18 / sp18 / sp19), and all three
+arms are linked into each of the nine OSG dataset directories, so \texttt{born},
+\texttt{borndecay} and \texttt{rad} are all submitted.
+
+The \texttt{born} arm ($\texttt{idecay}=1$) is \emph{not} wrong. It was built for the RC-method
+comparison of \texttt{docs/rc\_method\_jpsi/}, where method~2 multiplies the analytic decay-lepton
+factor $F(K)$ explicitly, so keeping the decay radiation inside $\crad$ was deliberate and
+consistent there. It is the wrong denominator for a cross-section extraction, which is a different
+question.
+
+The model differs between the two campaigns: \texttt{osg\_mariana\_lund} uses
+\texttt{jpsi.vmd2026\_pdet} while \texttt{prod\_jpsi\_f18in\_20261009} uses
+\texttt{jpsi.diffrad\_vm\_pdet}. Form~A is invariant under the model normalisation, so that costs
+nothing there; only the shape inside the bin matters, and step~7 iterates it away.
+
+\subsection{The card header of \texttt{prod\_jpsi\_f18in\_20261009} is false}
+
+That campaign's radiative card states ``Born twin: IDENTICAL except iborn (field 4)'' and offers a
+\texttt{diff} command to prove it. The command prints five differences: fields 4, 11 (seed), 12
+(\texttt{idecay}), 13 (\texttt{outroot}) and 18 (\texttt{itarg}). The danger is not the confusion
 but the repair: a reader who trusts the comment may ``fix'' field~12 or field~18 to make the diff
-clean, and a Born arm with \texttt{itarg = 1} or \texttt{idecay = 2} silently reduces $\crad$ to the
-vertex term alone. It is the comment that is wrong, not the cards.
+clean, and a Born arm whose \texttt{itarg} or \texttt{idecay} has been flipped silently changes what
+$\crad$ means. It is the comment that is wrong, not the cards.
 
-The \texttt{itarg = 0} point-vertex bug is \textbf{not} present in this sample: the fix
-\texttt{bbe6628} (2026-10-22 11:25) is an ancestor of the sample's recorded commit \texttt{8ac2fc0}
-(2026-10-22 12:36), so the Born arm has the proper 5~cm vertex spread rather than $v_z=0$.
+That campaign's Born arm also has \texttt{idecay = 1}, which is why it is not the arm to use for an
+extraction (Sec.~5.2). Its \texttt{itarg = 0} is nevertheless safe from the point-vertex bug: the
+fix \texttt{bbe6628} (2026-10-22 11:25) is an ancestor of the sample's recorded commit
+\texttt{8ac2fc0} (2026-10-22 12:36), so $v_z$ is spread over the 5~cm cell rather than pinned to
+zero.
 
 \subsection{$\crad$ cannot be taken from \texttt{sigma\_nb}}
 
@@ -240,7 +286,7 @@ ratio rad/born & $0.9640$ \\
 from it is about 1.33\,\% high, and in any case it is a box average rather than a bin correction.
 $\crad_i$ must come from reconstructed yields inside the bin.
 
-\subsection{The arms are not yet at equal statistics}
+\subsection{The \texttt{prod\_jpsi\_f18in\_20261009} arms are not at equal statistics}
 
 \begin{center}
 \begin{tabular}{lrr}
@@ -314,7 +360,7 @@ Source & How to estimate \\
 model shape inside the bin & spread over iterations; vary the $Q^2$ slope within its fit error \\
 exclusivity cut & vary the $MX^2$ window; $\crad$ is the quantity that moves \\
 signal extraction & window width; sideband versus fitted background \\
-MC statistics & $n^{\rm rad}$ and $n^{\rm born}$ separately \\
+MC statistics & $n^{\rm rad}$ and $n^{\rm bdec}$ separately \\
 efficiency scale factors & their own uncertainties, bin dependent \\
 luminosity & from the data side \\
 branching ratio & 0.54\,\% relative \\
@@ -333,7 +379,7 @@ scattered_theta, scattered_p, proton_theta, proton_p,
 positron_theta, positron_p, electron_theta, electron_p,
 time_ee, x_FT, y_FT
 \end{verbatim}
-The data and both Monte Carlo arms must expose the same set, filled by the same code, or step~1
+The data and every Monte Carlo arm must expose the same set, filled by the same code, or step~1
 cannot be honoured.
 
 \section*{Companion notes}
