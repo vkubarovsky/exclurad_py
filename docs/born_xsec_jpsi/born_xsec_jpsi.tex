@@ -341,6 +341,107 @@ below its $Q^2$ fit range $0.015$--$0.1$~GeV$^2$. That range belongs to the \emp
 $W^2\in(16.4,400)$, $Q^2\in(0,30)$, $|t|\in(0,12)$, so there is no $Q^2$ floor problem for $J/\psi$
 at all.
 
+\subsection*{Inside the integral: what \texttt{exact - sub} is}
+
+The bracket above is literally three lines of \texttt{radiative.py:252--255}:
+\begin{verbatim}
+fir   = F_IR(Q2, m, kap1, kap2)
+exact = LRH / Q2t**2              # full bremsstrahlung, shifted kinematics
+sub   = 4.0 * fir * LH0 / Q2**2   # its own soft limit, Born kinematics
+integrand = (v_f / z**2) * (exact - sub)
+\end{verbatim}
+
+\texttt{exact} is the true one-photon integrand: the radiative leptonic tensor contracted with the
+hadronic tensor, \texttt{LRH}, over the \emph{shifted} propagator $\tilde Q^4$, every ingredient
+evaluated at the kinematics the event has \emph{after} emitting $k$.
+
+\texttt{sub} is the same quantity in the soft limit $\omega\to0$ and nothing more. There the
+leptonic tensor factorises, $L_R\to 4F_{\rm IR}L_0$, which is the definition of $F_{\rm IR}$
+(\texttt{spinors.py:200}),
+\begin{equation}
+F_{\rm IR}=\frac{Q^2+2m^2}{\kappa_1\kappa_2}-\frac{m^2}{\kappa_1^2}-\frac{m^2}{\kappa_2^2},
+\qquad \kappa_i=2k\!\cdot\!k_i ,
+\end{equation}
+and the hadronic side is frozen at the Born point: \texttt{LH0} and $Q^2$, not $\tilde Q^2$. So
+\texttt{sub} is ``the Born cross section times the eikonal photon factor''.
+
+\paragraph{Why subtract.} Both terms behave as $1/\omega^2$ as $\omega\to0$, and since
+$\omega=v/2z$ the measure $v\,dv/z^2$ turns that into $dv/v$: each one alone is logarithmically
+infrared divergent. Their \emph{difference} is finite, because $\texttt{exact}\to\texttt{sub}$
+exactly in the soft limit --- a soft photon cannot resolve the shifts
+$\tilde W^2,\tilde Q^2,\tilde t$, and $F_{\rm IR}$ is built to be precisely that limit. The
+integrand then vanishes as $v\to0$ instead of blowing up, and Gauss--Legendre in $\ln v$ converges.
+
+The code's $v$ grid starts at $\ln v_{\max}-18$, an arbitrary number, and it is \emph{allowed} to be
+arbitrary only because of the subtraction. Measured at $Q^2=1$~GeV$^2$, $W^2=19$~GeV$^2$,
+$t=-1.5$~GeV$^2$ with \texttt{jpsi.vmd2026}, moving that lower edge:
+
+\begin{center}
+\begin{tabular}{crr}
+\toprule
+$\ln$-span below $v_{\max}$ & \texttt{subtract=True} & \texttt{subtract=False} \\
+\midrule
+ 6 & $1.72232\times10^{-8}$ & $7.49972\times10^{-7}$ \\
+10 & $1.72100\times10^{-8}$ & $1.23846\times10^{-6}$ \\
+14 & $1.72087\times10^{-8}$ & $1.72696\times10^{-6}$ \\
+18 & $1.72074\times10^{-8}$ & $2.21545\times10^{-6}$ \\
+26 & $1.72043\times10^{-8}$ & $3.19245\times10^{-6}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The right column rises by $+4.885\times10^{-7}$ per four units of $\ln v$ --- dead linear, which
+\emph{is} the logarithmic divergence, in the open. The left column is stable to
+$1.1\times10^{-3}$ while the cutoff moves over twenty orders of magnitude.
+
+\paragraph{Where the subtracted piece goes.} It is not thrown away.
+$\int dv\,d\Omega_k\,(v/z^2)\,4F_{\rm IR}LH_0/Q^4$ is doable in closed form, and the result is
+exactly $\delta_{\rm inf}=(\alpha/\pi)(l_m-1)\ln\!\big(v_m^2/S'_0X'_0\big)$ (plus the soft part that
+pairs with the vertex loop inside $\delta_{VR}$). Its infrared divergence cancels against the
+virtual loops, which is why Eq.~(\ref{eq:eq55}) has the shape it has: soft~$+$~virtual analytically,
+as an IR-free sum, and the hard remainder $\sigma_F$ numerically. So $(\texttt{exact}-\texttt{sub})$
+and $\delta_{\rm inf}$ are two halves of one identity, and \emph{no soft-photon cutoff parameter
+survives into the answer} --- $v_{\max}$ there is a physical missing-mass cut, not a regulator. That
+is the content of the covariant Bardin--Shumeiko separation, as against the older peaking and
+cutoff schemes.
+
+The identity is enforced, not assumed: the difference of \texttt{sigma\_F} taken with
+\texttt{subtract=False} and \texttt{subtract=True} over the same $[v_{\rm lo},v_{\rm hi}]$ must
+equal $\sigma_{\rm Born}\big[\delta_{\rm inf}(v_{\rm hi})-\delta_{\rm inf}(v_{\rm lo})\big]$
+(\texttt{validation/selftest.py:122}). Run on 6 November 2026:
+\begin{verbatim}
+soft factorization L_R -> 4 F_IR L_0               4.254e-04    OK
+IR bookkeeping (subtraction == d delta_inf)        9.889e-05    OK
+slicing form vs Bardin-Shumeiko                    3.372e-03    OK
+\end{verbatim}
+
+\paragraph{\texttt{subtract=False} --- the slicing form, which is what the generator uses.} The
+subtracted integrand is \emph{not} positive definite: the subtraction cancels the collinear
+divergence pointwise, so the bracket changes sign and cannot be a probability density. For
+generation the same total is reorganised at an auxiliary slicing point $v_{\min}$
+(\texttt{generator/tail.py}):
+\begin{align}
+\sigma_{\rm hard}(v_{\min})&=\int_{v_{\min}}^{v_{\max}}\!\!dv\,d\Omega_k\,\frac{v}{z^2}\,
+\frac{L_R\!:\!H}{\tilde Q^4}\;\ge 0 \qquad\text{[the sampling density]},\\
+\sigma_{\rm soft}(v_{\min})&=\sigma_{\rm obs}^{\rm BS}-\sigma_{\rm hard}(v_{\min})
+\qquad\text{[virtual, soft real, and the unresolved }v<v_{\min}\text{ slice]} .
+\end{align}
+$\sigma_{\rm soft}$ is \emph{defined} as the remainder of the exact Bardin--Shumeiko
+$\sigma_{\rm obs}$, so soft~$+$~hard~$=\sigma_{\rm obs}$ identically for any $v_{\min}$: both
+organisations give the same number, split differently. The trap, recorded in that file, is the naive
+$\sigma_{\rm soft}=\sigma_{\rm Born}e^{\delta_{\rm inf}(v_{\min})}(1+\delta_{VR}+\delta_{\rm vac})$,
+which re-exponentiates at an arbitrary point and double-counts: at a typical CLAS12 $\eta$ point
+$\delta_{\rm inf}(v_{\max})=-0.26$ against $\delta_{\rm inf}(10^{-6}v_{\max})=-1.13$, giving
+$\sigma_{\rm obs}$ a ${\sim}20\,\%$ dependence on a number that is not physics. The exponentiation
+must stay at $v_{\max}$ and only the IR bookkeeping may cross $v_{\min}$. Nor is $v_{\min}$ free:
+$\sigma_{\rm soft}$ must stay positive or the ``no resolved photon'' branch has negative
+probability, and it goes negative beyond $v_{\max}/v_{\min}\sim10^5$ at CLAS12 kinematics;
+\texttt{choose\_vmin} takes the largest ratio that keeps the soft fraction above a floor and refuses
+to generate if there is none.
+
+In one line: \texttt{subtract=True} computes the correction, \texttt{subtract=False} generates the
+events. One cross section, two ways of cutting it.
+
 \subsection*{\texorpdfstring{$\sigma_{\rm rad}$}{sigma rad} is \emph{not} proportional to
 \texorpdfstring{$\sigma_{\rm Born}$}{sigma Born} --- and what that costs}
 

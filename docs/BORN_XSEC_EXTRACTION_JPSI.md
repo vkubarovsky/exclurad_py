@@ -288,6 +288,95 @@ the SUPERSEDED jpsi.diffrad_vm.  The production model jpsi.vmd2026 declares
 validity Q2 = (0, 30), W2 = (16.4, 400), |t| = (0, 12), so there is no Q2
 floor problem for J/psi at all.  Retracted.)
 
+### Inside the integral: what (exact - sub) is
+
+The bracket above is literally three lines of `radiative.py:252-255`:
+
+```python
+fir   = F_IR(Q2, m, kap1, kap2)
+exact = LRH / Q2t**2              # full bremsstrahlung, shifted kinematics
+sub   = 4.0 * fir * LH0 / Q2**2   # its own soft limit, Born kinematics
+integrand = (v_f / z**2) * (exact - sub)
+```
+
+`exact` is the true one-photon integrand: the radiative leptonic tensor contracted with the
+hadronic tensor, `LRH`, over the SHIFTED propagator Q2t**2, every ingredient evaluated at the
+kinematics the event has AFTER emitting k.
+
+`sub` is the same quantity in the soft limit omega -> 0 and nothing more.  There the leptonic
+tensor factorises, L_R -> 4 F_IR L_0, which is the definition of F_IR (`spinors.py:200`),
+
+    F_IR = (Q2 + 2 m^2)/(kap1 kap2) - m^2/kap1^2 - m^2/kap2^2 ,   kap_i = 2 k.k_i
+
+and the hadronic side is frozen at the Born point: `LH0` and Q2, not Q2t.  So `sub` is "the Born
+cross section times the eikonal photon factor".
+
+**Why subtract.**  Both terms behave as 1/omega^2 as omega -> 0, and since omega = v/2z the measure
+v dv/z^2 turns that into dv/v: each one alone is logarithmically infrared divergent.  Their
+DIFFERENCE is finite, because exact -> sub exactly in the soft limit -- a soft photon cannot
+resolve the shifts W2t, Q2t, tt, and F_IR is built to be precisely that limit.  The integrand then
+vanishes as v -> 0 instead of blowing up, and Gauss-Legendre in ln v converges.
+
+The code's v grid starts at ln(v_max) - 18, an arbitrary number, and it is ALLOWED to be arbitrary
+only because of the subtraction.  Measured at Q2 = 1, W2 = 19, t = -1.5 with `jpsi.vmd2026`, moving
+that lower edge:
+
+    ln-span below v_max   subtract=True     subtract=False
+             6            1.72232e-08       7.49972e-07
+            10            1.72100e-08       1.23846e-06
+            14            1.72087e-08       1.72696e-06
+            18            1.72074e-08       2.21545e-06
+            26            1.72043e-08       3.19245e-06
+
+The right column rises by +4.885e-07 per four units of ln v -- dead linear, which IS the
+logarithmic divergence, in the open.  The left column is stable to 1.1e-03 while the cutoff moves
+over twenty orders of magnitude.
+
+**Where the subtracted piece goes.**  It is not thrown away.  The integral of the subtraction term,
+int dv dOmega_k (v/z^2) 4 F_IR LH0 / Q2^2, is doable in closed form, and the result is exactly
+delta_inf = (alpha/pi)(l_m - 1) ln(v_m^2/(S'0 X'0)) (plus the soft part that pairs with the vertex
+loop inside delta_VR).  Its infrared divergence cancels against the virtual loops, which is why
+formula 55 has the shape it has: soft + virtual analytically, as an IR-free sum, and the hard
+remainder sigma_F numerically.  So (exact - sub) and delta_inf are two halves of one identity, and
+NO SOFT-PHOTON CUTOFF PARAMETER SURVIVES INTO THE ANSWER -- v_max there is a physical missing-mass
+cut, not a regulator.  That is the content of the covariant Bardin-Shumeiko separation, as against
+the older peaking and cutoff schemes.
+
+The identity is enforced, not assumed: the difference of `sigma_F` taken with `subtract=False` and
+`subtract=True` over the same [v_lo, v_hi] must equal sigma_Born [delta_inf(v_hi) -
+delta_inf(v_lo)] (`validation/selftest.py:122`).  Run on 2026-11-06:
+
+    soft factorization L_R -> 4 F_IR L_0               4.254e-04    OK
+    IR bookkeeping (subtraction == d delta_inf)        9.889e-05    OK
+    slicing form vs Bardin-Shumeiko                    3.372e-03    OK
+
+**`subtract=False` -- the slicing form, which is what the generator uses.**  The subtracted
+integrand is NOT positive definite: the subtraction cancels the collinear divergence pointwise, so
+the bracket changes sign and cannot be a probability density.  For generation the same total is
+reorganised at an auxiliary slicing point v_min (`generator/tail.py`):
+
+    sigma_hard(v_min) = int_{v_min}^{v_max} dv dOmega_k (v/z^2) L_R:H / Q2t^2   >= 0
+                        [this is the sampling density]
+    sigma_soft(v_min) = sigma_obs(BS) - sigma_hard(v_min)
+                        [virtual, soft real, and the unresolved v < v_min slice]
+
+sigma_soft is DEFINED as the remainder of the exact Bardin-Shumeiko sigma_obs, so soft + hard =
+sigma_obs identically for any v_min: both organisations give the same number, split differently.
+The trap, recorded in that file, is the naive
+
+    sigma_soft = sigma_Born exp(delta_inf(v_min)) (1 + delta_VR + delta_vac)      # WRONG
+
+which re-exponentiates at an arbitrary point and double-counts: at a typical CLAS12 eta point
+delta_inf(v_max) = -0.26 against delta_inf(1e-6 v_max) = -1.13, giving sigma_obs a ~20 %
+dependence on a number that is not physics.  The exponentiation must stay at v_max and only the IR
+bookkeeping may cross v_min.  Nor is v_min free: sigma_soft must stay positive or the "no resolved
+photon" branch has negative probability, and it goes negative beyond v_max/v_min ~ 1e5 at CLAS12
+kinematics; `choose_vmin` takes the largest ratio that keeps the soft fraction above a floor and
+refuses to generate if there is none.
+
+In one line: `subtract=True` computes the correction, `subtract=False` generates the events.  One
+cross section, two ways of cutting it.
+
 ### sigma_rad is NOT proportional to sigma_Born -- and how much that costs
 
 The claim is NOT sigma_rad ~ sigma_Born.  It is that sigma_rad is a LINEAR,
