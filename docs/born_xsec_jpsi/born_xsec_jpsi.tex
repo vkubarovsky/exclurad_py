@@ -130,6 +130,75 @@ Step~7 is what makes that hold: after reweighting, the ratio is locally constant
 So the overall normalisation of the model cancels exactly, while the model's \emph{shape} inside the
 bin and the correctness of $\crad$ do not.
 
+\subsection*{Where the assumption comes from: the structure of the RC formula}
+
+The driver implements (\texttt{rc.py:5}; Akushevich Eq.~55)
+\begin{equation}
+\sigma_{\rm obs}=\sigma_{\rm Born}\,e^{\delta_{\rm inf}}\,(1+\delta_{VR}+\delta_{\rm vac})
+\;+\;\sigma_F,
+\qquad \eta=\frac{\sigma_{\rm obs}}{\sigma_{\rm Born}},
+\label{eq:eq55}
+\end{equation}
+a \emph{multiplicative, local} factor plus an \emph{additive, non-local} integral --- not
+$\sigma_{\rm Born}$ times a number. Measured over the $J/\psi$ box with
+\texttt{jpsi.vmd2026\_pdet} and no cut:
+
+\begin{center}\small
+\begin{tabular}{rrrrrrrrr}
+\toprule
+$Q^2$ & $W^2$ & $t$ & $\phi$ & $\sigma_{\rm Born}$ & virt.\ part & $\sigma_F$ & $\eta$ & $\sigma_F/\sigma_{\rm obs}$ \\
+\midrule
+0.03 & 17.50 & $-1.50$ & 0 & 6.73314e-05 & 6.36440e-05 & $-1.2473$e-06 & 0.9267 & $-0.0200$ \\
+0.03 & 19.50 & $-1.50$ & 0 & 8.36546e-05 & 8.57950e-05 & $-3.8327$e-06 & 0.9798 & $-0.0468$ \\
+0.03 & 19.50 & $-1.50$ & $\pi$ & 8.36546e-05 & 8.55674e-05 & $-3.7141$e-06 & 0.9785 & $-0.0454$ \\
+0.03 & 19.50 & $-3.00$ & 0 & 1.85470e-05 & 1.90773e-05 & $-8.8572$e-07 & 0.9808 & $-0.0487$ \\
+1.00 & 19.00 & $-1.50$ & 0 & 1.85792e-06 & 1.88513e-06 & $-8.9031$e-08 & 0.9667 & $-0.0496$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The multiplicative factor sits slightly \emph{above} unity (vacuum polarisation and virtual), while
+$\sigma_F$ is \emph{negative}, 2--5\,\% of $\sigma_{\rm obs}$; $\eta$ is the difference of the two.
+
+Eq.~(\ref{eq:eq55}) \emph{proves} the normalisation invariance rather than threatening it. Both
+terms are linear and homogeneous of degree~1 in the structure functions --- $\sigma_{\rm Born}$ is
+linear in them and $\sigma_F$ is an \emph{integral} of them --- so $\mathrm{SF}\to f\,\mathrm{SF}$
+scales both by $f$ and $\eta$ cannot move:
+
+\begin{center}\small
+\begin{tabular}{rrrrl}
+\toprule
+$f$ & $\sigma_{\rm Born}$ & virt.\ part & $\sigma_F$ & $\eta$ \\
+\midrule
+1.00 & 8.365462e-05 & 8.579501e-05 & $-3.83270$e-06 & 0.979770256397 \\
+2.00 & 1.673092e-04 & 1.715900e-04 & $-7.66539$e-06 & 0.979770256397 \\
+0.25 & 2.091365e-05 & 2.144875e-05 & $-9.58174$e-07 & 0.979770256397 \\
+5.00 & 4.182731e-04 & 4.289750e-04 & $-1.91635$e-05 & 0.979770256397 \\
+1000 & 8.365462e-02 & 8.579501e-02 & $-3.83270$e-03 & 0.979770256397 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Twelve digits over a factor 4000. Eq.~(\ref{eq:invariance}) is therefore a property of the RC
+formula, not an assumption.
+
+Eq.~(\ref{eq:eq55}) also \emph{identifies the region}. The line that matters is
+\texttt{radiative.py:246},
+\begin{verbatim}
+sf = _sf_to_gev(sfmodel(W2t, np.maximum(Q2t, 1e-6), tt))
+\end{verbatim}
+$\sigma_F$ reads the structure functions at \emph{shifted} $W^2$, $Q^2$ and $t$ inside the photon
+integral. So $\eta$ at an observed point is not a function of the model at that point: it is a
+functional of the model's \emph{shape} over the region the photon integral reaches. Hence, exactly:
+the normalisation cancels by degree-1 homogeneity, while the shape over the $\sigma_F$ region does
+not --- and that is $C^{\rm rad}_{\rm true}=C^{\rm rad}_{\rm model}$.
+
+Two consequences. $\crad$ cannot be derived from the Born cross section at the bin centre; it is an
+integral, so interpolating it in $(W,Q^2,t)$ is bookkeeping, not derivation. And since $Q^2_t$ is
+shifted as well, the $\sigma_F$ integral samples the model \emph{below} the bin's $Q^2$ --- under the
+box floor and under the model's fit range $0.015$--$0.1$~GeV$^2$. That is a second, independent
+reason the $Q^2$ floor is the weak edge.
+
 \subsection*{Why the two forms are the same, exactly}
 
 Substituting $\varepsilon$ and $\crad$ into Form~B, $n_i^{\rm bdec}$ \emph{cancels}:
@@ -169,6 +238,7 @@ $\bar\sigma_i^{\rm Born,model}\to f\,\bar\sigma_i^{\rm Born,model}$, so
 \begin{equation}
 \sigma_i^{\rm Born}=R_i\,\bar\sigma_i^{\rm Born,model}
 \quad\text{is invariant under}\quad \sigma^{\rm model}\to f\,\sigma^{\rm model}.
+\label{eq:invariance}
 \end{equation}
 \end{enumerate}
 

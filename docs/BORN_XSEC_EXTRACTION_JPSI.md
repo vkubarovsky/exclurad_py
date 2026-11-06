@@ -105,6 +105,63 @@ What is safe and what is not:
     shape of the model inside the bin       does NOT cancel -> step 7
     correctness of C_rad                    does NOT cancel -> tested separately
 
+### Where the assumption comes from: the structure of the RC formula
+
+The RC driver implements (rc.py:5, Akushevich eq. 55)
+
+    sigma_obs = sigma_Born * exp(delta_inf) * (1 + delta_VR + delta_vac) + sigma_F
+    eta = sigma_obs / sigma_Born
+
+-- a MULTIPLICATIVE, local factor PLUS an ADDITIVE, non-local integral.  Not
+sigma_Born times a number.  Measured over the J/psi box with
+jpsi.vmd2026_pdet and no cut:
+
+    Q2     W2      t     phi    sigma_born    virt part      sigma_F    eta    sigma_F/sigma_obs
+   0.03  17.50  -1.50  0.000  6.73314e-05  6.36440e-05  -1.2473e-06  0.9267     -0.0200
+   0.03  19.50  -1.50  0.000  8.36546e-05  8.57950e-05  -3.8327e-06  0.9798     -0.0468
+   0.03  19.50  -1.50  3.142  8.36546e-05  8.55674e-05  -3.7141e-06  0.9785     -0.0454
+   0.03  19.50  -3.00  0.000  1.85470e-05  1.90773e-05  -8.8572e-07  0.9808     -0.0487
+   1.00  19.00  -1.50  0.000  1.85792e-06  1.88513e-06  -8.9031e-08  0.9667     -0.0496
+
+The multiplicative factor is slightly ABOVE 1 (vacuum polarisation and
+virtual); sigma_F is NEGATIVE, 2-5 % of sigma_obs.  eta is the difference.
+
+THIS PROVES THE NORMALISATION INVARIANCE rather than threatening it.  Both
+terms are linear and homogeneous of degree 1 in the structure functions:
+sigma_Born is linear in them and sigma_F is an INTEGRAL of them.  So
+SF -> f*SF scales both terms by f and eta cannot move.  Measured:
+
+       f      sigma_born       virt part        sigma_F          eta
+      1.00  8.365462e-05  8.579501e-05  -3.83270e-06  0.979770256397
+      2.00  1.673092e-04  1.715900e-04  -7.66539e-06  0.979770256397
+      0.25  2.091365e-05  2.144875e-05  -9.58174e-07  0.979770256397
+      5.00  4.182731e-04  4.289750e-04  -1.91635e-05  0.979770256397
+   1000.00  8.365462e-02  8.579501e-02  -3.83270e-03  0.979770256397
+
+Twelve digits over a factor 4000.  The invariance is a property of the RC
+formula, not an assumption.
+
+AND IT IDENTIFIES THE REGION.  radiative.py:246 is the line that matters:
+
+    sf = _sf_to_gev(sfmodel(W2t, np.maximum(Q2t, 1e-6), tt))
+
+sigma_F reads the structure functions at SHIFTED W2, Q2 and t inside the
+photon integral.  So eta at an observed point is not a function of the model
+at that point; it is a functional of the model's SHAPE over the region the
+photon integral reaches.  Hence, exactly:
+
+    normalisation of the model       cancels exactly (degree-1 homogeneity)
+    shape over the sigma_F region    does NOT  ->  C_rad_true = C_rad_model
+
+Two consequences.  C_rad cannot be derived from the Born cross section at the
+bin centre -- it is an integral, so interpolating it in (W, Q2, t) is
+bookkeeping, not derivation.  And since Q2t is shifted too, the sigma_F
+integral samples the model BELOW the bin's Q2, under the box floor and under
+the model's fit range 0.015-0.1 GeV^2.  That is a second, independent reason
+the Q2 floor is the weak edge.
+
+### Why the two forms are the same, exactly
+
 The two are algebraically the same once the bin-averaging is done
 consistently, and "consistently" has an exact meaning.  Substituting eps and
 C_rad into Form B, n_bdec(i) CANCELS:
