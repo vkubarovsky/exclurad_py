@@ -193,6 +193,81 @@ functional of the model's \emph{shape} over the region the photon integral reach
 the normalisation cancels by degree-1 homogeneity, while the shape over the $\sigma_F$ region does
 not --- and that is $C^{\rm rad}_{\rm true}=C^{\rm rad}_{\rm model}$.
 
+\subsection*{How \texorpdfstring{$\sigma_F$}{sigma F} depends on
+\texorpdfstring{$\sigma_{\rm Born}$}{sigma Born}}
+
+$\sigma_F$ is a weighted integral of $\sigma_{\rm Born}$ \emph{itself}, read at \emph{shifted}
+invariants, minus a subtraction that reads $\sigma_{\rm Born}$ at the observed point:
+\begin{equation}
+\sigma_F=\int_0^{v_{\max}}\!\!dv\int d\Omega_k\;w\,
+\Big[\underbrace{R(v,\Omega_k)\,\sigma_{\rm Born}(\tilde W^2,\tilde Q^2,\tilde t)}_{\text{real emission, \textsc{shifted}}}
+-\underbrace{F_{\rm IR}(v,\Omega_k)\,\sigma_{\rm Born}(W^2,Q^2,t)}_{\text{Bardin--Shumeiko, \textsc{observed}}}\Big],
+\end{equation}
+with the shifts exactly as \texttt{radiative.py:239--243} writes them,
+\begin{equation}
+\tilde W^2=W^2-v,\qquad \tilde Q^2=Q^2+2(k\!\cdot\!q),\qquad \tilde t=t-2\big(k\!\cdot\!(q-p_V)\big).
+\end{equation}
+
+So $\sigma_F$ depends on $\sigma_{\rm Born}$ \emph{twice}: through $\sigma_{\rm Born}$ at
+\emph{other} kinematic points --- the non-local part --- and through $\sigma_{\rm Born}$ at the
+observed point with a minus sign, the subtraction that cancels the infrared divergence of the first
+term. Both are linear in $\sigma_{\rm Born}$, so
+\begin{equation}
+\sigma_{\rm obs}(x)=\underbrace{\sigma_{\rm Born}(x)\,e^{\delta_{\rm inf}}(1+\delta_{VR}+\delta_{\rm vac})}_{\text{local}}
++\underbrace{\int\! K(x\!\leftarrow\!x')\,\sigma_{\rm Born}(x')\,dx'}_{\textsc{non-local}}
+-\underbrace{C(x)\,\sigma_{\rm Born}(x)}_{\text{local (BS)}} .
+\end{equation}
+Three terms, every one linear and homogeneous of degree~1 in $\sigma_{\rm Born}$. That is the whole
+structural answer: homogeneity makes $\eta$ scale-free, the middle term makes $\eta$ shape-dependent.
+
+\paragraph{Which $\sigma_{\rm Born}$ values enter.} At $Q^2=0.03$, $W^2=19.5$, $t=-1.5$ the limit is
+$v_{\max}=2.065$, so $\tilde W^2$ spans $[17.435,19.500]$; threshold ($16.283$) is not reached.
+Cumulating $\sigma_F$ from $v=0$ up to $v_m$:
+
+\begin{center}\small
+\begin{tabular}{rrrrr}
+\toprule
+$v_m$ & $\tilde W^2$ at $v_m$ & cum.\ $\sigma_F$ & slice & slice/total \\
+\midrule
+0.010 & 19.490 & $-4.18559$e-08 & $-4.18559$e-08 & 0.011 \\
+0.050 & 19.450 & $-1.96042$e-07 & $-1.54186$e-07 & 0.040 \\
+0.150 & 19.350 & $-5.28354$e-07 & $-3.32312$e-07 & 0.087 \\
+0.400 & 19.100 & $-1.18827$e-06 & $-6.59918$e-07 & 0.172 \\
+1.000 & 18.500 & $-2.33841$e-06 & $-1.15014$e-06 & 0.300 \\
+2.065 & 17.435 & $-3.83270$e-06 & $-1.49429$e-06 & 0.390 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent 69\,\% of $\sigma_F$ comes from $v>0.4$, i.e.\ $\tilde W^2$ below 19.1 --- a GeV$^2$ or
+more from the observed point --- and 39\,\% from $v>1$. That is the non-locality, measured. The
+$\sigma_{\rm Born}$ curve being weighted:
+
+\begin{center}\small
+\begin{tabular}{rrrr}
+\toprule
+$v$ & $\tilde W^2$ & $\sigma_{\rm Born}$ & / observed \\
+\midrule
+0.000 & 19.500 & 8.3655e-05 & 1.000 \\
+0.400 & 19.100 & 8.0646e-05 & 0.964 \\
+1.000 & 18.500 & 7.6085e-05 & 0.910 \\
+2.065 & 17.435 & 6.6633e-05 & 0.797 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{Why $\sigma_F$ is negative here.} $\sigma_{\rm Born}$ falls to 80\,\% of its observed value
+at the far end, because for $J/\psi$ near threshold $\sigma(W)$ \emph{rises}, so shifting $W^2$ down
+lowers the cross section. The real-emission term therefore reads smaller values than the subtraction
+term, which reads the full observed $\sigma_{\rm Born}$: the subtraction wins and $\sigma_F<0$.
+
+That is exactly what flipped in the shape test above. With an artificially \emph{falling}
+$\sigma(W^2)$ ($a=-0.6$) the shifted $\sigma_{\rm Born}$ exceeded the observed one, the real term won,
+$\sigma_F$ came out $+4.3\times10^{-6}$ and $\eta$ rose above unity --- radiation feeding events
+\emph{into} the point from higher $W^2$. The \emph{sign} of $\sigma_F$ is therefore governed by the
+slope of $\sigma_{\rm Born}$ in $W^2$, which is also why the near-threshold $W$ rise is the dominant
+shape freedom in the table above.
+
 One consequence to record: $\crad$ cannot be derived from the Born cross section at the bin centre;
 it is an integral, so interpolating it in $(W,Q^2,t)$ is bookkeeping, not derivation.
 

@@ -153,6 +153,68 @@ photon integral reaches.  Hence, exactly:
     normalisation of the model       cancels exactly (degree-1 homogeneity)
     shape over the sigma_F region    does NOT  ->  C_rad_true = C_rad_model
 
+### How sigma_F depends on sigma_Born
+
+sigma_F is a weighted integral of sigma_Born ITSELF, read at SHIFTED
+invariants, minus a subtraction that reads sigma_Born at the observed point:
+
+    sigma_F = INT_0^vmax dv INT dOmega_k  w *
+                [  R(v,Om) * sigma_Born(W~2, Q~2, t~)      real emission, SHIFTED
+                 - F_IR(v,Om) * sigma_Born(W2, Q2, t)  ]   Bardin-Shumeiko, OBSERVED
+
+with the shifts exactly as radiative.py:239-243 writes them,
+
+    W~2 = W2 - v
+    Q~2 = Q2 + 2*(k.q)
+    t~  = t  - 2*(k.(q - p_V))
+
+So sigma_F depends on sigma_Born TWICE: through sigma_Born at OTHER
+kinematic points (the non-local part) and through sigma_Born at the observed
+point with a minus sign (the subtraction that cancels the infrared
+divergence of the first term).  Both are linear in sigma_Born, so
+
+    sigma_obs(x) = sigma_Born(x) * exp(d_inf)*(1 + d_VR + d_vac)   local, multiplicative
+                 + INT K(x <- x') sigma_Born(x') dx'               NON-LOCAL
+                 - C(x) * sigma_Born(x)                            local, BS subtraction
+
+Three terms, every one linear and homogeneous of degree 1 in sigma_Born.
+That is the whole structural answer: homogeneity makes eta scale-free, the
+middle term makes eta shape-dependent.
+
+WHICH sigma_Born VALUES ENTER.  At Q2 = 0.03, W2 = 19.5, t = -1.5 the limit
+is v_max = 2.065, so W~2 spans [17.435, 19.500]; threshold is 16.283 and is
+not reached.  Cumulating sigma_F from v = 0 up to v_m:
+
+     v_m     W~2 at v_m    cum sigma_F       slice      slice/total
+    0.010      19.490     -4.18559e-08   -4.18559e-08      0.011
+    0.050      19.450     -1.96042e-07   -1.54186e-07      0.040
+    0.150      19.350     -5.28354e-07   -3.32312e-07      0.087
+    0.400      19.100     -1.18827e-06   -6.59918e-07      0.172
+    1.000      18.500     -2.33841e-06   -1.15014e-06      0.300
+    2.065      17.435     -3.83270e-06   -1.49429e-06      0.390
+
+69 % of sigma_F comes from v > 0.4, i.e. W~2 below 19.1 -- a GeV^2 or more
+from the observed point -- and 39 % from v > 1.  That is the non-locality,
+measured.  The sigma_Born curve being weighted:
+
+    v= 0.000  W~2= 19.500  sigma_born = 8.3655e-05  / observed = 1.000
+    v= 0.400  W~2= 19.100               8.0646e-05              0.964
+    v= 1.000  W~2= 18.500               7.6085e-05              0.910
+    v= 2.065  W~2= 17.435               6.6633e-05              0.797
+
+WHY sigma_F IS NEGATIVE HERE.  sigma_Born falls to 80 % of its observed
+value at the far end, because for J/psi near threshold sigma(W) RISES, so
+shifting W2 down lowers the cross section.  The real-emission term therefore
+reads smaller values than the subtraction term, which reads the full
+observed sigma_Born; the subtraction wins and sigma_F < 0.
+
+That is exactly what flipped in the shape test above: with an artificially
+FALLING sigma(W2) (a = -0.6) the shifted sigma_Born exceeded the observed
+one, the real term won, sigma_F came out +4.3e-06 and eta went above 1 --
+radiation feeding events INTO the point from higher W2.  So the SIGN of
+sigma_F is governed by the slope of sigma_Born in W2, which is also why the
+near-threshold W rise is the dominant shape freedom in the table above.
+
 One consequence to record: C_rad cannot be derived from the Born cross
 section at the bin centre -- it is an integral, so interpolating it in
 (W, Q2, t) is bookkeeping, not derivation.
