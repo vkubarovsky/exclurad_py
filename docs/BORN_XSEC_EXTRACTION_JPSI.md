@@ -153,12 +153,15 @@ photon integral reaches.  Hence, exactly:
     normalisation of the model       cancels exactly (degree-1 homogeneity)
     shape over the sigma_F region    does NOT  ->  C_rad_true = C_rad_model
 
-Two consequences.  C_rad cannot be derived from the Born cross section at the
-bin centre -- it is an integral, so interpolating it in (W, Q2, t) is
-bookkeeping, not derivation.  And since Q2t is shifted too, the sigma_F
-integral samples the model BELOW the bin's Q2, under the box floor and under
-the model's fit range 0.015-0.1 GeV^2.  That is a second, independent reason
-the Q2 floor is the weak edge.
+One consequence to record: C_rad cannot be derived from the Born cross
+section at the bin centre -- it is an integral, so interpolating it in
+(W, Q2, t) is bookkeeping, not derivation.
+
+(An earlier revision added a second consequence, that sigma_F samples the
+model below the model's Q2 fit range 0.015-0.1 GeV^2.  That range belongs to
+the SUPERSEDED jpsi.diffrad_vm.  The production model jpsi.vmd2026 declares
+validity Q2 = (0, 30), W2 = (16.4, 400), |t| = (0, 12), so there is no Q2
+floor problem for J/psi at all.  Retracted.)
 
 ### sigma_rad is NOT proportional to sigma_Born -- and how much that costs
 
@@ -185,30 +188,56 @@ even changes sign and eta exceeds 1, because radiation then feeds events INTO
 the point from higher W2.  Were sigma_rad proportional to sigma_Born, every
 row would read 0.979770.
 
-THE SIZE, HONESTLY.  Those perturbations are not all realistic: the W slope
-used above is +-0.6 per GeV^2 while the model's own slope is only +0.090,
-seven times smaller.  The model's logarithmic slopes at
-(Q2, W2, t) = (0.03, 19.5, -1.5) are
+THE SIZE, HONESTLY -- WITH THE PRODUCTION MODEL'S OWN FREEDOMS.  The
+perturbations above are ad hoc: equal-percentage changes to each logarithmic
+slope are not what jpsi.vmd2026 is actually free to do.  The model is
 
-    d ln sigma_Born / d W2    = +0.090   per GeV^2
-    d ln sigma_Born / d t     = +1.221   per GeV^2
-    d ln sigma_Born / d ln Q2 = -1.008
+    sigma_T = sigma_gamma(W) x (1 + Q2/m_Jpsi^2)^-k x dipole(t; mg2)
+    sigma_gamma(W) = A x^ALPH exp(-B x),  x = W - W_thr   (from jpsi.roberts2026)
+    k = 2 (VMD),  Lambda^2 = m_Jpsi^2,  mg2 = 1.78 GeV^2,  cR = 0.4
+    validity: W2 (16.4, 400),  Q2 (0, 30),  |t| (0, 12)
 
-and a 30 % error in each of them moves eta by
+THE Q2 SHAPE IS NOT A MODEL FREEDOM.  sigma_T is essentially flat in Q2 over
+the FT box -- the whole 1/Q2 of dsigma_ep is the virtual-photon flux:
 
-    point (Q2, W2, t)     eta_0     d(eta):  W-slope   t-slope   Q2-slope
-     0.03  17.50  -1.50   0.92671            0.0011    0.0046    0.0014
-     0.03  19.50  -1.50   0.97977            0.0028    0.0145    0.0062
-     0.03  20.50  -0.80   0.99025            0.0022    0.0129    0.0134
-     1.00  19.00  -1.50   0.96673            0.0029    0.0081    0.0044
+    Q2      VMD factor (1+Q2/9.590)^-2    d ln(VMD)/d ln Q2
+    0.001        0.99979                      -0.00021
+    0.030        0.99377                      -0.00624
+    0.100        0.97947                      -0.02064
+    0.250        0.94984                      -0.05081
 
-So the shape sensitivity of C_rad is about 1 %, and the hierarchy is
-t > Q2 > W -- NOT W-dominated, which the exaggerated test above would wrongly
-suggest.  The t slope leads because the photon-angle integral inside sigma_F
-moves t by of order v.
+So of the measured d ln sigma_Born/d ln Q2 = -1.008 at Q2 = 0.03, the flux
+contributes -1.002 (exact QED, no freedom) and the model only -0.006.  The
+"Q2-slope" column of the ad hoc table is therefore meaningless for this
+model and is dropped.
 
-    model normalisation wrong by 4-6x      effect on C_rad: exactly zero
-    model slopes wrong by 30 %             effect on C_rad: ~1 %, worst in t
+Varying the model's ACTUAL parameters -- mg2 by its published +-4.8 %
+(mg2 = 1.78 from m_s = 1.336 +- 0.032 GeV, GlueX PRC 108 025201 and CLAS12
+2026), k over the whole range 1..3, and the two W-shape exponents by an
+assumed +-30 % -- gives
+
+  point (Q2,W2,t)      eta_0    mg2 +-4.8%   k: 1..3    ALPH +-30%   B +-30%
+   0.03  17.50  -1.50   0.92671    0.00036    0.00002    0.00910     0.00131
+   0.03  19.50  -1.50   0.97977    0.00063    0.00009    0.00981     0.00334
+   0.03  20.50  -0.80   0.99025    0.00039    0.00025    0.00465     0.00254
+   0.25  19.00  -1.50   0.96881    0.00074    0.00050    0.01171     0.00345
+
+So for the production model the hierarchy is
+
+    ALPH (near-threshold rise of sigma_gamma(W))   0.5 - 1.2 %   DOMINANT
+    B    (W fall-off)                              0.1 - 0.3 %
+    mg2  (t dipole, published error)              0.04 - 0.07 %
+    k    (VMD power, 1..3)                        negligible
+
+-- the W shape of the photoproduction cross section, not t and certainly not
+Q2.  An earlier revision of this note concluded t > Q2 > W; that came from the
+ad hoc equal-percentage slopes and is WRONG for jpsi.vmd2026.  Note also that
+the +-30 % on ALPH and B is an assumption, not a published error, while the
+mg2 number is published; so the 0.5-1.2 % is an upper bound of the right
+order rather than a measured uncertainty.
+
+    model normalisation wrong by any factor   effect on C_rad: exactly zero
+    model parameters within their freedom     effect on C_rad: ~1 %, W-shape led
 
 That ~1 % is the number to carry in the systematics table for "model shape
 inside the bin", and step 7 reduces it further.  The method is robust, but
@@ -249,9 +278,15 @@ that and the two forms agree numerically, not merely algebraically.  **Compute A
    a factor f, then `n_rad(i)` scales by f, `R_i` by 1/f, and
    `sigma_Born_model` by f.  The product does not move.
 
-Point 3 matters here and is not hypothetical.  `jpsi.diffrad_vm` carries
-sigma_T ~ Q^-3.11, which double-counts the 1/Q2 already in the flux, and the
-model sits 4-6x below the data at FT kinematics.  Form A is immune to that.
+Point 3 is not hypothetical, and the instructive case is the model this
+campaign SUPERSEDED.  `jpsi.diffrad_vm` carried sigma_T ~ Q^-3.11, taking
+M. Tenorio's fit exponent of dsigma_ep/dQ2dW -- which already contains the
+flux ~ 1/Q2 -- and putting it into sigma_T; sigma_gamma* then fell as Q^-3.1
+instead of being flat, and the model sat 4-6x below the data at FT
+kinematics.  `jpsi.vmd2026` (VPK 29.10.2026) fixed exactly that: pure VMD in
+Q2, normalisation from the sigma_gamma(W) fit of `jpsi.roberts2026`.  So for
+production the invariance is insurance rather than a crutch -- but it is the
+reason the 4-6x episode would not have biased an extraction done this way.
 What survives is only the **shape inside the bin** -- which is what step 7
 iterates away.
 
@@ -310,9 +345,11 @@ against the PDG instead, Sec. 5.3.
 **Step 7 -- iterate.**  Reweight the MC event by event by
 `sigma_extracted / sigma_model` as a function of (W, Q2, t); recompute
 `n_rad(i)` and `R_i`.  Two or three passes converge.  This is required, not
-cosmetic: the model is fitted over Q2 = 0.015-0.1 GeV^2 while the generation
-box runs 0.001-0.25, so without iteration the bin-averaging is
-model-dominated at both Q2 edges.
+cosmetic: the bin-averaging inside wide bins and the migration across bin
+edges both carry the model's shape, and the dominant freedom is the
+near-threshold W rise of sigma_gamma(W) (see Sec. 2), which is exactly where
+the J/psi data are.  It is NOT about a Q2 fit range: jpsi.vmd2026 is valid
+over Q2 = (0, 30), well beyond the box.
 
 **Step 8 -- efficiency scale factors.**  GEMC does not reproduce the FT
 electron or the tracking efficiencies.  Apply the measured data/MC ratios to

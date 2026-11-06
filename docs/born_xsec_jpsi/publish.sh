@@ -61,6 +61,8 @@ cp "$DOCS/$MD" "$DEST/"
   echo "  * the rad/born cards differ in THREE fields: iborn, idecay, itarg"
   echo "  * sigma_nb counts pre-preset events, so C_rad cannot come from it"
   echo "  * the Born arm must be borndecay: PDG BR is the radiation-inclusive width"
+  echo "  * production model is jpsi.vmd2026 (flat sigma_gamma*, 1/Q2 from the flux);"
+  echo "    C_rad shape systematic ~1 %, dominated by the near-threshold W rise"
   echo "  * decay-radiation model vs PDG Gamma_6/Gamma_5: 14.38 +- 0.06 % vs"
   echo "    14.74 +- 2.35 % for E_gamma > 100 MeV -- 0.15 sigma"
   echo

@@ -21,7 +21,7 @@ What to do with a data yield binned in $(W,Q^2,t)$, a radiative Monte Carlo and 
 in order to obtain a Born cross section. The master formula is given in two algebraically equivalent
 forms. The one to \emph{compute} is the ratio of the data yield to the reconstructed radiative
 Monte Carlo, times the model: in that form a wrong model \emph{normalisation} cancels exactly, which
-matters here because \texttt{jpsi.diffrad\_vm} sits a factor 4--6 below the data. Only the shape
+mattered for the superseded \texttt{jpsi.diffrad\_vm}, which sat a factor 4--6 below the data. Only the shape
 inside the bin survives, and it is iterated away. Six inputs beyond the three samples are required
 and are listed explicitly; the branching ratio $\BR(J/\psi\to e^+e^-)$ is one of them and is
 \emph{not} applied anywhere in the generator, a factor 16.7 if missed. Moreover the PDG branching
@@ -193,11 +193,14 @@ functional of the model's \emph{shape} over the region the photon integral reach
 the normalisation cancels by degree-1 homogeneity, while the shape over the $\sigma_F$ region does
 not --- and that is $C^{\rm rad}_{\rm true}=C^{\rm rad}_{\rm model}$.
 
-Two consequences. $\crad$ cannot be derived from the Born cross section at the bin centre; it is an
-integral, so interpolating it in $(W,Q^2,t)$ is bookkeeping, not derivation. And since $Q^2_t$ is
-shifted as well, the $\sigma_F$ integral samples the model \emph{below} the bin's $Q^2$ --- under the
-box floor and under the model's fit range $0.015$--$0.1$~GeV$^2$. That is a second, independent
-reason the $Q^2$ floor is the weak edge.
+One consequence to record: $\crad$ cannot be derived from the Born cross section at the bin centre;
+it is an integral, so interpolating it in $(W,Q^2,t)$ is bookkeeping, not derivation.
+
+\emph{Retracted:} an earlier revision added a second consequence, that $\sigma_F$ samples the model
+below its $Q^2$ fit range $0.015$--$0.1$~GeV$^2$. That range belongs to the \emph{superseded}
+\texttt{jpsi.diffrad\_vm}. The production model \texttt{jpsi.vmd2026} declares validity
+$W^2\in(16.4,400)$, $Q^2\in(0,30)$, $|t|\in(0,12)$, so there is no $Q^2$ floor problem for $J/\psi$
+at all.
 
 \subsection*{\texorpdfstring{$\sigma_{\rm rad}$}{sigma rad} is \emph{not} proportional to
 \texorpdfstring{$\sigma_{\rm Born}$}{sigma Born} --- and what that costs}
@@ -230,38 +233,76 @@ changes sign and $\eta$ exceeds unity, because radiation then feeds events \emph
 higher $W^2$. Were $\sigma_{\rm rad}$ proportional to $\sigma_{\rm Born}$, every row would read
 0.979770.
 
-\paragraph{The size, honestly.} Those perturbations are not all realistic: the $W$ slope above is
-$\pm0.6$~GeV$^{-2}$ while the model's own slope is only $+0.090$, seven times smaller. At
-$(Q^2,W^2,t)=(0.03,19.5,-1.5)$ the model's logarithmic slopes are
+\paragraph{The size, honestly --- with the production model's own freedoms.}
+Those perturbations are ad hoc: equal-percentage changes to each logarithmic slope are not what
+\texttt{jpsi.vmd2026} is free to do. The model is
 \begin{equation}
-\frac{\partial\ln\sigma_{\rm Born}}{\partial W^2}=+0.090~\mathrm{GeV}^{-2},\quad
-\frac{\partial\ln\sigma_{\rm Born}}{\partial t}=+1.221~\mathrm{GeV}^{-2},\quad
-\frac{\partial\ln\sigma_{\rm Born}}{\partial\ln Q^2}=-1.008,
+\sigma_T=\sigma_\gamma(W)\left(1+\frac{Q^2}{m_{J/\psi}^2}\right)^{-k}\!\!\times\text{dipole}(t;m_g^2),
+\qquad
+\sigma_\gamma(W)=A\,x^{\alpha}e^{-Bx},\quad x=W-W_{\rm thr},
 \end{equation}
-and a 30\,\% error in each moves $\eta$ by
+with $k=2$ (VMD), $\Lambda^2=m_{J/\psi}^2$, $m_g^2=1.78$~GeV$^2$, $c_R=0.4$, $\sigma_\gamma(W)$ taken
+from \texttt{jpsi.roberts2026}, and validity $W^2\in(16.4,400)$, $Q^2\in(0,30)$, $|t|\in(0,12)$.
+
+\textbf{The $Q^2$ shape is not a model freedom.} $\sigma_T$ is essentially flat in $Q^2$ across the
+FT box; the entire $1/Q^2$ of $d\sigma_{ep}$ is the virtual-photon flux:
 
 \begin{center}\small
-\begin{tabular}{rrrcrrr}
+\begin{tabular}{rrr}
 \toprule
-$Q^2$ & $W^2$ & $t$ & $\eta_0$ & $\delta\eta$ ($W$) & $\delta\eta$ ($t$) & $\delta\eta$ ($Q^2$) \\
+$Q^2$ & $(1+Q^2/9.590)^{-2}$ & $\partial\ln(\mathrm{VMD})/\partial\ln Q^2$ \\
 \midrule
-0.03 & 17.50 & $-1.50$ & 0.92671 & 0.0011 & 0.0046 & 0.0014 \\
-0.03 & 19.50 & $-1.50$ & 0.97977 & 0.0028 & 0.0145 & 0.0062 \\
-0.03 & 20.50 & $-0.80$ & 0.99025 & 0.0022 & 0.0129 & 0.0134 \\
-1.00 & 19.00 & $-1.50$ & 0.96673 & 0.0029 & 0.0081 & 0.0044 \\
+0.001 & 0.99979 & $-0.00021$ \\
+0.030 & 0.99377 & $-0.00624$ \\
+0.100 & 0.97947 & $-0.02064$ \\
+0.250 & 0.94984 & $-0.05081$ \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-The shape sensitivity of $\crad$ is therefore about 1\,\%, and the hierarchy is $t>Q^2>W$ --- not
-$W$-dominated, which the exaggerated test would wrongly suggest. The $t$ slope leads because the
-photon-angle integral inside $\sigma_F$ displaces $t$ by of order $v$.
+\noindent Of the measured $\partial\ln\sigma_{\rm Born}/\partial\ln Q^2=-1.008$ at $Q^2=0.03$, the
+flux gives $-1.002$ (exact QED, no freedom) and the model only $-0.006$. The ``$Q^2$ slope'' column
+of the ad hoc table is therefore meaningless for this model and is dropped.
+
+Varying the model's \emph{actual} parameters --- $m_g^2$ by its published $\pm4.8\,\%$ ($m_g^2=1.78$
+from $m_s=1.336\pm0.032$~GeV, GlueX PRC~108 025201 and CLAS12 2026), $k$ over the whole range 1--3,
+and the two $W$-shape exponents by an assumed $\pm30\,\%$:
+
+\begin{center}\small
+\begin{tabular}{rrrcrrrr}
+\toprule
+$Q^2$ & $W^2$ & $t$ & $\eta_0$ & $m_g^2\,{\pm}4.8\%$ & $k:1\ldots3$ & $\alpha\,{\pm}30\%$ & $B\,{\pm}30\%$ \\
+\midrule
+0.03 & 17.50 & $-1.50$ & 0.92671 & 0.00036 & 0.00002 & 0.00910 & 0.00131 \\
+0.03 & 19.50 & $-1.50$ & 0.97977 & 0.00063 & 0.00009 & 0.00981 & 0.00334 \\
+0.03 & 20.50 & $-0.80$ & 0.99025 & 0.00039 & 0.00025 & 0.00465 & 0.00254 \\
+0.25 & 19.00 & $-1.50$ & 0.96881 & 0.00074 & 0.00050 & 0.01171 & 0.00345 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+So for the production model the hierarchy is
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+$\alpha$ (near-threshold rise of $\sigma_\gamma(W)$) & 0.5--1.2\,\% \quad\textbf{dominant} \\
+$B$ ($W$ fall-off) & 0.1--0.3\,\% \\
+$m_g^2$ ($t$ dipole, published error) & 0.04--0.07\,\% \\
+$k$ (VMD power, 1--3) & negligible \\
+\bottomrule
+\end{tabular}
+\end{center}
+\noindent --- the $W$ shape of the photoproduction cross section, not $t$ and certainly not $Q^2$. An
+earlier revision concluded $t>Q^2>W$; that followed from the ad hoc equal-percentage slopes and is
+wrong for \texttt{jpsi.vmd2026}. The $\pm30\,\%$ on $\alpha$ and $B$ is an assumption rather than a
+published error, while the $m_g^2$ number is published, so the 0.5--1.2\,\% is an upper bound of the
+right order rather than a measured uncertainty.
 
 \begin{center}
 \begin{tabular}{ll}
 \toprule
-model normalisation wrong by 4--6$\times$ & effect on $\crad$: \textbf{exactly zero} \\
-model slopes wrong by 30\,\% & effect on $\crad$: $\sim$\textbf{1\,\%}, worst in $t$ \\
+model normalisation wrong by any factor & effect on $\crad$: \textbf{exactly zero} \\
+model parameters within their freedom & effect on $\crad$: $\sim$\textbf{1\,\%}, $W$-shape led \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -314,9 +355,15 @@ $\bar\sigma_i^{\rm Born,model}\to f\,\bar\sigma_i^{\rm Born,model}$, so
 \end{equation}
 \end{enumerate}
 
-The third point is not academic. The model \texttt{jpsi.diffrad\_vm} carries
-$\sigma_T\propto Q^{-3.11}$, which double-counts the $1/Q^2$ already present in the virtual-photon
-flux, and it lies a factor 4--6 below the data at Forward Tagger kinematics. Form~A is immune to
+The third point is not academic, and the instructive case is the model this campaign
+\emph{superseded}. \texttt{jpsi.diffrad\_vm} carried $\sigma_T\propto Q^{-3.11}$, taking
+M.~Tenorio's fit exponent of $d\sigma_{ep}/dQ^2dW$ --- which already contains the flux $\sim1/Q^2$
+--- and putting it into $\sigma_T$, so that $\sigma_{\gamma^*}$ fell as $Q^{-3.1}$ instead of being
+flat and the model sat a factor 4--6 below the data at Forward Tagger kinematics.
+\texttt{jpsi.vmd2026} (VPK, 29.10.2026) fixed precisely that: pure VMD in $Q^2$, normalisation from
+the $\sigma_\gamma(W)$ fit of \texttt{jpsi.roberts2026}. For production the invariance is therefore
+insurance rather than a crutch --- but it is the reason that episode would not have biased an
+extraction done this way. Form~A is immune to
 that. What survives is only the \emph{shape inside the bin}, and step~7 iterates it away.
 
 \section{Procedure}
@@ -367,9 +414,10 @@ decay-radiation model is tested against the PDG instead, Sec.~5.3.
 \paragraph{Step 7 --- iterate.}
 Reweight the Monte Carlo event by event by $\sigma^{\rm extracted}/\sigma^{\rm model}$ as a function
 of $(W,Q^2,t)$, then recompute $n_i^{\rm rad}$ and $R_i$. Two or three passes converge. This is
-required rather than cosmetic: the model is fitted over $Q^2=0.015$--$0.1$~GeV$^2$ while the
-generation box runs $0.001$--$0.25$, so without iteration the bin-averaging is model-dominated at
-both $Q^2$ edges.
+required rather than cosmetic: the bin-averaging inside wide bins and the migration across bin edges
+both carry the model's shape, and the dominant freedom is the near-threshold $W$ rise of
+$\sigma_\gamma(W)$ (Sec.~2) --- exactly where the $J/\psi$ data are. It is \emph{not} about a $Q^2$
+fit range: \texttt{jpsi.vmd2026} is valid over $Q^2\in(0,30)$, far beyond the box.
 
 \paragraph{Step 8 --- efficiency scale factors.}
 GEMC does not reproduce the Forward Tagger electron or the tracking efficiencies. Apply the measured
@@ -611,7 +659,7 @@ $\theta_p=25.3^\circ$: it is a Forward Detector particle everywhere, never a Cen
 \toprule
 Source & How to estimate \\
 \midrule
-model shape inside the bin & spread over iterations; vary the $W$, $t$ and $Q^2$ slopes within their fit errors. Measured: $\sim$1\,\% on $\crad$ for a 30\,\% slope error, worst in $t$ (Sec.~2) \\
+model shape inside the bin & spread over iterations; vary $\sigma_\gamma(W)$'s exponents and $m_g^2$ within their freedom. Measured: $\sim$1\,\% on $\crad$, dominated by the near-threshold $W$ rise (Sec.~2) \\
 exclusivity cut & vary the $MX^2$ window; $\crad$ is the quantity that moves \\
 signal extraction & window width; sideband versus fitted background \\
 MC statistics & $n^{\rm rad}$ and $n^{\rm bdec}$ separately \\
