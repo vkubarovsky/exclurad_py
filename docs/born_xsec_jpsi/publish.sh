@@ -18,6 +18,15 @@ NAME=born_xsec_jpsi
 MD=BORN_XSEC_EXTRACTION_JPSI.md
 [ -d "$DEST" ] || mkdir -p "$DEST"
 
+# Byte-reproducible build.  Without this pdflatex stamps the current time into
+# the PDF, so every publish run leaves the committed born_xsec_jpsi.pdf modified
+# and the README below records a "-dirty" commit that is not really dirty.
+# pdfTeX honours SOURCE_DATE_EPOCH when FORCE_SOURCE_DATE=1; anchoring it to the
+# .tex's own commit date makes the output depend on the source alone.
+export FORCE_SOURCE_DATE=1
+SOURCE_DATE_EPOCH="$(cd "$SRC" && git log -1 --format=%ct -- "$NAME.tex" 2>/dev/null || true)"
+export SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-0}"
+
 # build: twice, so the equation cross-references resolve
 ( cd "$SRC" && pdflatex -interaction=nonstopmode -halt-on-error "$NAME.tex" >/dev/null \
             && pdflatex -interaction=nonstopmode -halt-on-error "$NAME.tex" >/dev/null ) \
