@@ -76,6 +76,10 @@ after the identical analysis chain, and $m_i$ the number of \emph{generated} (tr
 $i$ with no cuts at all.
 
 \paragraph{Form A --- ratio to the radiative MC. This is the one to compute.}
+$R_i$ is a ratio of two \emph{radiative-level} numbers: numerator and denominator are both
+reconstructed, after cuts, with radiation present, because the data are radiative and the comparison
+must be like with like. There is no Born quantity in $R_i$ at all --- the only Born object in Form~A
+is the model factor multiplying it.
 \begin{equation}
 \boxed{\;\sigma_i^{\rm Born}=R_i\,\bar\sigma_i^{\rm Born,model},
 \qquad
@@ -97,8 +101,58 @@ Here \texttt{bdec} is the \textbf{borndecay} arm: Born production with decay rad
 It is not the \texttt{born} arm. Section~5.2 gives the reason, and it is the one choice in this note
 that cannot be got wrong without spoiling the answer.
 
-Equations~(\ref{eq:formA}) and~(\ref{eq:formB}) are the same once the bin-averaging is done
-consistently. Form~A is what should be computed, for three reasons.
+\subsection*{What Form A assumes, and what it does not}
+
+Write the whole chain --- radiation, resolution, migration, acceptance, cuts --- as one operator $K$
+that takes a \emph{Born} cross section in and returns a \emph{reconstructed radiative} yield. Then
+\begin{equation}
+N_i^{\rm data}=\Lum\,\BR\,(K\sigma^{\rm true}_{\rm Born})_i,
+\qquad
+\Lum\,\BR\,w^{\rm rad}n_i^{\rm rad}=\Lum\,\BR\,(K\sigma^{\rm model}_{\rm Born})_i,
+\end{equation}
+so $R_i$ is the ratio of two \emph{outputs} of $K$, and it factorises:
+\begin{equation}
+R_i=\frac{(K\sigma^{\rm true})_i}{(K\sigma^{\rm model})_i}
+=\underbrace{\frac{\sigma^{\rm true}_{\rm Born}}{\sigma^{\rm model}_{\rm Born}}}_{\text{wanted}}
+\times
+\underbrace{\frac{C^{\rm rad}_{\rm true}}{C^{\rm rad}_{\rm model}}}_{\text{assumed}=1}.
+\label{eq:assumption}
+\end{equation}
+$R_i$ is therefore the Born ratio \emph{only if} $C^{\rm rad}_{\rm true}=C^{\rm rad}_{\rm model}$.
+That is the assumption of the method, and it is not free: it is the physics content of the RC engine,
+tested by the two-method comparison of \texttt{docs/rc\_method\_jpsi/} and by the generator-level
+closure to 0.1\,\%, not by this formula.
+
+Equivalently, Form~A is exact if and only if $\sigma^{\rm true}/\sigma^{\rm model}$ is
+\emph{constant} over the region feeding bin $i$ --- the bin plus the migration tails plus the
+radiative smearing. $K$ is then linear there, $(Kc\sigma)_i=c(K\sigma)_i$, and $R_i=c$ exactly.
+Step~7 is what makes that hold: after reweighting, the ratio is locally constant by construction.
+So the overall normalisation of the model cancels exactly, while the model's \emph{shape} inside the
+bin and the correctness of $\crad$ do not.
+
+\subsection*{Why the two forms are the same, exactly}
+
+Substituting $\varepsilon$ and $\crad$ into Form~B, $n_i^{\rm bdec}$ \emph{cancels}:
+\begin{equation}
+\varepsilon_i^{\rm Born}\,\crad_i
+=\frac{n_i^{\rm bdec}}{m_i^{\rm bdec}}\cdot\frac{w^{\rm rad}n_i^{\rm rad}}{w^{\rm bdec}n_i^{\rm bdec}}
+=\frac{w^{\rm rad}n_i^{\rm rad}}{w^{\rm bdec}m_i^{\rm bdec}},
+\qquad
+\bar\sigma_i^{\rm Born}=\frac{N_i^{\rm data}\,w^{\rm bdec}m_i^{\rm bdec}}
+{\Lum\,\BR\,\Delta\Omega_i\,w^{\rm rad}n_i^{\rm rad}} .
+\end{equation}
+Comparing with Form~A gives the exact condition for the identity,
+\begin{equation}
+\boxed{\;\bar\sigma_i^{\rm Born,model}=\frac{w^{\rm bdec}\,m_i^{\rm bdec}}{\Delta\Omega_i}\;}
+\label{eq:binavg}
+\end{equation}
+that is, the model's bin-averaged Born cross section taken from the \emph{truth} counts of the Born
+Monte Carlo --- generated events in the bin, times the cross section per event, per unit bin volume
+--- rather than from an integral of the model. Use Eq.~(\ref{eq:binavg}) and the two forms agree
+numerically, not merely algebraically. That is what ``consistently'' means.
+
+\medskip
+Form~A is what should be computed, for three reasons.
 
 \begin{enumerate}
 \item Acceptance, efficiency, resolution smearing, bin migration and radiation all sit inside one

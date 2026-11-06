@@ -49,6 +49,12 @@ no cuts at all.
 
 ### Form A -- ratio to the radiative MC.  This is the one to compute.
 
+R_i IS A RATIO OF TWO RADIATIVE-LEVEL NUMBERS.  Both the numerator and the
+denominator are reconstructed, after cuts, with radiation present.  The data
+are radiative, so the comparison is like with like.  There is NO Born
+quantity in R_i at all: the only Born object in Form A is the model factor
+that multiplies it.
+
     sigma_Born(i) = R_i * sigma_Born_model_binavg(i)
 
     R_i = N_data(i) / ( L * BR * w_rad * n_rad(i) )
@@ -67,8 +73,56 @@ where `bdec` is the **borndecay** arm -- Born production, decay radiation ON.
 Not the `born` arm.  Sec. 5.2 is the reason, and it is the one thing in this
 note that cannot be got wrong without spoiling the answer.
 
+### What Form A assumes, and what it does not
+
+Write the whole chain -- radiation, resolution, migration, acceptance, cuts --
+as one operator K that takes a BORN cross section in and gives a
+RECONSTRUCTED RADIATIVE yield out.  Then
+
+    N_data(i)                = L * BR * (K sigma_Born_true )(i)
+    L * BR * w_rad * n_rad(i) = L * BR * (K sigma_Born_model)(i)
+
+so R_i is the ratio of two OUTPUTS of K,
+
+    R_i = (K sigma_true)(i) / (K sigma_model)(i)
+        = [ sigma_Born_true / sigma_Born_model ]  x  [ C_rad_true / C_rad_model ]
+
+and therefore R_i equals the Born ratio we want ONLY IF
+C_rad_true = C_rad_model.  That is the assumption of the method, and it is
+not free: it is the physics content of the RC engine, tested elsewhere (the
+two-method comparison of docs/rc_method_jpsi/, and the generator-level
+closure to 0.1 %), not by this formula.
+
+Formally, Form A is exact if and only if sigma_true/sigma_model is CONSTANT
+over the region that feeds bin i -- the bin plus the migration tails plus the
+radiative smearing.  Then K is linear on that region, (K c sigma)(i) =
+c (K sigma)(i), so R_i = c exactly.  Step 7 is what makes that true: after
+reweighting, the ratio is locally constant by construction.
+
+What is safe and what is not:
+
+    overall normalisation of the model      cancels EXACTLY (the identity above)
+    shape of the model inside the bin       does NOT cancel -> step 7
+    correctness of C_rad                    does NOT cancel -> tested separately
+
 The two are algebraically the same once the bin-averaging is done
-consistently.  **Compute A.**  Three reasons:
+consistently, and "consistently" has an exact meaning.  Substituting eps and
+C_rad into Form B, n_bdec(i) CANCELS:
+
+    eps_Born(i) * C_rad(i) = w_rad * n_rad(i) / ( w_bdec * m_bdec(i) )
+
+    sigma_Born_binavg(i) = N_data(i) * w_bdec * m_bdec(i)
+                           --------------------------------------
+                           L * BR * dOmega(i) * w_rad * n_rad(i)
+
+which is Form A with
+
+    sigma_Born_model_binavg(i) = w_bdec * m_bdec(i) / dOmega(i)
+
+i.e. the model's bin-averaged Born cross section taken from the TRUTH counts
+of the Born MC -- generated events in the bin, times the cross section per
+event, per unit bin volume -- rather than from an integral of the model.  Use
+that and the two forms agree numerically, not merely algebraically.  **Compute A.**  Three reasons:
 
 1. Acceptance, efficiency, resolution smearing, bin migration and radiation
    all sit inside one measured number, `n_rad(i)`, produced by running the
