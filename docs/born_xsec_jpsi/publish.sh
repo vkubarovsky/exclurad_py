@@ -23,9 +23,13 @@ MD=BORN_XSEC_EXTRACTION_JPSI.md
 # and the README below records a "-dirty" commit that is not really dirty.
 # pdfTeX honours SOURCE_DATE_EPOCH when FORCE_SOURCE_DATE=1; anchoring it to the
 # .tex's own commit date makes the output depend on the source alone.
+# A FIXED epoch, not the .tex's commit date.  Deriving it from git created a
+# chicken-and-egg: committing an edited .tex changed the date, which changed the
+# PDF, so the PDF committed alongside the .tex was already stale.  A constant
+# makes the PDF a function of the .tex CONTENT alone -- edit, rebuild once,
+# commit both, and re-publishing is a no-op for ever after.
 export FORCE_SOURCE_DATE=1
-SOURCE_DATE_EPOCH="$(cd "$SRC" && git log -1 --format=%ct -- "$NAME.tex" 2>/dev/null || true)"
-export SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-0}"
+export SOURCE_DATE_EPOCH=1762400000   # 2026-11-06, the note's date
 
 # build: twice, so the equation cross-references resolve
 ( cd "$SRC" && pdflatex -interaction=nonstopmode -halt-on-error "$NAME.tex" >/dev/null \
