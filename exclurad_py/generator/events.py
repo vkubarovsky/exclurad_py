@@ -430,6 +430,7 @@ class Generator:
         self.n_drop_v_ge_vmax = 0  # drawn v >= this event's v_max
         self.n_drop_photon_at = 0  # photon_at() could not build the photon
         self.n_drop_except = 0     # ValueError/ZeroDivisionError in the draw
+        self.drop_except_first = None   # ...and what the first one said
         self.n_closure_fail = 0
         self.n_overweight = 0
         self.max_overweight = 1.0
@@ -461,7 +462,17 @@ class Generator:
                                t_kind=self._t_kind)
         if self.mx2_cut is None:
             return vk
-        return min(vk, self.mx2_cut - self.sf.mU ** 2)
+        # mx2_cut is a ceiling on the MEASURED MX^2 (run.py builds it as
+        # vcut + m_pole^2, so the card's vcut is pole-referenced).  The v
+        # this function returns is the generator's internal one, measured
+        # from THIS event's drawn mass -- the same variable vk is in, and
+        # the one rc_factor and photon_at use.  Converting the ceiling
+        # therefore subtracts self._mU, not the pole; mixing the two put
+        # the min() between two different variables.  Harmless at vcut 0
+        # (this branch is dead) and for every channel without a width,
+        # where the two masses are equal.  Fixed with its twin above,
+        # 2026-11-11.
+        return min(vk, self.mx2_cut - self._mU ** 2)
 
     def _set_event_t(self, t):
         """Point a fixed-t_N model at THIS event's observed transfer.
@@ -1487,7 +1498,24 @@ Ebeam=self._E, Q2=Q2, W2=W2, t=t,
                         # published eta(v_cut) tables mean.  Hard fraction and
                         # the v-draw both come from the sigma_obs ladder; the
                         # bare tail supplies only the photon ANGLES.
-                        mU2 = self.sf.mU ** 2
+                        # THE DRAWN MASS, NOT THE POLE.  sobs(x) must come
+                        # back with v_m == x exactly, and rc_factor forms
+                        # v_m = mx2_cut - kin.mU**2 from the mU it is HANDED,
+                        # which is self._mU -- this event's Breit-Wigner mass
+                        # (events.py:1024).  Using the pole self.sf.mU here
+                        # left v_m = x + m_pole^2 - m_drawn^2, negative for
+                        # every event drawn above the pole: rc_factor raised
+                        # "no phase space for photon emission", the blanket
+                        # except below swallowed it, and the event was still
+                        # WRITTEN -- as a soft, radiation-free event.  Half
+                        # the phi sample lost its hard photon that way (48.6
+                        # %, hard fraction 14.5 % against the 43.3 % this
+                        # scheme gives when it is right).  Only
+                        # channels with a real width are affected: pi0/eta
+                        # draw no mass and J/psi's 0.0929 MeV is below
+                        # DELTA_WIDTH, so there m_drawn == m_pole and the two
+                        # spellings agreed.  Found 2026-11-11 (VPK).
+                        mU2 = self._mU ** 2
 
                         def sobs(x):
                             return float(rc_factor(M=self._mT,
@@ -1551,9 +1579,17 @@ Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
                                 self.n_drop_photon_at += 1
                 except _SoftOnly:
                     photon4 = meson4 = None
-                except (ValueError, ZeroDivisionError, FloatingPointError):
+                except (ValueError, ZeroDivisionError,
+                        FloatingPointError) as exc:
+                    # KEEP THE FIRST ONE.  This clause counted drops and threw
+                    # the reason away, so a bug that silently de-radiated half
+                    # the sample looked exactly like a bug that dropped none:
+                    # the number went into the report, the message did not.
                     photon4 = meson4 = None
                     self.n_drop_except += 1
+                    if self.drop_except_first is None:
+                        self.drop_except_first = \
+                            f"{type(exc).__name__}: {exc}"
                 got = None
             elif self.born_only:
                 got = None
@@ -1579,9 +1615,12 @@ Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
                                 self.n_drop_photon_at += 1
                         else:
                             self.n_drop_v_ge_vmax += 1
-                    except (ValueError, ZeroDivisionError):
+                    except (ValueError, ZeroDivisionError) as exc:
                         photon4 = meson4 = None
                         self.n_drop_except += 1
+                        if self.drop_except_first is None:
+                            self.drop_except_first = \
+                                f"{type(exc).__name__}: {exc}"
 
             if photon4 is not None:
                 self.n_hard += 1
@@ -1750,6 +1789,7 @@ Ebeam=self._E, Q2=Q2, W2=W2, t=t, phi=phi,
                     drop_v_ge_vmax=self.n_drop_v_ge_vmax,
                     drop_photon_at=self.n_drop_photon_at,
                     drop_except=self.n_drop_except,
+                    drop_except_first=self.drop_except_first,
                     bw_channel=self.bw_channel,
                     bw_thresh=self.n_bw_thresh, t_kin_reject=self.n_tkin)
 
